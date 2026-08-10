@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&amp;display=block" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#EDD8A3}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;color:#141821;-webkit-font-smoothing:antialiased}
+a{color:#0C6A70;text-decoration:none}
+button{cursor:pointer;border:none;font-family:inherit}
+input{font-family:inherit;box-sizing:border-box}
+.ms{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;direction:ltr;vertical-align:-0.125em;font-variation-settings:'opsz' 20,'wght' 400}
+[data-om-starter="ios-frame"] *{scrollbar-width:none;-ms-overflow-style:none}
+[data-om-starter="ios-frame"] *::-webkit-scrollbar{display:none}
+[data-om-starter="ios-frame"] > div::-webkit-scrollbar{display:none}
+.hscroll{scrollbar-width:none;-ms-overflow-style:none}
+.hscroll::-webkit-scrollbar{display:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scanLine{0%,100%{top:8%}50%{top:88%}}
+@keyframes splashLogo{0%{opacity:0;transform:translateY(16px) scale(.94)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes splashTag{0%,40%{opacity:0;transform:translateY(8px)}75%,100%{opacity:1;transform:translateY(0)}}
+@keyframes splashBar{from{width:0}to{width:100%}}
+@keyframes screenIn{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+<div style="display:flex;justify-content:center;padding:32px 16px 56px">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ frameW }}" height="{{ frameH }}" dark="{{ statusDark }}" hint-size="440px,956px">
+<div style="height:956px;position:relative;display:flex;flex-direction:column;background:#F8EFDA;box-sizing:border-box">
+
+<sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Splash" style="flex:1;background:#141821;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:0 40px">
+  <img src="Assets/jurandir-logo-horizontal.svg" alt="Jurandir" style="width:min(260px,70%);height:auto;border-radius:14px;animation:splashLogo 1s cubic-bezier(.22,1,.36,1) both">
+  <p style="margin:0;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.24em;color:rgba(237,216,163,.65);animation:splashTag 1.4s ease both">Seu garçom digital</p>
+  <div style="width:180px;height:4px;border-radius:999px;background:rgba(237,216,163,.15);overflow:hidden;margin-top:8px">
+    <div style="height:100%;border-radius:999px;background:#FF6B4A;animation:splashBar 1.5s cubic-bezier(.4,0,.2,1) both"></div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isOnboard }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Onboarding" style="flex:1;display:flex;flex-direction:column;background:#141821;color:#EDD8A3;animation:screenIn .35s both">
+  <div style="display:flex;justify-content:flex-end;padding:72px 24px 0">
+    <button onClick="{{ skipOb }}" style="background:none;padding:0;font-size:13px;font-weight:700;color:rgba(237,216,163,.6)">Pular</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 32px;animation:fadeUp .4s both">
+    <div style="width:96px;height:96px;border-radius:28px;background:#FF6B4A;display:flex;align-items:center;justify-content:center;margin-bottom:28px"><span class="ms" style="font-size:48px;color:#fff">{{ obIcon }}</span></div>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:30px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;line-height:.95;margin:0;color:#fff">{{ obTitle }}</h1>
+    <p style="font-size:15px;line-height:1.6;color:rgba(237,216,163,.7);margin:14px 0 0;max-width:280px">{{ obDesc }}</p>
+  </div>
+  <div style="padding:0 24px 48px">
+    <div style="display:flex;justify-content:center;gap:6px;margin-bottom:20px">
+      <sc-for list="{{ obDots }}" as="d" hint-placeholder-count="3">
+        <span style="width:{{ d.w }};height:6px;border-radius:999px;background:{{ d.bg }};transition:all .25s"></span>
+      </sc-for>
+    </div>
+    <button onClick="{{ obNext }}" style="width:100%;background:#FF6B4A;color:#fff;font-weight:700;padding:15px;border-radius:999px;font-size:15px">{{ obBtn }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMain }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;overflow-y:auto;padding-bottom:88px">
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Início">
+    <div style="background:#141821;color:#EDD8A3;padding:70px 20px 24px;border-radius:0 0 28px 28px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <p style="font-size:12px;color:rgba(237,216,163,.55);margin:0">Você está em</p>
+          <p style="font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:800;margin:2px 0 0;color:#fff;display:flex;align-items:center;gap:6px"><span class="ms" style="font-size:16px;color:#FF6B4A">location_on</span> Praia Brava, Itajaí</p>
+        </div>
+        <button onClick="{{ goPerfil }}" aria-label="Perfil" style="width:42px;height:42px;border-radius:999px;background:#FFC24B;color:#141821;display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px">{{ initials }}</button>
+      </div>
+      <button onClick="{{ goBuscar }}" style="margin-top:16px;width:100%;display:flex;align-items:center;gap:10px;background:rgba(237,216,163,.12);border-radius:999px;padding:12px 16px;font-size:14px;font-weight:600;color:rgba(237,216,163,.6);text-align:left"><span class="ms" style="font-size:17px">search</span> Buscar bar, quiosque ou produto…</button>
+    </div>
+
+    <div style="padding:20px 0 0">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 20px">
+        <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:800;text-transform:uppercase;margin:0">Hypados perto de você</h2>
+        <button onClick="{{ goBuscar }}" style="background:none;padding:0;font-size:12px;font-weight:700;color:#EF5130">Ver todos</button>
+      </div>
+      <div class="hscroll" style="display:flex;gap:12px;padding:12px 20px 4px;overflow-x:auto">
+        <sc-for list="{{ homeEsts }}" as="e" hint-placeholder-count="4">
+          <button onClick="{{ e.open }}" style="width:200px;flex-shrink:0;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:18px;padding:14px;text-align:left">
+            <span style="display:flex;align-items:center;justify-content:space-between">
+              <span style="width:34px;height:34px;border-radius:10px;background:{{ e.rankBg }};color:{{ e.rankFg }};display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:14px">{{ e.rank }}</span>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:{{ e.openBg }};color:{{ e.openFg }}">{{ e.openLabel }}</span>
+            </span>
+            <span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;margin-top:10px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#141821">{{ e.name }}</span>
+            <span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin-top:3px">{{ e.meta }}</span>
+            <span style="display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;font-weight:700;color:#141821"><span class="ms" style="font-size:14px;color:#FFC24B;font-variation-settings:'FILL' 1">star</span> {{ e.rating }} <span style="font-weight:500;color:rgba(20,24,33,.4)">· {{ e.pedidos }} pedidos</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="padding:16px 0 0">
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:800;text-transform:uppercase;margin:0;padding:0 20px">O que vai ser hoje?</h2>
+      <div class="hscroll" style="display:flex;gap:8px;padding:12px 20px 0;overflow-x:auto">
+        <sc-for list="{{ homeCats }}" as="c" hint-placeholder-count="6">
+          <button onClick="{{ c.go }}" style="flex-shrink:0;padding:9px 16px;border-radius:999px;border:2px solid #141821;background:#fff;font-size:13px;font-weight:700;color:#141821;white-space:nowrap">{{ c.t }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="padding:20px 0 20px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 20px">
+        <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:800;text-transform:uppercase;margin:0">Ofertas do dia</h2>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;background:#FFC24B;color:#141821;padding:3px 10px;border-radius:999px">Quiosque do Mar</span>
+      </div>
+      <div class="hscroll" style="display:flex;gap:12px;padding:12px 20px 6px;overflow-x:auto">
+        <sc-for list="{{ homeOffers }}" as="i" hint-placeholder-count="4">
+          <button onClick="{{ i.open }}" style="width:150px;flex-shrink:0;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:18px;overflow:hidden;text-align:left;padding:0">
+            <span style="display:block;position:relative">
+              <span style="display:block;width:100%;height:88px;background-size:cover;background-position:center;background-color:#e2e8f0;background-image:{{ i.photoBg }}"></span>
+              <span style="position:absolute;top:8px;left:8px;background:#EF5130;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px">{{ i.off }}</span>
+            </span>
+            <span style="display:block;padding:10px 12px 12px">
+              <span style="display:block;font-size:13px;font-weight:700;color:#141821;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.name }}</span>
+              <span style="display:block;margin-top:3px"><span style="font-size:10px;color:rgba(20,24,33,.35);text-decoration:line-through;margin-right:5px">{{ i.oldStr }}</span><span style="font-size:14px;font-weight:800;color:#EF5130">{{ i.priceStr }}</span></span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="margin:16px 20px 0;background:#141821;border-radius:20px;padding:18px;display:flex;align-items:center;gap:14px">
+        <span style="width:52px;height:52px;flex-shrink:0;border-radius:14px;background:rgba(237,216,163,.12);display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:28px;color:#FFC24B">qr_code_scanner</span></span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:15px;font-weight:800;color:#fff;line-height:1.15">Está no quiosque?</span>
+          <span style="display:block;font-size:11px;font-weight:600;color:rgba(237,216,163,.65);margin-top:2px">Escaneie o QR da mesa ou do guarda-sol e peça sem esperar garçom.</span>
+        </span>
+        <button onClick="{{ goScan }}" style="flex-shrink:0;background:#FF6B4A;color:#fff;font-size:12px;font-weight:800;padding:10px 16px;border-radius:999px">Escanear</button>
+      </div>
+      <p style="text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:rgba(20,24,33,.3);margin:16px 0 0">Jurandir · seu garçom digital</p>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isBuscar }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Buscar" style="padding:0 0 20px">
+    <div style="background:#141821;padding:64px 20px 20px;border-radius:0 0 26px 26px">
+      <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:0;color:#fff">Buscar</h1>
+      <div style="position:relative;margin-top:12px">
+        <span class="ms" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;color:rgba(237,216,163,.45)">search</span>
+        <input value="{{ q.val }}" onChange="{{ q.on }}" placeholder="Bar, quiosque, praia ou produto…" style="width:100%;padding:13px 16px 13px 46px;border-radius:999px;border:2px solid rgba(237,216,163,.2);background:rgba(237,216,163,.1);color:#fff;font-size:14px;outline:none;box-sizing:border-box" style-focus="border-color:#EDD8A3">
+      </div>
+    </div>
+    <div style="padding:14px 20px 0">
+    <div class="hscroll" style="display:flex;gap:8px;overflow-x:auto">
+      <sc-for list="{{ buscaPills }}" as="p" hint-placeholder-count="5">
+        <button onClick="{{ p.go }}" style="flex-shrink:0;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;background:{{ p.bg }};color:{{ p.fg }};border:2px solid #141821">{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:16px 0 8px">{{ buscaCount }}</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ buscaList }}" as="e" hint-placeholder-count="6">
+        <button onClick="{{ e.open }}" style="display:flex;align-items:stretch;gap:0;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;overflow:hidden;padding:0;text-align:left">
+          <span style="width:56px;flex-shrink:0;background:{{ e.rankBg }};color:{{ e.rankFg }};display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px">{{ e.rank }}</span>
+          <span style="display:flex;align-items:center;flex:1;min-width:0;padding:12px;gap:12px">
+          <span style="flex:1;min-width:0">
+            <span style="display:flex;align-items:center;gap:6px">
+              <span style="font-family:'Bricolage Grotesque',sans-serif;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#141821">{{ e.name }}</span>
+              <span style="flex-shrink:0;font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:{{ e.openBg }};color:{{ e.openFg }}">{{ e.openLabel }}</span>
+            </span>
+            <span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin-top:2px">{{ e.cuisine }} · {{ e.meta }}</span>
+            <span style="display:flex;align-items:center;gap:4px;margin-top:3px;font-size:12px;font-weight:700;color:#141821"><span class="ms" style="font-size:13px;color:#FFC24B;font-variation-settings:'FILL' 1">star</span> {{ e.rating }} <span style="font-weight:500;color:rgba(20,24,33,.4)">· {{ e.pedidos }} pedidos</span></span>
+          </span>
+          </span>
+        </button>
+      </sc-for>
+      <sc-if value="{{ buscaEmpty }}" hint-placeholder-val="{{ false }}"><p style="text-align:center;color:rgba(20,24,33,.45);font-size:14px;padding:32px 0;margin:0">Nada encontrado por aqui.</p></sc-if>
+    </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isPedidos }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Pedidos" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:0">Meus pedidos</h1></div>
+    <sc-if value="{{ noOrders }}" hint-placeholder-val="{{ true }}">
+      <div style="text-align:center;padding:56px 24px;color:rgba(20,24,33,.45)">
+        <span class="ms" style="font-size:44px;opacity:.4;display:block;margin-bottom:12px">receipt_long</span>
+        <p style="margin:0;font-size:14px;font-weight:600">Nenhum pedido ainda.</p>
+        <button onClick="{{ goScan }}" style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;background:#FF6B4A;color:#fff;font-weight:700;padding:12px 22px;border-radius:999px;font-size:14px"><span class="ms" style="font-size:16px">qr_code_scanner</span> Escanear e pedir</button>
+      </div>
+    </sc-if>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+      <sc-for list="{{ orderCards }}" as="o" hint-placeholder-count="1">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px">Pedido #{{ o.idPad }}</span>
+            <span style="font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px;background:{{ o.stBg }};color:{{ o.stFg }}">{{ o.stLabel }}</span>
+          </div>
+          <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin:4px 0 8px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:12px;color:#FF6B4A">storefront</span> Quiosque do Mar · {{ o.time }}</p>
+          <div style="display:flex;align-items:center;gap:0;margin:2px 0 10px">
+            <sc-for list="{{ o.steps }}" as="st" hint-placeholder-count="3">
+              <span style="display:flex;align-items:center;flex:{{ st.flex }}">
+                <span style="width:22px;height:22px;flex-shrink:0;border-radius:999px;display:flex;align-items:center;justify-content:center;background:{{ st.bg }};color:{{ st.fg }}"><span class="ms" style="font-size:12px">{{ st.icon }}</span></span>
+                <sc-if value="{{ st.hasBar }}" hint-placeholder-val="{{ true }}"><span style="flex:1;height:3px;border-radius:999px;background:{{ st.barBg }};margin:0 3px"></span></sc-if>
+              </span>
+            </sc-for>
+          </div>
+          <p style="font-size:11px;font-weight:700;color:{{ o.stepColor }};margin:0 0 8px">{{ o.stepLabel }}</p>
+          <sc-if value="{{ o.hasNote }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size:11px;font-weight:600;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:7px 10px;margin:0 0 8px;display:flex;gap:5px"><span class="ms" style="font-size:13px;flex-shrink:0">chat</span> {{ o.note }}</p>
+          </sc-if>
+          <sc-for list="{{ o.lines }}" as="i" hint-placeholder-count="2">
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>{{ i.l }}</span><span style="color:rgba(20,24,33,.5)">{{ i.v }}</span></div>
+          </sc-for>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid rgba(20,24,33,.08);font-weight:700;font-size:14px"><span>Total</span><span style="color:#EF5130">{{ o.total }}</span></div>
+          <sc-if value="{{ o.incomplete }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:10px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:rgba(20,24,33,.5);margin-bottom:4px"><span>{{ o.paidCount }}</span><span>{{ o.paidAmt }}</span></div>
+              <div style="height:8px;background:rgba(20,24,33,.08);border-radius:999px;overflow:hidden"><div style="height:100%;background:#10b981;border-radius:999px;width:{{ o.paidW }}%;transition:width .3s"></div></div>
+              <sc-for list="{{ o.pendRows }}" as="s" hint-placeholder-count="1">
+                <div style="border:1px solid rgba(20,24,33,.12);border-radius:12px;padding:10px;margin-top:8px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <span style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px"><span style="width:24px;height:24px;border-radius:999px;background:rgba(20,24,33,.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">{{ s.n }}</span> Amigo {{ s.n }}</span>
+                    <span style="font-size:12px;font-weight:700;color:rgba(20,24,33,.45)">{{ s.amtStr }}</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+                    <sc-for list="{{ s.pays }}" as="p" hint-placeholder-count="4">
+                      <button onClick="{{ p.go }}" style="padding:7px 0;border-radius:9px;background:rgba(237,216,163,.35);border:1px solid rgba(20,24,33,.1);display:flex;flex-direction:column;align-items:center;gap:2px">
+                        <span class="ms" style="font-size:15px;color:rgba(20,24,33,.7)">{{ p.icon }}</span>
+                        <span style="font-size:9px;font-weight:700;color:rgba(20,24,33,.6);line-height:1">{{ p.label }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isPerfil }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Perfil" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff"><h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:0">Perfil</h1></div>
+    <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ false }}">
+    <div style="text-align:center;padding:44px 12px 24px">
+      <span style="width:84px;height:84px;border-radius:999px;background:#141821;display:inline-flex;align-items:center;justify-content:center"><span class="ms" style="font-size:40px;color:#FFC24B">person</span></span>
+      <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:18px 0 0">Entre na sua conta</h1>
+      <p style="font-size:13px;font-weight:600;color:rgba(20,24,33,.55);margin:8px auto 0;max-width:270px;line-height:1.5">Salve seus pedidos e pague mais rápido. O mesmo login também abre o painel do estabelecimento e da administração.</p>
+      <button onClick="{{ goLogin }}" style="margin-top:22px;width:100%;background:#FF6B4A;color:#fff;font-weight:700;padding:15px;border-radius:999px;font-size:15px">Entrar ou criar conta</button>
+      <button onClick="{{ resetApp }}" style="margin-top:10px;width:100%;background:rgba(237,216,163,.5);color:rgba(20,24,33,.7);font-weight:700;padding:13px;border-radius:999px;font-size:14px">Rever apresentação do app</button>
+    </div>
+    </sc-if>
+    <sc-if value="{{ authedClient }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="width:60px;height:60px;border-radius:999px;background:#FFC24B;color:#141821;display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:22px;flex-shrink:0">{{ initials }}</span>
+      <div style="min-width:0;flex:1">
+        <input value="{{ nome.val }}" onChange="{{ nome.on }}" style="width:100%;font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:800;border:none;background:transparent;outline:none;padding:0;color:#141821">
+        <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:2px 0 0">Praia Brava, Itajaí/SC</p>
+      </div>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:24px 0 10px;color:rgba(20,24,33,.6)">Formas de pagamento</h2>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ payMethods }}" as="p" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:12px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:14px;padding:12px 14px">
+          <span style="width:36px;height:36px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;background:{{ p.iconBg }};border:{{ p.iconBorder }}">
+            <sc-if value="{{ p.isGlyph }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:18px;color:#fff">{{ p.icon }}</span></sc-if>
+            <sc-if value="{{ p.isLogo }}" hint-placeholder-val="{{ false }}"><span style="width:22px;height:22px;background-size:contain;background-repeat:no-repeat;background-position:center;background-image:{{ p.logoBg }}"></span></sc-if>
+          </span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-size:14px;font-weight:700">{{ p.label }}</span>
+            <span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5)">{{ p.sub }}</span>
+          </span>
+          <sc-if value="{{ p.fav }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:800;text-transform:uppercase;background:#141821;color:#EDD8A3;padding:3px 8px;border-radius:999px">Favorito</span></sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:24px 0 10px;color:rgba(20,24,33,.6)">Preferências</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:14px;padding:4px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(20,24,33,.08)">
+        <span style="font-size:14px;font-weight:600">Notificações de pedido</span>
+        <button onClick="{{ notifT.flip }}" role="switch" style="width:44px;height:24px;border-radius:999px;position:relative;flex-shrink:0;background:{{ notifT.bg }};transition:background .15s;padding:0"><span style="position:absolute;top:2px;width:20px;height:20px;border-radius:999px;background:#fff;transition:left .15s;left:{{ notifT.left }}"></span></button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+        <span style="font-size:14px;font-weight:600">Ofertas dos favoritos</span>
+        <button onClick="{{ offersT.flip }}" role="switch" style="width:44px;height:24px;border-radius:999px;position:relative;flex-shrink:0;background:{{ offersT.bg }};transition:background .15s;padding:0"><span style="position:absolute;top:2px;width:20px;height:20px;border-radius:999px;background:#fff;transition:left .15s;left:{{ offersT.left }}"></span></button>
+      </div>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:24px 0 10px;color:rgba(20,24,33,.6)">Conta</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+      <span style="width:38px;height:38px;flex-shrink:0;border-radius:999px;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:19px">check</span></span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:13px;font-weight:700">Conectado</span>
+        <span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ contaEmail }}</span>
+      </span>
+      <button onClick="{{ doLogout }}" style="flex-shrink:0;background:rgba(237,216,163,.5);color:rgba(20,24,33,.7);font-size:12px;font-weight:800;padding:9px 16px;border-radius:999px">Sair</button>
+    </div>
+    <button onClick="{{ resetApp }}" style="margin-top:14px;width:100%;background:rgba(237,216,163,.5);color:rgba(20,24,33,.7);font-weight:700;padding:13px;border-radius:999px;font-size:14px">Rever apresentação do app</button>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isEPedidos }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Estab · Pedidos" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Quiosque do Mar</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 12px">Pedidos</h1></div>
+    <div class="hscroll" style="display:flex;gap:8px;overflow-x:auto;margin:0 0 14px">
+      <sc-for list="{{ eFilters }}" as="f" hint-placeholder-count="4">
+        <button onClick="{{ f.go }}" style="flex-shrink:0;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:{{ f.bg }};color:{{ f.fg }};border:2px solid #141821">{{ f.label }} <span style="opacity:.55">{{ f.n }}</span></button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ eEmpty }}" hint-placeholder-val="{{ false }}">
+      <p style="text-align:center;padding:40px 0;font-size:13px;font-weight:600;color:rgba(20,24,33,.45)">Nenhum pedido neste status.</p>
+    </sc-if>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ eOrders }}" as="o" hint-placeholder-count="3">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px">Pedido #{{ o.idPad }}</span>
+            <span style="font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px;background:{{ o.stBg }};color:{{ o.stFg }}">{{ o.stLabel }}</span>
+          </div>
+          <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin:4px 0 8px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:12px;color:#FF6B4A">location_on</span> {{ o.loc }} · {{ o.time }}<sc-if value="{{ o.hasCust }}" hint-placeholder-val="{{ false }}"> · <span class="ms" style="font-size:12px">person</span> {{ o.cust }}</sc-if></p>
+          <sc-if value="{{ o.hasNote }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size:11px;font-weight:600;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:7px 10px;margin:0 0 8px;display:flex;gap:5px"><span class="ms" style="font-size:13px;flex-shrink:0">chat</span> {{ o.note }}</p>
+          </sc-if>
+          <sc-for list="{{ o.lines }}" as="i" hint-placeholder-count="2">
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>{{ i.l }}</span><span style="color:rgba(20,24,33,.5)">{{ i.v }}</span></div>
+          </sc-for>
+          <sc-if value="{{ o.split }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:9px 10px;margin-top:8px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#be123c;margin-bottom:4px"><span>{{ o.splitCount }}</span><span>{{ o.splitAmt }}</span></div>
+              <div style="height:6px;background:#ffe4e6;border-radius:999px;overflow:hidden"><div style="height:100%;background:#fb7185;border-radius:999px;width:{{ o.splitW }}%"></div></div>
+              <p style="font-size:10px;font-weight:600;color:#e11d48;margin:5px 0 0">Não vai à cozinha até o pagamento ser concluído.</p>
+            </div>
+          </sc-if>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid rgba(20,24,33,.08)">
+            <span style="font-weight:800;font-size:14px;color:{{ o.amtColor }}">{{ o.total }}</span>
+            <div style="display:flex;gap:6px">
+              <sc-if value="{{ o.canPrint }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ o.print }}" aria-label="Imprimir" style="width:34px;height:34px;border-radius:999px;background:rgba(237,216,163,.5);color:rgba(20,24,33,.7);display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:16px">print</span></button>
+              </sc-if>
+              <sc-if value="{{ o.canDeliver }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ o.deliver }}" style="background:#10b981;color:#fff;font-size:12px;font-weight:800;padding:8px 16px;border-radius:999px;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:14px">check</span> Entregue</button>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isEQr }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Estab · QR Codes" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Quiosque do Mar</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 4px">QR Codes</h1></div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:0 0 14px">Cada QR abre o cardápio já identificando o guarda-sol ou mesa.</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input value="{{ eQrField.val }}" onChange="{{ eQrField.on }}" placeholder="Ex: Guarda-sol nº 30" style="flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:2px solid #141821;background:#fff;font-size:13px;font-weight:600;outline:none">
+      <button onClick="{{ eQrAdd }}" style="flex-shrink:0;background:{{ eQrAddBg }};color:#fff;font-size:13px;font-weight:800;padding:12px 18px;border-radius:999px;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:16px">add</span> Gerar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <sc-for list="{{ eQrList }}" as="q" hint-placeholder-count="2">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:12px;text-align:center">
+          <div role="img" aria-label="QR Code" style="width:100%;aspect-ratio:1;border-radius:10px;border:1px solid rgba(20,24,33,.1);background-size:cover;background-position:center;background-image:{{ q.imgBg }}"></div>
+          <p style="font-size:12px;font-weight:800;margin:8px 0 0;display:flex;align-items:center;justify-content:center;gap:4px"><span class="ms" style="font-size:13px;color:#FF6B4A">location_on</span> {{ q.label }}</p>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button onClick="{{ q.print }}" style="flex:1;background:rgba(237,216,163,.5);color:rgba(20,24,33,.7);font-size:11px;font-weight:800;padding:8px 0;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:4px"><span class="ms" style="font-size:13px">print</span> Imprimir</button>
+            <button onClick="{{ q.del }}" aria-label="Excluir" style="width:32px;border-radius:999px;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:14px">delete</span></button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isECardapio }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Estab · Cardápio" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Quiosque do Mar</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 4px">Cardápio</h1></div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:0 0 12px">Toque na chave para pausar um item esgotado.</p>
+    <div class="hscroll" style="display:flex;gap:8px;overflow-x:auto;margin:0 0 14px">
+      <sc-for list="{{ eMenuPills }}" as="c" hint-placeholder-count="5">
+        <button onClick="{{ c.go }}" style="flex-shrink:0;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:{{ c.bg }};color:{{ c.fg }};border:2px solid #141821">{{ c.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ eMenu }}" as="i" hint-placeholder-count="5">
+        <div style="display:flex;align-items:stretch;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;overflow:hidden;opacity:{{ i.opacity }}" data-menu-card="true">
+          <div style="width:64px;flex-shrink:0;background-size:cover;background-position:center;background-color:#e2e8f0;background-image:{{ i.photoBg }}"></div>
+          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px">
+            <span style="flex:1;min-width:0">
+              <span style="display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.name }}</span>
+              <span style="display:block;font-size:12px;font-weight:700;color:#EF5130;margin-top:2px">{{ i.priceStr }} <span style="font-weight:600;color:rgba(20,24,33,.4)">· {{ i.status }}</span></span>
+            </span>
+            <button onClick="{{ i.flip }}" role="switch" style="width:44px;height:24px;border-radius:999px;position:relative;flex-shrink:0;background:{{ i.tBg }};transition:background .15s;padding:0"><span style="position:absolute;top:2px;width:20px;height:20px;border-radius:999px;background:#fff;transition:left .15s;left:{{ i.tLeft }}"></span></button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isEKpis }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Estab · KPIs" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Quiosque do Mar</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 12px">Resumo</h1></div>
+    <div style="display:flex;gap:4px;background:rgba(20,24,33,.08);border-radius:999px;padding:4px;margin:0 0 14px">
+      <sc-for list="{{ ePeriods }}" as="p" hint-placeholder-count="3">
+        <button onClick="{{ p.go }}" style="flex:1;padding:8px 0;border-radius:999px;font-size:12px;font-weight:800;background:{{ p.bg }};color:{{ p.fg }}">{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <sc-for list="{{ eStats }}" as="s" hint-placeholder-count="4">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:14px">
+          <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin:0">{{ s.label }}</p>
+          <p style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:800;margin:5px 0 0;line-height:1;color:{{ s.color }}">{{ s.value }}</p>
+        </div>
+      </sc-for>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:22px 0 12px;color:rgba(20,24,33,.6)">Vendas por categoria</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;align-items:center;gap:18px">
+      <div style="position:relative;width:110px;height:110px;flex-shrink:0">
+        <svg viewBox="0 0 100 100" style="width:110px;height:110px;transform:rotate(-90deg)">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(20,24,33,.06)" stroke-width="15"></circle>
+          <sc-for list="{{ eCats }}" as="s" hint-placeholder-count="3">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="{{ s.color }}" stroke-width="15" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}"></circle>
+          </sc-for>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+          <span style="font-size:8px;font-weight:700;color:rgba(20,24,33,.45);text-transform:uppercase;letter-spacing:.05em">Vendas</span>
+          <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:12px;line-height:1.1">{{ eCatCenter }}</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ eCats }}" as="s" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:8px">
+            <span style="display:flex;align-items:center;gap:7px;font-weight:700;min-width:0"><span style="width:11px;height:11px;border-radius:3px;flex-shrink:0;background:{{ s.color }}"></span> <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.label }}</span></span>
+            <span style="font-weight:800;flex-shrink:0">{{ s.pct }} <span style="font-weight:600;color:rgba(20,24,33,.4);font-size:11px">· {{ s.val }}</span></span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:22px 0 12px;color:rgba(20,24,33,.6)">Vendas por método</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ ePays }}" as="p" hint-placeholder-count="4">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:5px">
+            <span style="display:flex;align-items:center;gap:8px;font-weight:700">
+              <span style="width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff;border:2px solid #141821">
+                <sc-if value="{{ p.isGlyph }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:16px;color:{{ p.color }}">{{ p.icon }}</span></sc-if>
+                <sc-if value="{{ p.isLogo }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;background-size:contain;background-repeat:no-repeat;background-position:center;background-image:{{ p.logoBg }}"></span></sc-if>
+              </span> {{ p.label }}
+            </span>
+            <span style="font-weight:800">{{ p.val }} <span style="font-weight:600;color:rgba(20,24,33,.4);font-size:11px">· {{ p.pct }}</span></span>
+          </div>
+          <div style="height:8px;background:rgba(237,216,163,.5);border-radius:999px;overflow:hidden"><div style="height:100%;border-radius:999px;background:{{ p.color }};width:{{ p.w }}%;transition:width .3s"></div></div>
+        </div>
+      </sc-for>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:22px 0 12px;color:rgba(20,24,33,.6)">Mais vendidos</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ eTop }}" as="r" hint-placeholder-count="3">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span style="font-weight:700"><span style="color:rgba(20,24,33,.4);font-weight:800;margin-right:6px">{{ r.pos }}</span>{{ r.name }}</span>
+            <span style="font-weight:800">{{ r.qty }} un</span>
+          </div>
+          <div style="height:8px;background:rgba(237,216,163,.5);border-radius:999px;overflow:hidden"><div style="height:100%;border-radius:999px;background:#FF6B4A;width:{{ r.w }}%"></div></div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isADash }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Dashboard" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:13px">shield</span> Plataforma · mês</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 14px">Dashboard</h1></div>
+    <div class="hscroll" style="display:flex;gap:8px;overflow-x:auto;margin:12px 0 0">
+      <sc-for list="{{ aScopePills }}" as="c" hint-placeholder-count="4">
+        <button onClick="{{ c.go }}" style="flex-shrink:0;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:{{ c.bg }};color:{{ c.fg }};border:2px solid #141821;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:13px;color:{{ c.ic }}">storefront</span> {{ c.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:4px;background:rgba(20,24,33,.08);border-radius:999px;padding:4px;margin:12px 0 0">
+      <sc-for list="{{ aPeriodPills }}" as="p" hint-placeholder-count="4">
+        <button onClick="{{ p.go }}" style="flex:1;padding:8px 0;border-radius:999px;font-size:11px;font-weight:800;background:{{ p.bg }};color:{{ p.fg }}">{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ aShowMonth }}" hint-placeholder-val="{{ true }}"><p style="font-size:11px;font-weight:700;color:rgba(20,24,33,.45);margin:8px 2px 0">Mês: <b style="color:#141821">{{ aMonthLabel }}</b></p></sc-if>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+      <sc-for list="{{ aStats }}" as="s" hint-placeholder-count="8">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:14px">
+          <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin:0">{{ s.label }}</p>
+          <p style="font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:800;margin:5px 0 0;line-height:1;color:{{ s.color }}">{{ s.value }}</p>
+          <sc-if value="{{ s.hasSub }}" hint-placeholder-val="{{ false }}"><p style="font-size:9px;font-weight:600;color:rgba(20,24,33,.45);margin:4px 0 0">{{ s.sub }}</p></sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:22px 0 12px;color:rgba(20,24,33,.6)">Movimento por método</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="position:relative;width:104px;height:104px;flex-shrink:0">
+          <svg viewBox="0 0 100 100" style="width:104px;height:104px;transform:rotate(-90deg)">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(20,24,33,.08)" stroke-width="15"></circle>
+            <sc-for list="{{ aPayBars }}" as="p" hint-placeholder-count="4">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="{{ p.color }}" stroke-width="15" stroke-dasharray="{{ p.dash }}" stroke-dashoffset="{{ p.offset }}"></circle>
+            </sc-for>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+            <span style="font-size:8px;font-weight:700;color:rgba(20,24,33,.45);text-transform:uppercase;letter-spacing:.05em">GMV</span>
+            <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:12px;line-height:1.1">{{ aGmvShort }}</span>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:9px">
+          <sc-for list="{{ aPayBars }}" as="p" hint-placeholder-count="4">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:3px">
+                <span style="display:flex;align-items:center;gap:5px;min-width:0"><span style="width:9px;height:9px;border-radius:3px;flex-shrink:0;background:{{ p.color }}"></span> {{ p.label }}</span>
+                <span style="flex-shrink:0">{{ p.val }} <span style="font-weight:600;color:rgba(20,24,33,.4)">· {{ p.pct }}</span></span>
+              </div>
+              <div style="height:6px;background:rgba(20,24,33,.08);border-radius:999px;overflow:hidden"><div style="height:100%;border-radius:999px;background:{{ p.color }};width:{{ p.w }}%;transition:width .3s"></div></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:22px 0 12px;color:rgba(20,24,33,.6)">Por tipo de estabelecimento</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px">
+      <sc-for list="{{ aTipos }}" as="t" hint-placeholder-count="4">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;gap:8px">
+            <span style="font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:700">{{ t.tipo }}</span>
+            <span style="font-size:10px;font-weight:600;color:rgba(20,24,33,.45);flex-shrink:0">Ticket <b style="color:#141821">{{ t.ticket }}</b> · {{ t.count }}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+            <span style="width:52px;flex-shrink:0;font-size:9px;font-weight:700;color:rgba(20,24,33,.45);text-transform:uppercase">Fatur.</span>
+            <div style="flex:1;height:6px;background:rgba(20,24,33,.08);border-radius:999px;overflow:hidden"><div style="height:100%;background:#FF6B4A;border-radius:999px;width:{{ t.revW }}%"></div></div>
+            <span style="width:64px;flex-shrink:0;text-align:right;font-size:10px;font-weight:700">{{ t.revPct }} <span style="font-weight:600;color:rgba(20,24,33,.35)">{{ t.revVal }}</span></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <span style="width:52px;flex-shrink:0;font-size:9px;font-weight:700;color:rgba(20,24,33,.45);text-transform:uppercase">Vendas</span>
+            <div style="flex:1;height:6px;background:rgba(20,24,33,.08);border-radius:999px;overflow:hidden"><div style="height:100%;background:#0C6A70;border-radius:999px;width:{{ t.ordW }}%"></div></div>
+            <span style="width:64px;flex-shrink:0;text-align:right;font-size:10px;font-weight:700">{{ t.ordPct }} <span style="font-weight:600;color:rgba(20,24,33,.35)">{{ t.ordVal }}</span></span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;text-transform:uppercase;margin:22px 0 12px;color:rgba(20,24,33,.6)">Top estabelecimentos</h2>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ aTop }}" as="r" hint-placeholder-count="5">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;gap:8px">
+            <span style="font-weight:700;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:rgba(20,24,33,.4);font-weight:800;margin-right:6px">{{ r.pos }}</span>{{ r.name }}</span>
+            <span style="font-weight:800;flex-shrink:0">{{ r.rev }} <span style="font-weight:600;color:rgba(20,24,33,.4);font-size:11px">· fee {{ r.fee }}</span></span>
+          </div>
+          <div style="height:8px;background:rgba(237,216,163,.5);border-radius:999px;overflow:hidden"><div style="height:100%;border-radius:999px;background:#FF6B4A;width:{{ r.w }}%"></div></div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isAFat }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Faturamento" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Plataforma</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 0">Faturamento</h1></div>
+    <div style="display:flex;gap:4px;background:rgba(20,24,33,.08);border-radius:999px;padding:4px;margin:12px 0 0">
+      <sc-for list="{{ aPeriodPills }}" as="p" hint-placeholder-count="4">
+        <button onClick="{{ p.go }}" style="flex:1;padding:8px 0;border-radius:999px;font-size:11px;font-weight:800;background:{{ p.bg }};color:{{ p.fg }}">{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:12px 0">Faturamento por estabelecimento · no período</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ aFat }}" as="e" hint-placeholder-count="5">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="flex:1;min-width:0">
+              <span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</span>
+              <span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin-top:1px">{{ e.meta }}</span>
+            </span>
+            <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px;background:#d1fae5;color:#047857">Ativo</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;text-align:center">
+            <span style="background:rgba(237,216,163,.4);border-radius:9px;padding:7px 4px"><span style="display:block;font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(20,24,33,.5)">Faturamento</span><span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:800;margin-top:1px">{{ e.rev }}</span></span>
+            <span style="background:rgba(237,216,163,.4);border-radius:9px;padding:7px 4px"><span style="display:block;font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(20,24,33,.5)">Pedidos</span><span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:800;margin-top:1px">{{ e.ped }}</span></span>
+            <span style="background:rgba(237,216,163,.4);border-radius:9px;padding:7px 4px"><span style="display:block;font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(20,24,33,.5)">{{ e.feeLabel }}</span><span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:800;margin-top:1px;color:#059669">{{ e.feeVal }}</span></span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isAEsts }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Cadastros" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <button onClick="{{ backConta }}" style="display:flex;align-items:center;gap:6px;background:none;padding:0;font-size:13px;font-weight:700;color:rgba(237,216,163,.7);margin-bottom:10px"><span class="ms" style="font-size:16px">arrow_back</span> Conta</button>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
+      <div>
+        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Plataforma</p>
+        <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 0">Cadastros</h1>
+      </div>
+      <button onClick="{{ aCadNew }}" style="flex-shrink:0;background:#FF6B4A;color:#fff;font-size:12px;font-weight:800;padding:9px 16px;border-radius:999px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:15px">add</span> Cadastrar</button>
+    </div></div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:12px 0">{{ aCadCount }} estabelecimentos cadastrados</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ aEsts }}" as="e" hint-placeholder-count="6">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="flex:1;min-width:0">
+              <span style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</span><span style="flex-shrink:0;font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:rgba(12,67,71,.1);color:#0C4347">{{ e.tipo }}</span></span>
+              <span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin-top:2px">{{ e.meta }}</span>
+            </span>
+            <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px;background:#d1fae5;color:#047857">Ativo</span>
+          </div>
+          <p style="font-size:10px;font-weight:600;color:rgba(20,24,33,.5);margin:8px 0 0;display:flex;align-items:center;gap:4px;flex-wrap:wrap"><span class="ms" style="font-size:12px;color:rgba(20,24,33,.4)">person</span> {{ e.user }} · <span class="ms" style="font-size:12px;color:#ec4899">alternate_email</span> {{ e.insta }}</p>
+          <p style="font-size:10px;font-weight:700;color:#047857;background:#ecfdf5;border-radius:8px;padding:5px 9px;margin:8px 0 0;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:12px">check_circle</span> Pagamentos ativos · Mercado Pago</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;text-align:center">
+            <span style="background:rgba(237,216,163,.4);border-radius:9px;padding:7px 4px"><span style="display:block;font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(20,24,33,.5)">Faturamento</span><span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:800;margin-top:1px">{{ e.rev }}</span></span>
+            <span style="background:rgba(237,216,163,.4);border-radius:9px;padding:7px 4px"><span style="display:block;font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(20,24,33,.5)">Pedidos</span><span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:800;margin-top:1px">{{ e.pedidos }}</span></span>
+            <span style="background:rgba(237,216,163,.4);border-radius:9px;padding:7px 4px"><span style="display:block;font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(20,24,33,.5)">Fee (mês)</span><span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:12px;font-weight:800;margin-top:1px;color:#059669">{{ e.feeMes }}</span></span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isABuscas }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Buscas" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Plataforma · 30 dias</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 0">Buscas</h1></div>
+    <div style="display:flex;gap:4px;background:rgba(20,24,33,.08);border-radius:999px;padding:4px;margin:12px 0 0">
+      <sc-for list="{{ aBuscaPer }}" as="p" hint-placeholder-count="3">
+        <button onClick="{{ p.go }}" style="flex:1;padding:8px 0;border-radius:999px;font-size:11px;font-weight:800;background:{{ p.bg }};color:{{ p.fg }}">{{ p.label }}</button>
+      </sc-for>
+    </div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:12px 0">O que os visitantes filtram — <b style="color:#141821">{{ aBuscaTotal }}</b> buscas no período.</p>
+    <div class="hscroll" style="display:flex;gap:8px;overflow-x:auto;margin:0 0 14px">
+      <sc-for list="{{ aBuscaPills }}" as="f" hint-placeholder-count="4">
+        <button onClick="{{ f.go }}" style="flex-shrink:0;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:{{ f.bg }};color:{{ f.fg }};border:2px solid #141821">{{ f.label }}</button>
+      </sc-for>
+    </div>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ aBuscaRows }}" as="r" hint-placeholder-count="5">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span style="font-weight:700;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:rgba(20,24,33,.4);font-weight:800;margin-right:6px">{{ r.pos }}</span>{{ r.label }}</span>
+            <span style="font-weight:800;flex-shrink:0">{{ r.n }} <span style="font-weight:600;color:rgba(20,24,33,.4);font-size:11px">· {{ r.pct }}</span></span>
+          </div>
+          <div style="height:8px;background:rgba(237,216,163,.5);border-radius:999px;overflow:hidden"><div style="height:100%;border-radius:999px;background:#FF6B4A;width:{{ r.w }}%;transition:width .3s"></div></div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isABacklog }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Backlog" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Plataforma</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 0">Backlog</h1></div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:12px 0">Compras de toda a plataforma. Cartão sempre mascarado.</p>
+    <div class="hscroll" style="display:flex;gap:8px;overflow-x:auto;margin:0 0 14px">
+      <sc-for list="{{ aBlPills }}" as="f" hint-placeholder-count="5">
+        <button onClick="{{ f.go }}" style="flex-shrink:0;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:{{ f.bg }};color:{{ f.fg }};border:2px solid #141821">{{ f.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ aBlRows }}" as="r" hint-placeholder-count="5">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:12px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:700;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.estab }}</span>
+            <span style="font-weight:800;font-size:14px;flex-shrink:0">{{ r.total }}</span>
+          </div>
+          <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin:3px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap"><span class="ms" style="font-size:12px;color:#FF6B4A">location_on</span> {{ r.city }} · {{ r.dt }} · {{ r.method }}<sc-if value="{{ r.hasCard }}" hint-placeholder-val="{{ false }}"> · {{ r.card }}</sc-if></p>
+          <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.65);margin:0">{{ r.items }}</p>
+          <p style="font-family:ui-monospace,monospace;font-size:10px;font-weight:700;color:rgba(20,24,33,.35);margin:6px 0 0">{{ r.code }}</p>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:12px;background:#141821;color:#EDD8A3;border-radius:16px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:12px;font-weight:700">Total ({{ aBlCount }})</span>
+      <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px">{{ aBlTotal }}</span>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isATaxas }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Taxas" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <button onClick="{{ backConta }}" style="display:flex;align-items:center;gap:6px;background:none;padding:0;font-size:13px;font-weight:700;color:rgba(237,216,163,.7);margin-bottom:10px"><span class="ms" style="font-size:16px">arrow_back</span> Conta</button>
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Plataforma</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 0">Taxas</h1></div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:12px 0">Fee do Jurandir sobre cada venda, por estabelecimento. Aparece para o cliente no checkout.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ aTaxas }}" as="e" hint-placeholder-count="6">
+        <div style="display:flex;align-items:center;gap:12px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:12px 14px">
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</span>
+            <span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin-top:1px">Fee estimado (mês): <b style="color:#059669">{{ e.feeMes }}</b></span>
+          </span>
+          <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+            <input value="{{ e.fee.val }}" onChange="{{ e.fee.on }}" style="width:52px;padding:9px 8px;border-radius:10px;border:2px solid rgba(20,24,33,.15);font-size:13px;font-weight:700;text-align:right;outline:none;box-sizing:border-box" style-focus="border-color:#141821">
+            <span style="font-size:13px;font-weight:700;color:rgba(20,24,33,.5)">%</span>
+          </span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isConta }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Conta" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:0 0 14px">Conta</h1></div>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px">
+      <span style="width:48px;height:48px;flex-shrink:0;border-radius:14px;background:#141821;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:24px;color:#FFC24B">{{ contaIcon }}</span></span>
+      <span style="min-width:0">
+        <span style="display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700">{{ contaName }}</span>
+        <span style="display:block;font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin-top:1px">{{ contaEmail }}</span>
+      </span>
+    </div>
+    <sc-if value="{{ isAdminRole }}" hint-placeholder-val="{{ false }}">
+    <div style="margin-top:14px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;overflow:hidden">
+      <button onClick="{{ goCadastros }}" style="display:flex;width:100%;align-items:center;gap:12px;background:none;padding:14px 16px;text-align:left;box-sizing:border-box;border-bottom:1px solid rgba(20,24,33,.08)">
+        <span class="ms" style="font-size:19px;color:#EF5130;flex-shrink:0">storefront</span>
+        <span style="flex:1;font-size:14px;font-weight:700;color:#141821">Cadastros de estabelecimentos</span>
+        <span class="ms" style="font-size:16px;color:rgba(20,24,33,.35)">chevron_right</span>
+      </button>
+      <button onClick="{{ goTaxas }}" style="display:flex;width:100%;align-items:center;gap:12px;background:none;padding:14px 16px;text-align:left;box-sizing:border-box">
+        <span class="ms" style="font-size:19px;color:#EF5130;flex-shrink:0">percent</span>
+        <span style="flex:1;font-size:14px;font-weight:700;color:#141821">Taxas por estabelecimento</span>
+        <span class="ms" style="font-size:16px;color:rgba(20,24,33,.35)">chevron_right</span>
+      </button>
+    </div>
+    </sc-if>
+    <sc-if value="{{ isEstabRole }}" hint-placeholder-val="{{ false }}">
+    <div style="margin-top:14px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;overflow:hidden">
+      <sc-for list="{{ eContaMenu }}" as="m" hint-placeholder-count="3">
+        <button onClick="{{ m.go }}" style="display:flex;width:100%;align-items:center;gap:12px;background:none;padding:14px 16px;text-align:left;border-bottom:{{ m.border }};box-sizing:border-box">
+          <span class="ms" style="font-size:19px;color:#EF5130;flex-shrink:0">{{ m.icon }}</span>
+          <span style="flex:1;font-size:14px;font-weight:700;color:#141821">{{ m.label }}</span>
+          <span class="ms" style="font-size:16px;color:rgba(20,24,33,.35)">chevron_right</span>
+        </button>
+      </sc-for>
+    </div>
+    </sc-if>
+    <button onClick="{{ doLogout }}" style="margin-top:14px;width:100%;background:#141821;color:#EDD8A3;font-weight:700;padding:14px;border-radius:999px;font-size:14px">Sair da conta</button>
+    <button onClick="{{ backToClient }}" style="margin-top:10px;width:100%;background:rgba(237,216,163,.5);color:rgba(20,24,33,.7);font-weight:700;padding:14px;border-radius:999px;font-size:14px">Voltar ao modo cliente</button>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isEAud }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Estab · Auditoria" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <button onClick="{{ backConta }}" style="display:flex;align-items:center;gap:6px;background:none;padding:0;font-size:13px;font-weight:700;color:rgba(237,216,163,.7);margin-bottom:10px"><span class="ms" style="font-size:16px">arrow_back</span> Conta</button>
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Quiosque do Mar</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 4px">Auditoria</h1></div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:0 0 12px">Todas as vendas registradas para conferência.</p>
+    <div class="hscroll" style="display:flex;gap:8px;overflow-x:auto;margin:0 0 14px">
+      <sc-for list="{{ eAudPills }}" as="f" hint-placeholder-count="5">
+        <button onClick="{{ f.go }}" style="flex-shrink:0;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:{{ f.bg }};color:{{ f.fg }};border:2px solid #141821">{{ f.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ eAudRows }}" as="r" hint-placeholder-count="4">
+        <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:12px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:rgba(20,24,33,.5)">{{ r.code }}</span>
+            <span style="font-size:11px;font-weight:800">{{ r.dt }}</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+            <span style="font-size:12px;font-weight:600;color:rgba(20,24,33,.6);display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:12px;color:#FF6B4A">location_on</span> {{ r.loc }} · {{ r.method }}</span>
+            <span style="font-weight:800;font-size:14px">{{ r.val }}</span>
+          </div>
+          <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.4);margin:4px 0 0">Taxa gateway: {{ r.gw }}</p>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:12px;background:#141821;color:#EDD8A3;border-radius:16px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:12px;font-weight:700">Total ({{ eAudCount }})</span>
+      <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px">{{ eAudTotal }}</span>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isEPerfil }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Estab · Perfil" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <button onClick="{{ backConta }}" style="display:flex;align-items:center;gap:6px;background:none;padding:0;font-size:13px;font-weight:700;color:rgba(237,216,163,.7);margin-bottom:10px"><span class="ms" style="font-size:16px">arrow_back</span> Conta</button>
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Quiosque do Mar</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 4px">Perfil</h1></div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:0 0 14px">O que o cliente vê ao abrir seu cardápio.</p>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ ePerfilFields }}" as="f" hint-placeholder-count="6">
+        <label style="display:block"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(20,24,33,.5)">{{ f.label }}</span>
+          <input value="{{ f.val }}" onChange="{{ f.on }}" style="width:100%;margin-top:5px;padding:11px 14px;border-radius:12px;border:2px solid rgba(20,24,33,.15);background:#fff;font-size:13px;font-weight:600;outline:none;box-sizing:border-box" style-focus="border-color:#141821"></label>
+      </sc-for>
+      <button onClick="{{ ePerfilSave }}" style="width:100%;background:#FF6B4A;color:#fff;font-weight:700;padding:13px;border-radius:999px;font-size:14px">Salvar perfil</button>
+      <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.4);text-align:center;margin:0">As mudanças aparecem na hora no cardápio do cliente.</p>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isEConfig }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Estab · Config" style="padding:70px 20px 20px"><div style="margin:-70px -20px 0;padding:64px 20px 18px;background:#141821;border-radius:0 0 26px 26px;color:#fff">
+    <button onClick="{{ backConta }}" style="display:flex;align-items:center;gap:6px;background:none;padding:0;font-size:13px;font-weight:700;color:rgba(237,216,163,.7);margin-bottom:10px"><span class="ms" style="font-size:16px">arrow_back</span> Conta</button>
+    <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#EF5130;margin:0">Quiosque do Mar</p>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 14px">Configurações</h1></div>
+    <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px">
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;margin:0 0 4px">Impressora</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+        <span style="min-width:0"><span style="display:block;font-size:13px;font-weight:700">Impressão automática</span><span style="display:block;font-size:11px;font-weight:600;color:rgba(20,24,33,.5)">Imprime ao confirmar o pagamento</span></span>
+        <button onClick="{{ eAutoT.flip }}" role="switch" style="width:44px;height:24px;border-radius:999px;position:relative;flex-shrink:0;background:{{ eAutoT.bg }};transition:background .15s;padding:0"><span style="position:absolute;top:2px;width:20px;height:20px;border-radius:999px;background:#fff;transition:left .15s;left:{{ eAutoT.left }}"></span></button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+        <label style="display:block"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(20,24,33,.5)">IP</span>
+          <input value="{{ ePrIp.val }}" onChange="{{ ePrIp.on }}" style="width:100%;margin-top:5px;padding:11px 14px;border-radius:12px;border:2px solid rgba(20,24,33,.15);font-size:13px;font-weight:600;outline:none;box-sizing:border-box" style-focus="border-color:#141821"></label>
+        <label style="display:block"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(20,24,33,.5)">Modelo</span>
+          <input value="{{ ePrModel.val }}" onChange="{{ ePrModel.on }}" style="width:100%;margin-top:5px;padding:11px 14px;border-radius:12px;border:2px solid rgba(20,24,33,.15);font-size:13px;font-weight:600;outline:none;box-sizing:border-box" style-focus="border-color:#141821"></label>
+      </div>
+      <button onClick="{{ eTestPrint }}" style="margin-top:12px;width:100%;background:rgba(237,216,163,.5);color:rgba(20,24,33,.7);font-weight:700;padding:12px;border-radius:999px;font-size:13px">Imprimir teste</button>
+    </div>
+    <div style="margin-top:14px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px">
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;margin:0 0 4px">Gateways de pagamento</h2>
+      <p style="font-size:11px;font-weight:600;color:rgba(20,24,33,.5);margin:0 0 12px;line-height:1.5">Escolha por onde cada pagamento é processado. Cada método pode usar um gateway diferente.</p>
+      <sc-for list="{{ eGws }}" as="g" hint-placeholder-count="3">
+        <div style="margin-bottom:12px">
+          <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(20,24,33,.6);margin:0 0 6px;display:flex;align-items:center;gap:5px"><span class="ms" style="font-size:13px;color:#EF5130">{{ g.icon }}</span> {{ g.label }}</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="4">
+              <button onClick="{{ o.pick }}" style="border-radius:12px;padding:10px 12px;text-align:left;border:2px solid {{ o.border }};background:{{ o.bg }};min-width:0">
+                <span style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:800;color:{{ o.fg }};white-space:nowrap;overflow:hidden"><sc-if value="{{ o.sel }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:13px">check_circle</span></sc-if>{{ o.name }}</span>
+                <span style="display:block;font-size:10px;font-weight:600;color:{{ o.subFg }};margin-top:1px">{{ o.sub }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:14px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:16px">
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;margin:0 0 10px">Alterar senha</h2>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <input type="password" value="{{ ePwCur.val }}" onChange="{{ ePwCur.on }}" placeholder="Senha atual" style="width:100%;padding:11px 14px;border-radius:12px;border:2px solid rgba(20,24,33,.15);font-size:13px;font-weight:600;outline:none;box-sizing:border-box" style-focus="border-color:#141821">
+        <input type="password" value="{{ ePwNova.val }}" onChange="{{ ePwNova.on }}" placeholder="Nova senha (mín. 6)" style="width:100%;padding:11px 14px;border-radius:12px;border:2px solid rgba(20,24,33,.15);font-size:13px;font-weight:600;outline:none;box-sizing:border-box" style-focus="border-color:#141821">
+        <button onClick="{{ ePwSave }}" style="width:100%;background:#141821;color:#EDD8A3;font-weight:700;padding:12px;border-radius:999px;font-size:13px">Alterar senha</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+
+<div style="position:absolute;bottom:0;left:0;right:0;background:#141821;padding:10px 8px 30px;display:flex;align-items:flex-end;justify-content:space-around;z-index:40">
+  <sc-for list="{{ navTabs }}" as="t" hint-placeholder-count="5">
+    <sc-if value="{{ t.isScan }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ t.go }}" aria-label="Escanear QR" style="width:58px;height:58px;margin-top:-30px;border-radius:999px;background:#FF6B4A;color:#fff;display:flex;align-items:center;justify-content:center;border:4px solid #F8EFDA;box-shadow:0 8px 20px -8px rgba(239,81,48,.6)"><span class="ms" style="font-size:27px">qr_code_scanner</span></button>
+    </sc-if>
+    <sc-if value="{{ t.notScan }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ t.go }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;background:{{ t.bg }};padding:6px 12px;border-radius:14px;color:{{ t.color }};position:relative;transition:background .15s">
+        <span class="ms" style="font-size:22px">{{ t.icon }}</span>
+        <span style="font-size:10px;font-weight:700">{{ t.label }}</span>
+        <sc-if value="{{ t.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:0;right:2px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#FF6B4A;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ t.badge }}</span></sc-if>
+      </button>
+    </sc-if>
+  </sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Login" style="flex:1;display:flex;flex-direction:column;background:#141821;color:#EDD8A3;animation:screenIn .35s both;overflow-y:auto">
+  <div style="display:flex;align-items:center;padding:70px 20px 0">
+    <button onClick="{{ closeLogin }}" aria-label="Voltar" style="width:40px;height:40px;border-radius:999px;background:rgba(237,216,163,.12);color:#EDD8A3;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:20px">arrow_back</span></button>
+  </div>
+  <div style="padding:20px 28px 40px">
+    <img src="Assets/jurandir-logo-horizontal.svg" alt="Jurandir" style="width:160px;height:auto;border-radius:10px">
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:27px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;line-height:.95;margin:18px 0 0;color:#fff">Uma conta,<span style="display:block;color:#EF5130">tudo dentro.</span></h1>
+    <p style="font-size:13px;font-weight:600;color:rgba(237,216,163,.6);margin:8px 0 0">Cliente, estabelecimento ou administração — o mesmo login leva você ao lugar certo.</p>
+    <div style="display:flex;gap:4px;background:rgba(237,216,163,.1);border-radius:999px;padding:4px;margin-top:20px">
+      <button onClick="{{ lgModeEntrar }}" style="flex:1;padding:10px 0;border-radius:999px;font-size:13px;font-weight:800;background:{{ lgEntrarBg }};color:{{ lgEntrarFg }}">Entrar</button>
+      <button onClick="{{ lgModeCriar }}" style="flex:1;padding:10px 0;border-radius:999px;font-size:13px;font-weight:800;background:{{ lgCriarBg }};color:{{ lgCriarFg }}">Criar conta</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:18px">
+      <sc-if value="{{ lgIsCriar }}" hint-placeholder-val="{{ false }}">
+        <label style="display:block"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:rgba(237,216,163,.55)">Seu nome</span>
+          <input value="{{ lgNome.val }}" onChange="{{ lgNome.on }}" placeholder="Como podemos te chamar?" style="width:100%;margin-top:6px;padding:13px 16px;border-radius:999px;border:2px solid rgba(237,216,163,.2);background:rgba(237,216,163,.08);color:#fff;font-size:14px;outline:none" style-focus="border-color:#EDD8A3"></label>
+      </sc-if>
+      <label style="display:block"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:rgba(237,216,163,.55)">E-mail</span>
+        <input type="email" value="{{ lgEmail.val }}" onChange="{{ lgEmail.on }}" placeholder="voce@email.com" style="width:100%;margin-top:6px;padding:13px 16px;border-radius:999px;border:2px solid rgba(237,216,163,.2);background:rgba(237,216,163,.08);color:#fff;font-size:14px;outline:none" style-focus="border-color:#EDD8A3"></label>
+      <label style="display:block"><span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:rgba(237,216,163,.55)">Senha</span>
+        <input type="password" value="{{ lgPass.val }}" onChange="{{ lgPass.on }}" placeholder="{{ lgPassPh }}" style="width:100%;margin-top:6px;padding:13px 16px;border-radius:999px;border:2px solid rgba(237,216,163,.2);background:rgba(237,216,163,.08);color:#fff;font-size:14px;outline:none" style-focus="border-color:#EDD8A3"></label>
+      <sc-if value="{{ hasLgErr }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:12px;font-weight:700;color:#fb7185">{{ lgErr }}</p></sc-if>
+      <button onClick="{{ doLogin }}" style="width:100%;background:#FF6B4A;color:#fff;font-weight:700;padding:15px;border-radius:999px;font-size:15px">{{ lgBtn }}</button>
+    </div>
+    <sc-if value="{{ lgIsEntrar }}" hint-placeholder-val="{{ true }}">
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:rgba(237,216,163,.4);margin:24px 0 8px">Contas de demonstração</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ demoAccounts }}" as="a" hint-placeholder-count="2">
+          <button onClick="{{ a.fill }}" style="display:flex;align-items:center;gap:10px;background:rgba(237,216,163,.08);border:1px solid rgba(237,216,163,.15);border-radius:14px;padding:11px 14px;text-align:left">
+            <span class="ms" style="font-size:17px;color:#FFC24B;flex-shrink:0">{{ a.icon }}</span>
+            <span style="min-width:0;flex:1">
+              <span style="display:block;font-size:13px;font-weight:700;color:#fff">{{ a.label }}</span>
+              <span style="display:block;font-size:11px;font-weight:600;color:rgba(237,216,163,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.email }}</span>
+            </span>
+            <span style="font-size:10px;font-weight:800;text-transform:uppercase;color:rgba(237,216,163,.5);flex-shrink:0">Preencher</span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isScanner }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Scanner QR" style="flex:1;display:flex;flex-direction:column;background:#141821;color:#EDD8A3;position:relative;animation:screenIn .35s both">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:70px 20px 0">
+    <button onClick="{{ closeScan }}" aria-label="Voltar" style="width:40px;height:40px;border-radius:999px;background:rgba(237,216,163,.12);color:#EDD8A3;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:20px">arrow_back</span></button>
+    <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;text-transform:uppercase;color:#fff">Escanear QR</span>
+    <span style="width:40px"></span>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 32px">
+    <div style="position:relative;width:230px;height:230px">
+      <span style="position:absolute;top:0;left:0;width:44px;height:44px;border-top:5px solid #FFC24B;border-left:5px solid #FFC24B;border-radius:14px 0 0 0"></span>
+      <span style="position:absolute;top:0;right:0;width:44px;height:44px;border-top:5px solid #FFC24B;border-right:5px solid #FFC24B;border-radius:0 14px 0 0"></span>
+      <span style="position:absolute;bottom:0;left:0;width:44px;height:44px;border-bottom:5px solid #FFC24B;border-left:5px solid #FFC24B;border-radius:0 0 0 14px"></span>
+      <span style="position:absolute;bottom:0;right:0;width:44px;height:44px;border-bottom:5px solid #FFC24B;border-right:5px solid #FFC24B;border-radius:0 0 14px 0"></span>
+      <span style="position:absolute;left:10%;right:10%;height:3px;border-radius:999px;background:#FF6B4A;box-shadow:0 0 16px rgba(255,107,74,.8);animation:scanLine 2.4s ease-in-out infinite"></span>
+    </div>
+    <p style="font-size:13px;font-weight:600;color:rgba(237,216,163,.65);margin:28px 0 0;text-align:center;max-width:240px">Aponte para o QR Code da mesa ou do guarda-sol</p>
+  </div>
+  <div style="padding:0 24px 46px">
+    <button onClick="{{ simulateScan }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#FF6B4A;color:#fff;font-weight:700;padding:15px;border-radius:999px;font-size:15px"><span class="ms" style="font-size:17px">qr_code_2</span> Simular leitura — Guarda-sol nº 14</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMenu }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Cardápio" style="flex:1;overflow-y:auto;padding-bottom:96px;position:relative">
+  <div style="background:#141821;color:#EDD8A3;padding:66px 20px 20px;border-radius:0 0 28px 28px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button onClick="{{ backHome }}" aria-label="Voltar" style="width:38px;height:38px;flex-shrink:0;border-radius:999px;background:rgba(237,216,163,.12);color:#EDD8A3;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:19px">arrow_back</span></button>
+      <div style="min-width:0;flex:1">
+        <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:800;margin:0;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ estName }}</h1>
+        <p style="font-size:11px;font-weight:600;color:rgba(237,216,163,.6);margin:2px 0 0;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:12px;color:#FF6B4A">location_on</span> {{ locLabel }}</p>
+      </div>
+      <span style="flex-shrink:0;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:#fff"><span class="ms" style="font-size:14px;color:#FFC24B;font-variation-settings:'FILL' 1">star</span> {{ estRating }}</span>
+    </div>
+  </div>
+  <div class="hscroll" style="display:flex;gap:8px;padding:14px 20px 4px;overflow-x:auto;position:sticky;top:0;background:#F8EFDA;z-index:20">
+    <sc-for list="{{ menuPills }}" as="c" hint-placeholder-count="5">
+      <button onClick="{{ c.go }}" style="flex-shrink:0;padding:8px 15px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;background:{{ c.bg }};color:{{ c.fg }};border:2px solid #141821">{{ c.label }}</button>
+    </sc-for>
+  </div>
+  <div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:10px">
+    <sc-for list="{{ menuItems }}" as="i" hint-placeholder-count="4">
+      <div style="display:flex;align-items:center;gap:12px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:12px">
+        <div style="width:58px;height:58px;flex-shrink:0;border-radius:12px;background-size:cover;background-position:center;background-color:#e2e8f0;background-image:{{ i.photoBg }}"></div>
+        <div style="flex:1;min-width:0">
+          <p style="font-size:14px;font-weight:700;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.name }}</p>
+          <p style="font-size:11px;font-weight:500;color:rgba(20,24,33,.5);margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.desc }}</p>
+          <p style="margin:4px 0 0"><sc-if value="{{ i.hasOld }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:rgba(20,24,33,.35);text-decoration:line-through;margin-right:5px">{{ i.oldStr }}</span></sc-if><span style="font-size:15px;font-weight:800;color:#EF5130">{{ i.priceStr }}</span></p>
+        </div>
+        <sc-if value="{{ i.notInCart }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ i.add }}" aria-label="Adicionar" style="width:36px;height:36px;flex-shrink:0;border-radius:999px;background:#FF6B4A;color:#fff;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:18px">add</span></button>
+        </sc-if>
+        <sc-if value="{{ i.inCart }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+            <button onClick="{{ i.dec }}" aria-label="Remover" style="width:30px;height:30px;border-radius:999px;background:rgba(237,216,163,.6);display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:15px">remove</span></button>
+            <span style="font-weight:800;font-size:14px;width:14px;text-align:center">{{ i.qty }}</span>
+            <button onClick="{{ i.add }}" aria-label="Adicionar" style="width:30px;height:30px;border-radius:999px;background:#FF6B4A;color:#fff;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:15px">add</span></button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;background:linear-gradient(to top,#F8EFDA 60%,transparent);z-index:30">
+      <button onClick="{{ goCheckout }}" style="width:100%;background:#141821;color:#EDD8A3;border-radius:999px;padding:15px 22px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:700">
+        <span style="display:flex;align-items:center;gap:8px"><span class="ms" style="font-size:18px">shopping_cart</span> {{ cartCount }}</span>
+        <span>Ver pedido · {{ cartTotal }}</span>
+      </button>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Checkout" style="flex:1;overflow-y:auto;padding:70px 20px 120px;position:relative">
+  <button onClick="{{ backMenu }}" style="display:flex;align-items:center;gap:6px;background:none;padding:0;font-size:13px;font-weight:700;color:rgba(20,24,33,.55);margin-bottom:12px"><span class="ms" style="font-size:16px">arrow_back</span> Voltar ao cardápio</button>
+  <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:0 0 14px">Confirmar pedido</h1>
+  <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:14px">
+    <p style="font-size:11px;font-weight:700;color:rgba(20,24,33,.5);margin:0 0 8px;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:13px;color:#FF6B4A">location_on</span> {{ locLabel }} · {{ estName }}</p>
+    <sc-for list="{{ coLines }}" as="i" hint-placeholder-count="2">
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>{{ i.l }}</span><span style="font-weight:600">{{ i.v }}</span></div>
+    </sc-for>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(20,24,33,.08);display:flex;flex-direction:column;gap:5px;font-size:12px;color:rgba(20,24,33,.6)">
+      <div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>{{ subtotal }}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Taxa Jurandir (8%)</span><span>{{ feeStr }}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Taxa de serviço (10%)</span><span>{{ estFeeStr }}</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:15px;color:#141821;padding-top:5px;border-top:1px solid rgba(20,24,33,.08)"><span>Total</span><span style="color:#EF5130">{{ grandStr }}</span></div>
+    </div>
+  </div>
+  <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;margin:18px 0 10px;color:rgba(20,24,33,.6)">Observação do pedido <span style="color:rgba(20,24,33,.35);font-weight:600;text-transform:none">(opcional)</span></h2>
+  <textarea value="{{ obs.val }}" onChange="{{ obs.on }}" rows="2" maxLength="140" placeholder="Ex: caipirinha sem açúcar, alergia a camarão…" style="width:100%;padding:12px 14px;border-radius:16px;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;background:#fff;font-size:13px;font-weight:500;outline:none;resize:none;box-sizing:border-box"></textarea>
+  <div style="display:flex;gap:4px;background:rgba(20,24,33,.08);border-radius:999px;padding:4px;margin:18px 0 12px">
+    <button onClick="{{ modeFull }}" style="flex:1;padding:9px 0;border-radius:999px;font-size:13px;font-weight:800;background:{{ mFullBg }};color:{{ mFullFg }}">Pagar tudo</button>
+    <button onClick="{{ modeSplit }}" style="flex:1;padding:9px 0;border-radius:999px;font-size:13px;font-weight:800;background:{{ mSplitBg }};color:{{ mSplitFg }};display:flex;align-items:center;justify-content:center;gap:6px"><span class="ms" style="font-size:15px">group</span> Dividir conta</button>
+  </div>
+  <sc-if value="{{ isFull }}" hint-placeholder-val="{{ true }}">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <sc-for list="{{ payOptions }}" as="p" hint-placeholder-count="4">
+      <button onClick="{{ p.pick }}" style="padding:12px;border-radius:16px;border:2px solid {{ p.border }};background:{{ p.bg }};display:flex;flex-direction:column;align-items:center;gap:8px">
+        <span style="width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:{{ p.iconBg }};border:{{ p.iconBorder }}">
+          <sc-if value="{{ p.isGlyph }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:18px;color:#fff">{{ p.icon }}</span></sc-if>
+          <sc-if value="{{ p.isLogo }}" hint-placeholder-val="{{ false }}"><span style="width:22px;height:22px;background-size:contain;background-repeat:no-repeat;background-position:center;background-image:{{ p.logoBg }}"></span></sc-if>
+        </span>
+        <span style="font-size:13px;font-weight:700;text-align:center;line-height:1.2;color:#141821">{{ p.label }}</span>
+      </button>
+    </sc-for>
+  </div>
+  </sc-if>
+  <sc-if value="{{ isSplit }}" hint-placeholder-val="{{ false }}">
+  <div style="background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:16px;padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;font-weight:700">Quantos amigos?</span>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button onClick="{{ pplMinus }}" aria-label="Menos" style="width:30px;height:30px;border-radius:999px;background:rgba(20,24,33,.08);display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:15px">remove</span></button>
+        <span style="font-weight:800;width:18px;text-align:center;font-size:15px">{{ people }}</span>
+        <button onClick="{{ pplPlus }}" aria-label="Mais" style="width:30px;height:30px;border-radius:999px;background:#FF6B4A;color:#fff;display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:15px">add</span></button>
+      </div>
+    </div>
+    <p style="font-size:12px;font-weight:600;color:rgba(20,24,33,.5);margin:6px 0 12px">Dividido igualmente · <b style="color:#EF5130">{{ shareStr }}</b> por pessoa (com taxas)</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ splitRows }}" as="s" hint-placeholder-count="2">
+        <div style="border:1px solid rgba(20,24,33,.12);border-radius:12px;padding:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:{{ s.mb }}">
+            <span style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px"><span style="width:24px;height:24px;border-radius:999px;background:rgba(20,24,33,.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">{{ s.n }}</span> Amigo {{ s.n }}</span>
+            <sc-if value="{{ s.isPaid }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:800;color:#059669;display:flex;align-items:center;gap:4px"><span class="ms" style="font-size:13px">check</span> Pago · {{ s.paidVia }}</span></sc-if>
+            <sc-if value="{{ s.notPaid }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;font-weight:700;color:rgba(20,24,33,.45)">{{ s.amtStr }}</span></sc-if>
+          </div>
+          <sc-if value="{{ s.notPaid }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+              <sc-for list="{{ s.pays }}" as="p" hint-placeholder-count="4">
+                <button onClick="{{ p.go }}" style="padding:7px 0;border-radius:9px;background:rgba(237,216,163,.35);border:1px solid rgba(20,24,33,.1);display:flex;flex-direction:column;align-items:center;gap:2px">
+                  <span class="ms" style="font-size:15px;color:rgba(20,24,33,.7)">{{ p.icon }}</span>
+                  <span style="font-size:9px;font-weight:700;color:rgba(20,24,33,.6);line-height:1">{{ p.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:rgba(20,24,33,.5);margin-bottom:4px"><span>{{ nPaidLabel }}</span><span>{{ paidAmtLabel }}</span></div>
+      <div style="height:8px;background:rgba(20,24,33,.08);border-radius:999px;overflow:hidden"><div style="height:100%;background:#10b981;border-radius:999px;width:{{ splitW }}%;transition:width .3s"></div></div>
+    </div>
+    <sc-if value="{{ splitWarn }}" hint-placeholder-val="{{ false }}">
+      <p style="margin:10px 0 0;font-size:11px;font-weight:600;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 10px;line-height:1.45">O pedido só vai para a cozinha quando estiver <b>100% pago</b> — quem faltar pode pagar depois em Pedidos.</p>
+    </sc-if>
+  </div>
+  </sc-if>
+  <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px 32px;background:linear-gradient(to top,#F8EFDA 60%,transparent)">
+    <button onClick="{{ payGo }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:15px;font-size:15px;font-weight:700;color:#fff;background:{{ payBg }}">{{ payLabel }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Pedido confirmado" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 28px 0;animation:fadeUp .4s both">
+  <div style="width:84px;height:84px;border-radius:999px;background:{{ doneBg }};color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:18px"><span class="ms" style="font-size:44px">{{ doneIcon }}</span></div>
+  <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:0">{{ doneTitle }}</h1>
+  <p style="font-size:14px;color:rgba(20,24,33,.6);margin:8px 0 0;max-width:260px">{{ doneSub }}</p>
+  <div style="margin-top:18px;background:#fff;border:2px solid #141821;box-shadow:4px 4px 0 0 #141821;border-radius:14px;padding:10px 18px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:11px;font-weight:700;color:rgba(20,24,33,.5)">Código</span>
+    <span style="font-family:ui-monospace,monospace;font-size:14px;font-weight:800;letter-spacing:.05em">{{ doneCode }}</span>
+  </div>
+  <button onClick="{{ goPedidos }}" style="margin-top:24px;width:100%;background:#FF6B4A;color:#fff;font-weight:700;padding:15px;border-radius:999px;font-size:15px">Acompanhar pedido</button>
+  <button onClick="{{ backHome }}" style="margin-top:10px;width:100%;background:#141821;color:#EDD8A3;font-weight:700;padding:15px;border-radius:999px;font-size:15px">Voltar ao início</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;bottom:110px;left:50%;transform:translateX(-50%);background:#141821;color:#EDD8A3;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;z-index:60;white-space:nowrap">{{ toastText }}</div>
+</sc-if>
+</div>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:900},&quot;telaInicial&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;onboard&quot;,&quot;main&quot;],&quot;default&quot;:&quot;onboard&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;App&quot;}}">
+class Component extends DCLogic {
+  LOGOS = { pix: "pix-logo.png", usdc: "uploads/USDC_Logo.png" };
+  PM = {
+    pix: { label: "Pix", icon: "qr_code_2" },
+    credito: { label: "Crédito", icon: "credit_card", color: "#3b82f6" },
+    debito: { label: "Débito", icon: "account_balance_wallet", color: "#10b981" },
+    usdc: { label: "USDC", icon: "toll" },
+  };
+  state = (() => {
+    const ph = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=400&q=70`;
+    const menu = [
+      [1, "Caipirinha de Limão", "Cachaça artesanal, limão tahiti e gelo", 22, 28, "photo-1551538827-9c037cb4f32a", "Drinks"],
+      [2, "Aperol Spritz", "Aperol, prosecco e laranja", 28, 34, "photo-1560512823-829485b8bf24", "Drinks"],
+      [3, "Heineken Long Neck", "Pilsen bem gelada", 12, null, "photo-1608270586620-248524c67de9", "Cervejas"],
+      [4, "Stella Artois 600ml", "Garrafa compartilhável", 18, null, "photo-1535958636474-b021ee887b13", "Cervejas"],
+      [5, "Água de Coco", "Coco verde na hora", 10, null, "photo-1520950237264-3e10a6d27dd5", "Bebidas"],
+      [6, "Coca-Cola Lata", "Gelada, 350ml", 8, null, "photo-1554866585-cd94860890b7", "Bebidas"],
+      [7, "Porção de Camarão", "Empanado com molho tártaro", 68, 89, "photo-1625938145312-c971e35e51f3", "Porções"],
+      [8, "Batata Frita", "Rústica com cheddar e bacon", 38, null, "photo-1573080496219-bb080dd4f877", "Porções"],
+      [9, "Bowl de Açaí", "Granola, banana e mel", 28, 36, "photo-1590301157890-4810ed352733", "Saudáveis"],
+      [10, "Petit Gâteau", "Chocolate com sorvete", 32, 38, "photo-1606313564200-e75d5e30476c", "Sobremesas"],
+      [11, "Churros", "Com doce de leite", 24, null, "photo-1612203985729-70726954388c", "Sobremesas"],
+    ].map((a) => ({ id: a[0], name: a[1], desc: a[2], price: a[3], old: a[4], photo: ph(a[5]), cat: a[6] }));
+    const ests = [
+      ["e3", "Sunset Beach Club", "Centro, Balneário Camboriú", "Petiscaria", 689, 4.4, true],
+      ["e8", "Brava Norte Beach Bar", "Praia Brava Norte, Itajaí", "Hamburgueria", 530, 4.7, true],
+      ["e10", "Sul do Mar Petiscaria", "Praia Brava Sul, Itajaí", "Petiscaria", 480, 4.5, true],
+      ["e2", "Bar do Zé", "Jurerê, Florianópolis", "Boteco", 412, 4.5, false],
+      ["e13", "Bar do Japa", "Centro, Londrina", "Japonesa", 380, 4.6, true],
+      ["e9", "Norte Drinks & Cia", "Praia Brava Norte, Itajaí", "Drinks & Coquetéis", 210, 4.1, true],
+      ["e11", "Bar do Sul Brava", "Praia Brava Sul, Itajaí", "Boteco", 165, 4.2, false],
+      ["e4", "Cabana da Lia", "Bombas, Bombinhas", "Frutos do mar", 158, 4.6, true],
+      ["live", "Quiosque do Mar", "Praia Brava, Itajaí", "Frutos do mar", 8, 4.8, true],
+    ];
+    const ts = (m) => new Date(Date.now() - m * 60000);
+    const eOrds = [
+      { id: 43, st: "aguardando", loc: "Guarda-sol nº 07", cust: "Turma da Júlia", ts: ts(2), items: [[1, "Aperol Spritz", 28], [1, "Batata Frita", 38], [2, "Heineken Long Neck", 12]], splits: { people: 3, paid: 1 } },
+      { id: 42, st: "producao", loc: "Guarda-sol nº 22", cust: "Marina", ts: ts(6), m: "pix", note: "Caipirinha sem açúcar, por favor.", items: [[1, "Caipirinha de Limão", 22], [1, "Porção de Camarão", 68]] },
+      { id: 41, st: "producao", loc: "Guarda-sol nº 14", ts: ts(19), m: "credito", items: [[2, "Água de Coco", 10], [1, "Bowl de Açaí", 28]] },
+      { id: 40, st: "entregue", loc: "Deck 03", ts: ts(74), m: "debito", items: [[1, "Batata Frita", 38], [2, "Heineken Long Neck", 12]] },
+      { id: 39, st: "entregue", loc: "Guarda-sol nº 07", ts: ts(150), m: "usdc", items: [[1, "Aperol Spritz", 28], [1, "Petit Gâteau", 32]] },
+    ];
+    return {
+      screen: "splash", obSlide: 0, tab: "home",
+      menu, ests, cart: [], menuCat: "Todos", buscaCat: "Todos", selPay: null, paying: false,
+      payMode: "full", people: 2, paid: [null, null], obs: "",
+      orders: [], nextId: 1, viaQr: false, toast: null,
+      role: "client", auth: null, lgMode: "entrar", lgErr: null,
+      eOrds, paused: [], eFilter: "todos", eMenuCat: "Todos", ePeriod: "hoje",
+      eQrs: ["Guarda-sol nº 14", "Guarda-sol nº 22", "Deck 03"], eQrNew: "", eAudM: "todos", eMenuPage: 0,
+      aScope: "", aPeriod: "mes", aBuscaP: "30",
+      eGw: { pix: "mp", credito: "mp", debito: "mp" },
+      eToggles: { auto: true, wa: true, em: true },
+      eForms: { perfil: { nome: "Quiosque do Mar", tagline: "Drinks autorais, frutos do mar e pé na areia", endereco: "Av. Beira-Mar, 1200 — Praia Brava, Itajaí/SC", horario: "Todos os dias · 09h às 20h", whatsapp: "5547999990000", instagram: "@quiosquedomar" }, cfg: { ip: "192.168.0.50", modelo: "Epson TM-T20" }, pw: { cur: "", nova: "" } },
+      toggles: { notif: true, offers: false },
+      forms: { q: { v: "" }, nome: { v: "" }, lg: { email: "", pass: "", nome: "" } },
+    };
+  })();
+  componentDidMount() {
+    this._splash = setTimeout(() => this.setState((s) => (s.screen === "splash" ? { screen: this.props.telaInicial ?? "onboard" } : null)), 2000);
+    this._rs = () => this.forceUpdate();
+    window.addEventListener("resize", this._rs);
+  }
+  perPage() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const shellH = w <= 520 ? h : Math.max(600, Math.min(860, h - 150));
+    return Math.max(3, Math.min(8, Math.floor((shellH - 400) / 80)));
+  }
+  componentWillUnmount() { clearTimeout(this._splash); clearTimeout(this._tt); window.removeEventListener("resize", this._rs); }
+  money = (v) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  fld(k) { return { val: this.state.forms[k].v, on: (e) => this.setState((s) => ({ forms: { ...s.forms, [k]: { v: e.target.value } } })) }; }
+  toastMsg(t) { this.setState({ toast: t }); clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast: null }), 2200); }
+  addItem(id) { this.setState((s) => { const ex = s.cart.find((c) => c.id === id); return { cart: ex ? s.cart.map((c) => (c.id === id ? { ...c, qty: c.qty + 1 } : c)) : [...s.cart, { id, qty: 1 }] }; }); }
+  decItem(id) { this.setState((s) => ({ cart: s.cart.flatMap((c) => (c.id === id ? (c.qty > 1 ? [{ ...c, qty: c.qty - 1 }] : []) : [c])) })); }
+  cartTotal() { return this.state.cart.reduce((s, c) => s + this.state.menu.find((m) => m.id === c.id).price * c.qty, 0); }
+  code() { return "PED-" + Array.from({ length: 8 }, () => "0123456789ABCDEF"[Math.floor(Math.random() * 16)]).join(""); }
+  lgFld(k) { const lg = this.state.forms.lg || { email: "", pass: "", nome: "" }; return { val: lg[k], on: (e) => this.setState((s) => ({ lgErr: null, forms: { ...s.forms, lg: { ...(s.forms.lg || { email: "", pass: "", nome: "" }), [k]: e.target.value } } })) }; }
+  doAuth() {
+    const S = this.state, f = S.forms.lg || { email: "", pass: "", nome: "" }, email = f.email.trim().toLowerCase();
+    if (S.lgMode === "criar") {
+      if (!f.nome.trim()) return this.setState({ lgErr: "Diga como podemos te chamar." });
+      if (!email.includes("@")) return this.setState({ lgErr: "Informe um e-mail válido." });
+      if (f.pass.length < 6) return this.setState({ lgErr: "A senha precisa de ao menos 6 caracteres." });
+      this.setState((s) => ({ auth: { role: "client", email }, role: "client", screen: "main", tab: "perfil", lgErr: null, forms: { ...s.forms, nome: { v: f.nome.trim() }, lg: { email: "", pass: "", nome: "" } } }));
+      return this.toastMsg("Conta criada! Bem-vindo ao Jurandir");
+    }
+    if (!email || !f.pass) return this.setState({ lgErr: "Preencha e-mail e senha." });
+    if (email === "contato@quiosquedomar.com.br" && f.pass === "demo1234") { this.setState({ auth: { role: "estab", email }, role: "estab", screen: "main", tab: "epedidos", lgErr: null }); return this.toastMsg("Painel do Quiosque do Mar"); }
+    if (email === "admin@jurandir.app" && f.pass === "admin1234") { this.setState({ auth: { role: "admin", email }, role: "admin", screen: "main", tab: "adash", lgErr: null }); return this.toastMsg("Administração da plataforma"); }
+    if (f.pass.length < 6) return this.setState({ lgErr: "E-mail ou senha incorretos." });
+    const nome = f.email.trim().split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    this.setState((s) => ({ auth: { role: "client", email }, role: "client", screen: "main", tab: "perfil", lgErr: null, forms: { ...s.forms, nome: { v: nome }, lg: { email: "", pass: "", nome: "" } } }));
+    this.toastMsg("Bem-vindo de volta!");
+  }
+  payIcon(id) {
+    const isLogo = !!this.LOGOS[id];
+    return { isLogo, isGlyph: !isLogo, logoBg: isLogo ? `url("${this.LOGOS[id]}")` : "none", iconBg: isLogo ? "#fff" : this.PM[id].color, iconBorder: isLogo ? "1px solid rgba(20,24,33,.12)" : "none", icon: this.PM[id].icon };
+  }
+  renderVals() {
+    const S = this.state, money = this.money;
+    const OB = [
+      ["qr_code_scanner", "Escaneie e pronto", "Aponte a câmera pro QR da mesa ou do guarda-sol e o cardápio abre na hora — sem baixar nada, sem esperar garçom."],
+      ["restaurant", "Peça do seu jeito", "Fotos, observações e ofertas do dia. Seu pedido vai direto pra cozinha assim que o pagamento cair."],
+      ["group", "Divida com a galera", "Conta dividida em segundos: cada um paga a sua parte com Pix, cartão ou USDC."],
+    ];
+    const ob = OB[S.obSlide];
+    const rankStyle = (i) => ({ rankBg: i < 3 ? "#FFC24B" : "rgba(20,24,33,.06)", rankFg: i < 3 ? "#141821" : "rgba(20,24,33,.5)" });
+    const openChip = (open) => ({ openLabel: open ? "aberto" : "fechado", openBg: open ? "#d1fae5" : "rgba(20,24,33,.1)", openFg: open ? "#047857" : "rgba(20,24,33,.5)" });
+    const openEst = (e) => () => this.setState({ screen: "menu", viaQr: false, estId: e[0], menuCat: "Todos" });
+    const estRow = (e, i) => ({ key: e[0], rank: `${i + 1}º`, ...rankStyle(i), name: e[1], meta: e[2], cuisine: e[3], pedidos: e[4].toLocaleString("pt-BR"), rating: e[5].toFixed(1), ...openChip(e[6]), open: openEst(e) });
+    const q = S.forms.q.v.trim().toLowerCase();
+    const cats = ["Todos", ...new Set(S.ests.map((e) => e[3]))];
+    const filtered = S.ests.filter((e) => (S.buscaCat === "Todos" || e[3] === S.buscaCat) && (!q || (e[1] + " " + e[2] + " " + e[3]).toLowerCase().includes(q)));
+    const est = S.ests.find((e) => e[0] === (S.estId || "live")) || S.ests[S.ests.length - 1];
+    const menuCats = ["Todos", ...new Set(S.menu.map((m) => m.cat))];
+    const mlist = S.menuCat === "Todos" ? S.menu : S.menu.filter((m) => m.cat === S.menuCat);
+    const count = S.cart.reduce((s, c) => s + c.qty, 0);
+    const total = this.cartTotal();
+    const fee = +(total * 0.08).toFixed(2), estFee = +(total * 0.1).toFixed(2), grand = total + fee + estFee;
+    const activeOrders = S.orders.filter((o) => o.st !== "entregue").length;
+    const NAV = S.role === "estab"
+      ? [["epedidos", "Pedidos", "receipt_long"], ["ecardapio", "Cardápio", "restaurant"], ["eqr", "QR", "qr_code_2"], ["ekpis", "KPIs", "trending_up"], ["conta", "Conta", "person"]]
+      : S.role === "admin"
+        ? [["adash", "Dashboard", "space_dashboard"], ["afat", "Faturamento", "trending_up"], ["abuscas", "Buscas", "search"], ["abacklog", "Backlog", "receipt_long"], ["conta", "Conta", "person"]]
+        : [["home", "Início", "home"], ["buscar", "Buscar", "search"], ["scan"], ["pedidos", "Pedidos", "receipt_long"], ["perfil", "Perfil", "person"]];
+    const mkT = (k) => { const on = S.toggles[k]; return { bg: on ? "#141821" : "rgba(20,24,33,.2)", left: on ? "22px" : "2px", flip: () => this.setState((s) => ({ toggles: { ...s.toggles, [k]: !s.toggles[k] } })) }; };
+    const nome = S.forms.nome.v.trim();
+    const payMode = S.payMode || "full", people = S.people || 2, paid = S.paid || [null, null];
+    const isSplit = payMode === "split";
+    const share = Math.round((grand / people) * 100) / 100;
+    const nPaid = paid.filter(Boolean).length;
+    const paidAmt = nPaid * share;
+    const canPay = !S.paying && (isSplit ? nPaid > 0 : !!S.selPay);
+    const PAYS_SHORT = [["pix", "qr_code_2", "Pix"], ["credito", "credit_card", "Crédito"], ["debito", "account_balance_wallet", "Débito"], ["usdc", "toll", "USDC"]];
+    const paysFor = (go) => PAYS_SHORT.map(([id, icon, label]) => ({ key: id, icon, label, go: () => go(id) }));
+    const payShort = { pix: "Pix", credito: "Crédito", debito: "Débito", usdc: "USDC" };
+    const darkTop = S.screen === "splash" || S.screen === "onboard" || S.screen === "scanner" || S.screen === "menu" || S.screen === "login" || S.screen === "main";
+    const eAll = S.eOrds || [], eProd = eAll.filter((o) => o.st === "producao");
+    const eSum = (o) => o.items.reduce((s, i) => s + i[0] * i[2], 0);
+    const eFat = eAll.reduce((s, o) => s + eSum(o), 0);
+    const A_FEES = { e2: "7%", e3: "9%", e10: "9%", e11: "7%", live: "8%" };
+    return {
+      frameW: 440, frameH: 956, statusDark: darkTop,
+      isSplash: S.screen === "splash",
+      isOnboard: S.screen === "onboard", isMain: S.screen === "main", isScanner: S.screen === "scanner",
+      isMenu: S.screen === "menu", isCheckout: S.screen === "checkout", isDone: S.screen === "done",
+      isHome: S.tab === "home", isBuscar: S.tab === "buscar", isPedidos: S.tab === "pedidos", isPerfil: S.tab === "perfil",
+      obIcon: ob[0], obTitle: ob[1], obDesc: ob[2],
+      obDots: OB.map((_, i) => ({ key: i, w: i === S.obSlide ? "22px" : "6px", bg: i === S.obSlide ? "#FF6B4A" : "rgba(237,216,163,.3)" })),
+      obBtn: S.obSlide === OB.length - 1 ? "Começar" : "Avançar",
+      obNext: () => (S.obSlide === OB.length - 1 ? this.setState({ screen: "main", tab: "home" }) : this.setState({ obSlide: S.obSlide + 1 })),
+      skipOb: () => this.setState({ screen: "main", tab: "home" }),
+      initials: nome ? nome.split(/\s+/).slice(0, 2).map((p) => p[0].toUpperCase()).join("") : "?",
+      nome: this.fld("nome"), q: this.fld("q"),
+      goPerfil: () => this.setState({ tab: "perfil" }), goBuscar: () => this.setState({ tab: "buscar" }),
+      goScan: () => this.setState({ screen: "scanner" }), goPedidos: () => this.setState({ screen: "main", tab: "pedidos" }),
+      closeScan: () => this.setState({ screen: "main" }),
+      simulateScan: () => this.setState({ screen: "menu", viaQr: true, estId: "live", menuCat: "Todos" }),
+      homeEsts: S.ests.slice(0, 5).map(estRow),
+      homeCats: ["Cervejas", "Caipirinhas", "Petiscos", "Porções", "Drinks", "Sobremesas"].map((t) => ({ key: t, t, go: () => this.toastMsg(`Filtro "${t}" — em breve nesta prévia`) })),
+      homeOffers: S.menu.filter((m) => m.old && m.old > m.price).slice(0, 5).map((m) => ({ key: m.id, name: m.name, photoBg: `url("${m.photo}")`, off: `-${Math.round((1 - m.price / m.old) * 100)}%`, oldStr: money(m.old), priceStr: money(m.price), open: () => this.setState({ screen: "menu", viaQr: false, estId: "live", menuCat: "Todos" }) })),
+      buscaPills: cats.map((c) => ({ key: c, label: c, bg: S.buscaCat === c ? "#141821" : "#fff", fg: S.buscaCat === c ? "#EDD8A3" : "#141821", go: () => this.setState({ buscaCat: c, buscaPage: 0 }) })),
+      buscaCount: `${filtered.length} ${filtered.length === 1 ? "lugar" : "lugares"} · ordenados por pedidos no app`,
+      buscaList: filtered.map(estRow),
+      buscaEmpty: filtered.length === 0,
+      noOrders: S.orders.length === 0,
+      orderCards: S.orders.map((o) => {
+        const inc = o.st === "aguardando";
+        const oPaid = o.splits ? o.splits.filter((x) => x.m).length : 0;
+        const oShare = o.splits ? Math.round((o.grand / o.splits.length) * 100) / 100 : 0;
+        const stepIdx = inc ? 0 : o.st === "producao" ? 1 : 2;
+        const STEPS = [["payments", "Pagamento"], ["skillet", "Na cozinha"], ["check", "Entregue"]];
+        return {
+          key: o.id, idPad: String(o.id).padStart(3, "0"),
+          stLabel: inc ? "Pagamento pendente" : o.st === "producao" ? "Em produção" : "Entregue",
+          stBg: inc ? "#ffe4e6" : o.st === "producao" ? "#fef3c7" : "#d1fae5",
+          stFg: inc ? "#be123c" : o.st === "producao" ? "#b45309" : "#047857",
+          time: o.ts.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }),
+          steps: STEPS.map(([icon, label], k) => ({
+            key: k, icon, hasBar: k < 2, flex: k < 2 ? "1" : "0 0 auto",
+            bg: k <= stepIdx ? (k === stepIdx && inc ? "#e11d48" : "#141821") : "rgba(20,24,33,.12)",
+            fg: k <= stepIdx ? "#EDD8A3" : "rgba(20,24,33,.4)",
+            barBg: k < stepIdx ? "#141821" : "rgba(20,24,33,.12)",
+          })),
+          stepColor: inc ? "#be123c" : o.st === "producao" ? "#b45309" : "#047857",
+          stepLabel: inc ? `Aguardando pagamento — só vai à cozinha 100% pago` : o.st === "producao" ? "Sendo preparado na cozinha" : "Entregue no seu lugar",
+          hasNote: !!o.note, note: o.note || "",
+          lines: o.items.map((i, k) => ({ key: k, l: `${i.qty}× ${i.name}`, v: money(i.price * i.qty) })),
+          total: money(o.grand),
+          incomplete: inc && !!o.splits,
+          paidCount: o.splits ? `${oPaid} de ${o.splits.length} pagaram` : "",
+          paidAmt: o.splits ? `${money(oPaid * oShare)} de ${money(o.grand)}` : "",
+          paidW: o.splits ? Math.round((oPaid / o.splits.length) * 100) : 0,
+          pendRows: (o.splits || []).map((x, idx) => ({ x, idx })).filter((r) => !r.x.m).map((r) => ({
+            key: r.idx, n: String(r.idx + 1), amtStr: money(oShare),
+            pays: paysFor((pid) => this.setState((s) => ({
+              orders: s.orders.map((oo) => {
+                if (oo.id !== o.id) return oo;
+                const splits = oo.splits.map((xx, i) => (i === r.idx ? { ...xx, m: pid } : xx));
+                return { ...oo, splits, st: splits.every((xx) => xx.m) ? "producao" : oo.st };
+              }),
+            }))),
+          })),
+        };
+      }),
+      payMethods: [
+        { key: "pix", label: "Pix", sub: "Aprovação na hora", fav: true, ...this.payIcon("pix") },
+        { key: "credito", label: "Visa •••• 4412", sub: "Crédito · até 6x sem juros", fav: false, ...this.payIcon("credito") },
+        { key: "usdc", label: "Stablecoin (USDC)", sub: "Carteira conectada", fav: false, ...this.payIcon("usdc") },
+      ],
+      notifT: mkT("notif"), offersT: mkT("offers"),
+      resetApp: () => this.setState({ screen: "onboard", obSlide: 0 }),
+      navTabs: NAV.map(([id, label, icon]) => id === "scan"
+        ? { key: "scan", isScan: true, notScan: false, go: () => this.setState({ screen: "scanner" }) }
+        : { key: id, isScan: false, notScan: true, label, icon, bg: S.tab === id ? "#EDD8A3" : "transparent", color: S.tab === id ? "#141821" : "rgba(237,216,163,.55)", hasBadge: id === "pedidos" && activeOrders > 0, badge: String(activeOrders), go: () => this.setState({ tab: id }) }),
+      estName: est[1], estRating: est[5].toFixed(1),
+      locLabel: S.viaQr ? "Guarda-sol nº 14 · via QR" : est[2],
+      backHome: () => this.setState({ screen: "main", tab: "home", cart: [], selPay: null }),
+      backMenu: () => this.setState({ screen: "menu" }),
+      menuPills: menuCats.map((c) => ({ key: c, label: c, bg: S.menuCat === c ? "#141821" : "#fff", fg: S.menuCat === c ? "#EDD8A3" : "#141821", go: () => this.setState({ menuCat: c }) })),
+      menuItems: mlist.map((m) => {
+        const inCart = S.cart.find((c) => c.id === m.id);
+        return { key: m.id, name: m.name, desc: m.desc, photoBg: `url("${m.photo}")`, hasOld: !!m.old, oldStr: m.old ? money(m.old) : "", priceStr: money(m.price), inCart: !!inCart, notInCart: !inCart, qty: inCart ? String(inCart.qty) : "", add: () => this.addItem(m.id), dec: () => this.decItem(m.id) };
+      }),
+      hasCart: count > 0, cartCount: `${count} ${count === 1 ? "item" : "itens"}`, cartTotal: money(total),
+      goCheckout: () => this.setState({ screen: "checkout" }),
+      coLines: S.cart.map((c) => { const m = S.menu.find((x) => x.id === c.id); return { key: c.id, l: `${c.qty}× ${m.name}`, v: money(m.price * c.qty) }; }),
+      subtotal: money(total), feeStr: money(fee), estFeeStr: money(estFee), grandStr: money(grand),
+      payOptions: Object.keys(this.PM).map((id) => ({ key: id, label: this.PM[id].label, ...this.payIcon(id), border: S.selPay === id ? "#141821" : "rgba(20,24,33,.12)", bg: S.selPay === id ? "rgba(237,216,163,.45)" : "#fff", pick: () => this.setState({ selPay: id }) })),
+      obs: { val: S.obs || "", on: (e) => this.setState({ obs: e.target.value }) },
+      isFull: !isSplit, isSplit,
+      modeFull: () => this.setState({ payMode: "full" }),
+      modeSplit: () => this.setState({ payMode: "split" }),
+      mFullBg: !isSplit ? "#141821" : "transparent", mFullFg: !isSplit ? "#EDD8A3" : "rgba(20,24,33,.55)",
+      mSplitBg: isSplit ? "#141821" : "transparent", mSplitFg: isSplit ? "#EDD8A3" : "rgba(20,24,33,.55)",
+      people: String(people),
+      pplMinus: () => { if (people > 2) this.setState({ people: people - 1, paid: Array(people - 1).fill(null) }); },
+      pplPlus: () => { if (people < 8) this.setState({ people: people + 1, paid: Array(people + 1).fill(null) }); },
+      shareStr: money(share),
+      splitRows: paid.map((m, idx) => ({
+        key: idx, n: String(idx + 1), isPaid: !!m, notPaid: !m, paidVia: m ? payShort[m] : "", amtStr: money(share), mb: m ? "0" : "8px",
+        pays: paysFor((pid) => this.setState((s) => ({ paid: (s.paid || []).map((x, i) => (i === idx ? pid : x)) }))),
+      })),
+      nPaidLabel: `${nPaid} de ${people} pagaram`,
+      paidAmtLabel: `${money(paidAmt)} de ${money(grand)}`,
+      splitW: Math.round((nPaid / people) * 100),
+      splitWarn: nPaid > 0 && nPaid < people,
+      payLabel: S.paying ? "Processando…" : isSplit ? (nPaid === 0 ? "Escolha ao menos 1 pagamento" : nPaid === people ? `Finalizar — ${money(grand)}` : `Enviar pedido · ${nPaid}/${people} pagos`) : `Pagar ${money(grand)}`,
+      payBg: !canPay ? "rgba(20,24,33,.25)" : isSplit && nPaid < people ? "#f59e0b" : "#FF6B4A",
+      payGo: () => {
+        if (!canPay) return;
+        this.setState({ paying: true });
+        const allPaid = !isSplit || nPaid === people;
+        const order = { id: S.nextId, code: this.code(), ts: new Date(), st: allPaid ? "producao" : "aguardando", grand, note: (S.obs || "").trim(), splits: isSplit ? paid.map((m) => ({ m })) : null, items: S.cart.map((c) => { const m = S.menu.find((x) => x.id === c.id); return { name: m.name, qty: c.qty, price: m.price }; }) };
+        setTimeout(() => this.setState((s) => ({ orders: [order, ...s.orders], lastCode: order.code, lastIncomplete: !allPaid, nextId: s.nextId + 1, cart: [], selPay: null, paying: false, obs: "", payMode: "full", people: 2, paid: [null, null], screen: "done" })), 900);
+      },
+      doneCode: S.lastCode || "",
+      doneBg: S.lastIncomplete ? "#f59e0b" : "#10b981",
+      doneIcon: S.lastIncomplete ? "schedule" : "check",
+      doneTitle: S.lastIncomplete ? "Falta gente pagar" : "Pedido confirmado!",
+      doneSub: S.lastIncomplete ? "Seu pedido vai à cozinha quando todos pagarem. Complete em Pedidos." : `O ${est[1]} já recebeu seu pagamento. Acompanhe em Pedidos.`,
+      hasToast: !!S.toast, toastText: S.toast || "",
+      isLogin: S.screen === "login",
+      goLogin: () => this.setState({ screen: "login", lgMode: "entrar", lgErr: null }),
+      closeLogin: () => this.setState({ screen: "main", lgErr: null }),
+      lgModeEntrar: () => this.setState({ lgMode: "entrar", lgErr: null }),
+      lgModeCriar: () => this.setState({ lgMode: "criar", lgErr: null }),
+      lgIsEntrar: S.lgMode === "entrar", lgIsCriar: S.lgMode === "criar",
+      lgEntrarBg: S.lgMode === "entrar" ? "#EDD8A3" : "transparent", lgEntrarFg: S.lgMode === "entrar" ? "#141821" : "rgba(237,216,163,.6)",
+      lgCriarBg: S.lgMode === "criar" ? "#EDD8A3" : "transparent", lgCriarFg: S.lgMode === "criar" ? "#141821" : "rgba(237,216,163,.6)",
+      lgEmail: this.lgFld("email"), lgPass: this.lgFld("pass"), lgNome: this.lgFld("nome"),
+      lgPassPh: S.lgMode === "criar" ? "Mínimo 6 caracteres" : "Sua senha",
+      lgBtn: S.lgMode === "criar" ? "Criar minha conta" : "Entrar",
+      hasLgErr: !!S.lgErr, lgErr: S.lgErr || "",
+      doLogin: () => this.doAuth(),
+      demoAccounts: [
+        { key: "e", icon: "storefront", label: "Estabelecimento — Quiosque do Mar", email: "contato@quiosquedomar.com.br", fill: () => this.setState((s) => ({ forms: { ...s.forms, lg: { ...s.forms.lg, email: "contato@quiosquedomar.com.br", pass: "demo1234" } } })) },
+        { key: "a", icon: "shield", label: "Administração da plataforma", email: "admin@jurandir.app", fill: () => this.setState((s) => ({ forms: { ...s.forms, lg: { ...s.forms.lg, email: "admin@jurandir.app", pass: "admin1234" } } })) },
+      ],
+      notAuthed: !S.auth, authedClient: !!S.auth && S.role === "client",
+      isEPedidos: S.screen === "main" && S.tab === "epedidos",
+      isECardapio: S.screen === "main" && S.tab === "ecardapio",
+      isEKpis: S.screen === "main" && S.tab === "ekpis",
+      isEQr: S.screen === "main" && S.tab === "eqr",
+      isEAud: S.screen === "main" && S.tab === "eaud",
+      isEPerfil: S.screen === "main" && S.tab === "eperfil",
+      isEConfig: S.screen === "main" && S.tab === "econfig",
+      isEstabRole: S.role === "estab",
+      backConta: () => this.setState({ tab: "conta" }),
+      eContaMenu: [["eaud", "Auditoria de vendas", "receipt_long"], ["eperfil", "Perfil do estabelecimento", "storefront"], ["econfig", "Configurações", "settings"]].map(([id, label, icon], k, arr) => ({ key: id, label, icon, border: k < arr.length - 1 ? "1px solid rgba(20,24,33,.08)" : "none", go: () => this.setState({ tab: id }) })),
+      isADash: S.screen === "main" && S.tab === "adash",
+      isAFat: S.screen === "main" && S.tab === "afat",
+      isAEsts: S.screen === "main" && S.tab === "aests",
+      isABuscas: S.screen === "main" && S.tab === "abuscas",
+      isABacklog: S.screen === "main" && S.tab === "abacklog",
+      isATaxas: S.screen === "main" && S.tab === "ataxas",
+      isAdminRole: S.role === "admin",
+      goTaxas: () => this.setState({ tab: "ataxas" }),
+      goCadastros: () => this.setState({ tab: "aests" }),
+      aCadNew: () => this.toastMsg("Cadastro de estabelecimento na versão completa"),
+      isConta: S.screen === "main" && S.tab === "conta",
+      eFilters: [["todos", "Todos", eAll.length], ["aguardando", "Aguardando", eAll.filter((o) => o.st === "aguardando").length], ["producao", "Produção", eProd.length], ["entregue", "Entregues", eAll.filter((o) => o.st === "entregue").length]].map(([id, label, n]) => ({ key: id, label, n: `(${n})`, bg: (S.eFilter || "todos") === id ? "#141821" : "#fff", fg: (S.eFilter || "todos") === id ? "#EDD8A3" : "rgba(20,24,33,.6)", go: () => this.setState({ eFilter: id }) })),
+      eEmpty: eAll.filter((o) => (S.eFilter || "todos") === "todos" || o.st === S.eFilter).length === 0,
+      eOrders: eAll.filter((o) => (S.eFilter || "todos") === "todos" || o.st === S.eFilter).map((o) => {
+        const inc = o.st === "aguardando";
+        const total = eSum(o);
+        const sp = o.splits, share = sp ? Math.round((total / sp.people) * 100) / 100 : 0;
+        return {
+          key: o.id, idPad: String(o.id).padStart(3, "0"), loc: o.loc,
+          hasCust: !!o.cust, cust: o.cust || "",
+          stLabel: inc ? "Pagamento incompleto" : o.st === "producao" ? "Em produção" : "Entregue",
+          stBg: inc ? "#ffe4e6" : o.st === "producao" ? "#fef3c7" : "#d1fae5",
+          stFg: inc ? "#be123c" : o.st === "producao" ? "#b45309" : "#047857",
+          time: o.ts.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          hasNote: !!o.note, note: o.note || "",
+          lines: o.items.map((i, k) => ({ key: k, l: `${i[0]}× ${i[1]}`, v: money(i[0] * i[2]) })),
+          split: inc && !!sp,
+          splitCount: sp ? `${sp.paid} de ${sp.people} pessoas pagaram` : "",
+          splitAmt: sp ? `${money(sp.paid * share)} de ${money(total)}` : "",
+          splitW: sp ? Math.round((sp.paid / sp.people) * 100) : 0,
+          total: inc ? money(sp ? sp.paid * share : 0) : money(total),
+          amtColor: inc ? "#e11d48" : "#EF5130",
+          canPrint: !inc, print: () => this.toastMsg(`Pedido #${String(o.id).padStart(3, "0")} enviado para impressão`),
+          canDeliver: o.st === "producao",
+          deliver: () => this.setState((s) => ({ eOrds: s.eOrds.map((x) => (x.id === o.id ? { ...x, st: "entregue" } : x)) })),
+        };
+      }),
+      eQrField: { val: S.eQrNew || "", on: (e) => this.setState({ eQrNew: e.target.value }) },
+      eQrAddBg: (S.eQrNew || "").trim() ? "#FF6B4A" : "rgba(20,24,33,.25)",
+      eQrAdd: () => { const t = (S.eQrNew || "").trim(); if (!t || (S.eQrs || []).includes(t)) return; this.setState((s) => ({ eQrs: [...(s.eQrs || []), t], eQrNew: "" })); this.toastMsg(`QR de ${t} gerado`); },
+      eQrList: (S.eQrs || []).map((label) => ({
+        key: label, label,
+        imgBg: `url("https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent("https://jurandir.app/?est=quiosque-do-mar&local=" + label)}")`,
+        print: () => this.toastMsg(`QR de ${label} enviado para impressão`),
+        del: () => this.setState((s) => ({ eQrs: (s.eQrs || []).filter((x) => x !== label) })),
+      })),
+      ...(() => {
+        const GW = { pix: 0.99, credito: 3.49, debito: 1.99, usdc: 1.0 };
+        const mLbl = { pix: "Pix", credito: "Crédito", debito: "Débito", usdc: "USDC", split: "Dividido" };
+        const rows = eAll.filter((o) => o.st !== "aguardando").map((o) => { const total = eSum(o) * 1.18; const mm = o.m || "pix"; return { o, mm, total, gw: (total * (GW[mm] || 1)) / 100 }; });
+        const filt = rows.filter((r) => (S.eAudM || "todos") === "todos" || r.mm === S.eAudM);
+        const eef = (f, k) => ({ val: (S.eForms || {})[f] ? S.eForms[f][k] : "", on: (e) => this.setState((s) => ({ eForms: { ...s.eForms, [f]: { ...s.eForms[f], [k]: e.target.value } } })) });
+        const mkET = (k) => { const on = (S.eToggles || {})[k]; return { bg: on ? "#141821" : "rgba(20,24,33,.2)", left: on ? "22px" : "2px", flip: () => this.setState((s) => ({ eToggles: { ...s.eToggles, [k]: !s.eToggles[k] } })) }; };
+        const pf = (S.eForms || {}).perfil || {};
+        return {
+          eAudPills: [["todos", "Todos"], ["pix", "Pix"], ["credito", "Crédito"], ["debito", "Débito"], ["usdc", "USDC"]].map(([id, label]) => ({ key: id, label, bg: (S.eAudM || "todos") === id ? "#141821" : "#fff", fg: (S.eAudM || "todos") === id ? "#EDD8A3" : "rgba(20,24,33,.6)", go: () => this.setState({ eAudM: id }) })),
+          eAudRows: filt.map((r) => ({ key: r.o.id, code: `PED-${String(r.o.id).padStart(3, "0")}`, dt: r.o.ts.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), loc: r.o.loc, method: mLbl[r.mm], val: money(r.total), gw: money(r.gw) })),
+          eAudCount: `${filt.length} venda${filt.length !== 1 ? "s" : ""}`,
+          eAudTotal: money(filt.reduce((s, r) => s + r.total, 0)),
+          ePerfilFields: [["nome", "Nome"], ["tagline", "Frase de destaque"], ["endereco", "Endereço"], ["horario", "Horário"], ["whatsapp", "WhatsApp"], ["instagram", "Instagram"]].map(([k, label]) => ({ key: k, label, ...eef("perfil", k) })),
+          ePerfilSave: () => this.toastMsg("Perfil salvo! Já visível para o cliente"),
+          eAutoT: mkET("auto"), eWaT: mkET("wa"), eEmT: mkET("em"),
+          eGws: [["pix", "Pix", "qr_code_2"], ["credito", "Crédito", "credit_card"], ["debito", "Débito", "account_balance_wallet"]].map(([mid, label, icon]) => ({
+            key: mid, label, icon,
+            opts: [["mp", "Mercado Pago", "conta conectada", true], ["pagarme", "Pagar.me", "cadastrar", false], ["asaas", "Asaas", "cadastrar", false], ["infinitepay", "InfinitePay", "em breve", false]].map(([gid, name, sub, ready]) => {
+              const sel = ((S.eGw || {})[mid] || "mp") === gid;
+              return {
+                key: gid, name, sel,
+                sub: sel ? "conta conectada" : sub,
+                border: sel ? "#141821" : "rgba(20,24,33,.12)",
+                bg: sel ? "#141821" : "#fff",
+                fg: sel ? "#FFC24B" : "rgba(20,24,33,.55)",
+                subFg: sel ? "rgba(237,216,163,.7)" : "rgba(20,24,33,.35)",
+                pick: () => { if (!ready) return this.toastMsg(`${name}: cadastre a conta primeiro`); this.setState((s) => ({ eGw: { ...(s.eGw || {}), [mid]: gid } })); },
+              };
+            }),
+          })),
+          ePrIp: eef("cfg", "ip"), ePrModel: eef("cfg", "modelo"),
+          eTestPrint: () => this.toastMsg("Comando de teste enviado à impressora"),
+          ePwCur: eef("pw", "cur"), ePwNova: eef("pw", "nova"),
+          ePwSave: () => { const p = (S.eForms || {}).pw || {}; if (!p.cur || (p.nova || "").length < 6) return this.toastMsg("Verifique as senhas (nova: mín. 6)"); this.setState((s) => ({ eForms: { ...s.eForms, pw: { cur: "", nova: "" } } })); this.toastMsg("Senha alterada com sucesso"); },
+        };
+      })(),
+      ...(() => {
+        const p = S.ePeriod || "hoje", f = p === "hoje" ? 1 : p === "7d" ? 6.4 : 26;
+        const catOf = {}; S.menu.forEach((m) => { catOf[m.name] = m.cat; });
+        const byCat = {};
+        eAll.filter((o) => o.st !== "aguardando").forEach((o) => o.items.forEach((i) => { const c = catOf[i[1]] || "Outros"; byCat[c] = (byCat[c] || 0) + i[0] * i[2]; }));
+        const tot = Object.values(byCat).reduce((a, b) => a + b, 0) || 1;
+        const COLORS = ["#FF6B4A", "#0F7E84", "#FFC24B", "#8b5cf6", "#ec4899", "#94a3b8"];
+        const C = 2 * Math.PI * 42; let acc = 0;
+        const eCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, v], k) => {
+          const frac = v / tot;
+          const seg = { key: c, label: c, color: COLORS[k % COLORS.length], dash: `${(frac * C).toFixed(2)} ${C.toFixed(2)}`, offset: (-acc * C).toFixed(2), pct: `${Math.round(frac * 100)}%`, val: money(v * f) };
+          acc += frac; return seg;
+        });
+        const totF = tot * f;
+        return { eCats, eCatCenter: totF >= 1000 ? "R$ " + (totF / 1000).toFixed(1).replace(".", ",") + "k" : money(totF) };
+      })(),
+      ePeriods: [["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"]].map(([id, label]) => ({ key: id, label, bg: (S.ePeriod || "hoje") === id ? "#141821" : "transparent", fg: (S.ePeriod || "hoje") === id ? "#EDD8A3" : "rgba(20,24,33,.55)", go: () => this.setState({ ePeriod: id }) })),
+      ePays: (() => {
+        const f = (S.ePeriod || "hoje") === "hoje" ? 1 : (S.ePeriod || "hoje") === "7d" ? 6.4 : 26;
+        const base = { pix: eFat * 0.44, credito: eFat * 0.3, debito: eFat * 0.14, usdc: eFat * 0.12 };
+        const max = Math.max(...Object.values(base));
+        return Object.keys(base).map((id) => ({ key: id, label: this.PM[id].label, ...this.payIcon(id), color: this.PM[id].color || (id === "pix" ? "#14b8a6" : "#8b5cf6"), val: money(base[id] * f), pct: `${Math.round((base[id] / eFat) * 100)}%`, w: Math.round((base[id] / max) * 100) }));
+      })(),
+      eMenuPills: ["Todos", ...new Set(S.menu.map((m) => m.cat))].map((c) => ({ key: c, label: c, bg: (S.eMenuCat || "Todos") === c ? "#141821" : "#fff", fg: (S.eMenuCat || "Todos") === c ? "#EDD8A3" : "rgba(20,24,33,.6)", go: () => this.setState({ eMenuCat: c, eMenuPage: 0 }) })),
+      eMenu: S.menu.filter((m) => (S.eMenuCat || "Todos") === "Todos" || m.cat === S.eMenuCat).map((m) => {
+        const off = (S.paused || []).includes(m.id);
+        return { key: m.id, name: m.name, photoBg: `url("${m.photo}")`, priceStr: money(m.price), status: off ? "Pausado" : "À venda", opacity: off ? 0.55 : 1, tBg: off ? "rgba(20,24,33,.2)" : "#141821", tLeft: off ? "2px" : "22px", flip: () => this.setState((s) => ({ paused: off ? (s.paused || []).filter((x) => x !== m.id) : [...(s.paused || []), m.id] })) };
+      }),
+      eStats: (() => {
+        const p = S.ePeriod || "hoje", f = p === "hoje" ? 1 : p === "7d" ? 6.4 : 26;
+        return [
+          { key: "f", label: "Faturamento", value: money(eFat * f), color: "#EF5130" },
+          { key: "p", label: "Pedidos", value: String(Math.round(eAll.length * f)), color: "#141821" },
+          { key: "t", label: "Ticket médio", value: money(eAll.length ? eFat / eAll.length : 0), color: "#0C6A70" },
+          { key: "e", label: "Em produção", value: String(eProd.length), color: "#b45309" },
+        ];
+      })(),
+      eTop: (() => {
+        const p = S.ePeriod || "hoje", f = p === "hoje" ? 1 : p === "7d" ? 6.4 : 26;
+        return [["Caipirinha de Limão", 14], ["Porção de Camarão", 9], ["Heineken Long Neck", 8]].map(([name, qty], k) => ({ key: name, pos: `${k + 1}º`, name, qty: String(Math.round(qty * f)), w: Math.round((qty / 14) * 100) }));
+      })(),
+
+      ...(() => {
+        const aFeeOf = (id) => { const v = parseFloat(String((S.aFees || {})[id] ?? (A_FEES[id] || "8%")).replace(",", ".")); return isNaN(v) ? 8 : v; };
+        const aFeeStr = (id) => String((S.aFees || {})[id] ?? (A_FEES[id] || "8%")).replace("%", "");
+        const AB = {
+          city: [["Itajaí/SC", 42], ["Balneário Camboriú/SC", 28], ["Florianópolis/SC", 19], ["Londrina/PR", 16], ["Itapema/SC", 12], ["Bombinhas/SC", 9]],
+          bairro: [["Praia Brava", 24], ["Centro", 18], ["Praia Brava Norte", 14], ["Jurerê", 11], ["Praia Brava Sul", 10], ["Meia Praia", 7]],
+          culinaria: [["Frutos do mar", 33], ["Mexicana/Latina", 26], ["Petiscaria", 21], ["Boteco", 15], ["Drinks & Coquetéis", 12], ["Hamburgueria", 9]],
+          tipo: [["Bar", 31], ["Quiosque", 22], ["Restaurante", 18], ["Estab. de Praia", 10], ["Balada", 6]],
+        };
+        const abF = S.aBuscaF || "city";
+        const abRows = AB[abF];
+        const abTot = abRows.reduce((s, [, n]) => s + n, 0), abMax = abRows[0][1];
+        const ABL = [
+          ["PED-7F3A9C2D", "Quiosque do Mar", "Itajaí/SC", 3, "pix", "", 109, "1× Combo Casal, 1× Água de Coco"],
+          ["PED-4C8A21EF", "Bar do Japa", "Londrina/PR", 12, "credito", "Visa •••• 4412", 96, "2× Lámen do Japa"],
+          ["PED-1D5B90A3", "Sunset Beach Club", "Balneário Camboriú/SC", 26, "split", "", 90, "1× Aperol Spritz, 1× Batata Frita, 2× Long Neck"],
+          ["PED-9C04D7B1", "Brava Norte Beach Bar", "Itajaí/SC", 41, "debito", "Elo •••• 2210", 74, "1× Burger Brava, 1× Heineken Long Neck"],
+          ["PED-B37F10C6", "Estúdio da Bruxa", "Londrina/PR", 65, "usdc", "", 62.7, "1× Burrito de Carnitas, 1× Chamoyada"],
+          ["PED-64A0C9E7", "Sul do Mar Petiscaria", "Itajaí/SC", 90, "pix", "", 129, "1× Moqueca de Peixe, 2× Suco de Laranja"],
+          ["PED-F92B37D4", "Bar do Zé", "Florianópolis/SC", 130, "credito", "Master •••• 7810", 84, "2× Petisco do Zé, 2× Brahma 600ml"],
+          ["PED-80D6E4A5", "Cabana da Lia", "Bombinhas/SC", 210, "pix", "", 56, "2× Água de Coco, 1× Porção de Camarão"],
+        ];
+        const mLbl = { pix: "Pix", credito: "Crédito", debito: "Débito", usdc: "USDC", split: "Dividido" };
+        const ablM = S.aBlM || "todos";
+        const ablF = ABL.filter((r) => ablM === "todos" || r[4] === ablM);
+        const A_TIPO = { e3: "Balada", e8: "Estab. de Praia", e10: "Restaurante", e2: "Bar", e13: "Bar", e9: "Quiosque", e11: "Bar", e4: "Quiosque", live: "Quiosque" };
+        const scoped = S.aScope ? S.ests.filter((e) => e[0] === S.aScope) : S.ests;
+        const AP = S.aPeriod || "mes";
+        const pf = AP === "dia" ? 1 / 30 : AP === "semana" ? 7 / 30 : AP === "quinzena" ? 0.5 : 1;
+        const revOf = (e) => e[4] * 85 * pf;
+        const gmv = scoped.reduce((s, e) => s + revOf(e), 0);
+        const fees = scoped.reduce((s, e) => s + (revOf(e) * aFeeOf(e[0])) / 100, 0);
+        const ped = Math.round(scoped.reduce((s, e) => s + e[4], 0) * pf);
+        const feeAvg = scoped.length ? scoped.reduce((s, e) => s + aFeeOf(e[0]), 0) / scoped.length : 0;
+        const SHARES = [["credito", "Crédito", "#3b82f6", 0.30], ["debito", "Débito", "#10b981", 0.14], ["pix", "Pix", "#14b8a6", 0.44], ["usdc", "USDC", "#0E565B", 0.12]];
+        const DC = 2 * Math.PI * 42; let acc = 0;
+        const maxShare = Math.max(...SHARES.map((x) => x[3]));
+        const aPayBars = SHARES.map(([id, label, color, sh]) => { const seg = { key: id, label, color, val: money(gmv * sh), pct: `${Math.round(sh * 100)}%`, w: Math.round((sh / maxShare) * 100), dash: `${(sh * DC).toFixed(2)} ${DC.toFixed(2)}`, offset: (-acc * DC).toFixed(2) }; acc += sh; return seg; });
+        const tipos = [...new Set(scoped.map((e) => A_TIPO[e[0]] || "Bar"))].map((tipo) => {
+          const g = scoped.filter((e) => (A_TIPO[e[0]] || "Bar") === tipo);
+          const rev = g.reduce((s, e) => s + revOf(e), 0), po = Math.round(g.reduce((s, e) => s + e[4], 0) * pf);
+          return { tipo, count: g.length, rev, po };
+        }).sort((a, b) => b.rev - a.rev);
+        const tRev = tipos.reduce((s, g) => s + g.rev, 0) || 1, tOrd = tipos.reduce((s, g) => s + g.po, 0) || 1;
+        const topSrc = [...scoped].sort((a, b) => b[4] - a[4]).slice(0, 5);
+        const topMax = topSrc[0] ? revOf(topSrc[0]) || 1 : 1;
+        const mRaw = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+        const abMult = (S.aBuscaP || "30") === "7" ? 0.35 : (S.aBuscaP || "30") === "tudo" ? 1.7 : 1;
+        return {
+          aScopePills: [["", "Todos os estabelecimentos"], ...S.ests.map((e) => [e[0], e[1]])].map(([id, label]) => ({ key: id || "all", label, bg: (S.aScope || "") === id ? "#141821" : "#fff", fg: (S.aScope || "") === id ? "#EDD8A3" : "rgba(20,24,33,.6)", ic: (S.aScope || "") === id ? "#FFC24B" : "#FF6B4A", go: () => this.setState({ aScope: id }) })),
+          aPeriodPills: [["dia", "Dia"], ["semana", "Semana"], ["quinzena", "Quinzena"], ["mes", "Mês"]].map(([id, label]) => ({ key: id, label, bg: AP === id ? "#141821" : "transparent", fg: AP === id ? "#EDD8A3" : "rgba(20,24,33,.55)", go: () => this.setState({ aPeriod: id }) })),
+          aShowMonth: AP === "mes", aMonthLabel: mRaw.charAt(0).toUpperCase() + mRaw.slice(1),
+          aStats: [
+            { key: "g", label: "GMV da plataforma", value: money(gmv), color: "#141821", hasSub: true, sub: "faturamento somado dos clientes" },
+            { key: "f", label: "Receita de fees", value: money(fees), color: "#059669", hasSub: true, sub: "o que o Jurandir fatura" },
+            { key: "p", label: "Pedidos totais", value: ped.toLocaleString("pt-BR"), color: "#141821", hasSub: false, sub: "" },
+            { key: "t", label: "Ticket médio", value: money(ped ? gmv / ped : 0), color: "#141821", hasSub: false, sub: "" },
+            { key: "e", label: "Estabelecimentos", value: String(scoped.length), color: "#141821", hasSub: true, sub: `${scoped.length} ativos · 0 pendente(s)` },
+            { key: "u", label: "% via USDC", value: "12,0%", color: "#0E565B", hasSub: true, sub: "movimento em stablecoin" },
+            { key: "m", label: "Fee médio", value: `${feeAvg.toFixed(1).replace(".", ",")}%`, color: "#141821", hasSub: false, sub: "" },
+            { key: "a", label: "GMV/estab. ativo", value: money(scoped.length ? gmv / scoped.length : 0), color: "#141821", hasSub: false, sub: "" },
+          ],
+          aPayBars, aGmvShort: gmv >= 1000 ? "R$ " + (gmv / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 0 }) + "k" : money(gmv),
+          aTipos: tipos.map((g) => ({ key: g.tipo, tipo: g.tipo, ticket: money(g.po ? g.rev / g.po : 0), count: `${g.count} ${g.count === 1 ? "estab." : "estabs."}`, revW: Math.round((g.rev / tRev) * 100), revPct: `${Math.round((g.rev / tRev) * 100)}%`, revVal: money(g.rev), ordW: Math.round((g.po / tOrd) * 100), ordPct: `${Math.round((g.po / tOrd) * 100)}%`, ordVal: g.po.toLocaleString("pt-BR") })),
+          aTop: topSrc.map((e, k) => ({ key: e[0], pos: `${k + 1}º`, name: e[1], rev: money(revOf(e)), fee: money((revOf(e) * aFeeOf(e[0])) / 100), w: Math.round((revOf(e) / topMax) * 100) })),
+          aFat: scoped.map((e) => ({ key: e[0], name: e[1], meta: e[2], rev: money(revOf(e)), ped: Math.round(e[4] * pf).toLocaleString("pt-BR"), feeLabel: `Fee (${aFeeStr(e[0])}%)`, feeVal: money((revOf(e) * aFeeOf(e[0])) / 100) })),
+          aBuscaPer: [["7", "7 dias"], ["30", "30 dias"], ["tudo", "Tudo"]].map(([id, label]) => ({ key: id, label, bg: (S.aBuscaP || "30") === id ? "#141821" : "transparent", fg: (S.aBuscaP || "30") === id ? "#EDD8A3" : "rgba(20,24,33,.55)", go: () => this.setState({ aBuscaP: id }) })),
+          aBuscaTotal: Math.round(Object.values(AB).flat().reduce((s, [, n]) => s + n, 0) * abMult).toLocaleString("pt-BR"),
+          aCadCount: String(S.ests.length),
+          aEsts: S.ests.map((e) => { const slug = e[1].toLowerCase().replace(/[^a-z0-9]+/g, ""); return { key: e[0], name: e[1], tipo: A_TIPO[e[0]] || "Bar", meta: `${e[2]} · Plano ${e[4] > 300 ? "Pro" : "Básico"}`, user: slug, insta: `@${slug}`, pedidos: e[4].toLocaleString("pt-BR"), fee: `${aFeeStr(e[0])}%`, rev: money(e[4] * 85), feeMes: money((e[4] * 85 * aFeeOf(e[0])) / 100) }; }),
+          aBuscaPills: [["city", "Cidade"], ["bairro", "Bairro"], ["culinaria", "Culinária"], ["tipo", "Tipo"]].map(([id, label]) => ({ key: id, label, bg: abF === id ? "#141821" : "#fff", fg: abF === id ? "#EDD8A3" : "rgba(20,24,33,.6)", go: () => this.setState({ aBuscaF: id }) })),
+          aBuscaRows: abRows.map(([label, n], k) => ({ key: label, pos: `${k + 1}º`, label, n: String(Math.round(n * abMult)), pct: `${Math.round((n / abTot) * 100)}%`, w: Math.round((n / abMax) * 100) })),
+          aBlPills: [["todos", "Todos"], ["pix", "Pix"], ["credito", "Crédito"], ["debito", "Débito"], ["usdc", "USDC"], ["split", "Dividido"]].map(([id, label]) => ({ key: id, label, bg: ablM === id ? "#141821" : "#fff", fg: ablM === id ? "#EDD8A3" : "rgba(20,24,33,.6)", go: () => this.setState({ aBlM: id }) })),
+          aBlRows: ablF.map((r) => { const d = new Date(Date.now() - r[3] * 60000); return { key: r[0], code: r[0], estab: r[1], city: r[2], dt: d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), method: mLbl[r[4]], hasCard: !!r[5], card: r[5], total: money(r[6]), items: r[7] }; }),
+          aBlCount: `${ablF.length} compra${ablF.length !== 1 ? "s" : ""}`,
+          aBlTotal: money(ablF.reduce((s, r) => s + r[6], 0)),
+          aTaxas: S.ests.map((e) => ({ key: e[0], name: e[1], feeMes: money((e[4] * 85 * aFeeOf(e[0])) / 100), fee: { val: aFeeStr(e[0]), on: (ev) => { const v = ev.target.value.replace(/[^0-9.,]/g, ""); this.setState((s) => ({ aFees: { ...(s.aFees || {}), [e[0]]: v } })); } } })),
+        };
+      })(),
+      contaIcon: S.role === "admin" ? "shield" : S.role === "estab" ? "storefront" : "person",
+      contaName: S.role === "admin" ? "Administração Jurandir" : S.role === "estab" ? "Quiosque do Mar" : S.forms.nome.v || "Cliente",
+      contaEmail: S.auth ? S.auth.email : "",
+      doLogout: () => { this.setState((s) => ({ auth: null, role: "client", screen: "main", tab: "home", forms: { ...s.forms, nome: { v: "" } } })); this.toastMsg("Você saiu da conta"); },
+      backToClient: () => this.setState({ role: "client", screen: "main", tab: "home" }),
+    };
+  }
+}
+</script>
+</body>
+</html>
