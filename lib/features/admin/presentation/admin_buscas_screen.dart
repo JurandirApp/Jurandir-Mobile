@@ -1,88 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/data/seed_data.dart';
+import '../../../core/data/models.dart';
+import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/filter_pill.dart';
-import '../../../core/widgets/segmented_control.dart';
 
 const _dims = [('city', 'Cidade'), ('bairro', 'Bairro'), ('culinaria', 'Culinária'), ('tipo', 'Tipo')];
 
-class AdminBuscasScreen extends StatefulWidget {
+class AdminBuscasScreen extends ConsumerStatefulWidget {
   const AdminBuscasScreen({super.key});
 
   @override
-  State<AdminBuscasScreen> createState() => _AdminBuscasScreenState();
+  ConsumerState<AdminBuscasScreen> createState() => _AdminBuscasScreenState();
 }
 
-class _AdminBuscasScreenState extends State<AdminBuscasScreen> {
+class _AdminBuscasScreenState extends ConsumerState<AdminBuscasScreen> {
   String _dim = 'city';
-  int _period = 1; // 0=7d, 1=30d, 2=tudo
-
-  double get _mult => [0.35, 1.0, 1.7][_period];
 
   @override
   Widget build(BuildContext context) {
-    final rows = kBuscaDims[_dim]!;
-    final abTot = rows.fold(0, (s, r) => s + r.$2);
-    final abMax = rows.first.$2;
-    final totalAll = kBuscaDims.values.expand((x) => x).fold(0, (s, r) => s + r.$2);
-    final totalBuscas = (totalAll * _mult).round();
-
+    final async = ref.watch(adminSearchesProvider);
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Plataforma · 30 dias', title: 'Buscas'),
+          const DarkHeader(eyebrow: 'Plataforma', title: 'Buscas'),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-              children: [
-                SegmentedControl(
-                  segments: const ['7 dias', '30 dias', 'Tudo'],
-                  selected: _period,
-                  onChanged: (i) => setState(() => _period = i),
+            child: async.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
+              error: (_, _) => Center(
+                child: GestureDetector(
+                  onTap: () => ref.invalidate(adminSearchesProvider),
+                  child: Text('Erro ao carregar. Toque para tentar de novo.',
+                      style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
                 ),
-                const SizedBox(height: 12),
-                Text.rich(
-                  TextSpan(children: [
-                    const TextSpan(text: 'O que os visitantes filtram — '),
-                    TextSpan(text: groupThousands(totalBuscas), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
-                    const TextSpan(text: ' buscas no período.'),
-                  ]),
-                  style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5)),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 38,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < _dims.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 8),
-                          FilterPill(label: _dims[i].$2, selected: _dims[i].$1 == _dim, onTap: () => setState(() => _dim = _dims[i].$1)),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                BrutalCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < rows.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 12),
-                        _barBlock(i + 1, rows[i].$1, rows[i].$2, abTot, abMax),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+              ),
+              data: (s) => _body(s),
             ),
           ),
         ],
@@ -90,8 +48,65 @@ class _AdminBuscasScreenState extends State<AdminBuscasScreen> {
     );
   }
 
+  Widget _body(AdminSearches? s) {
+    final rows = s?.dims[_dim] ?? const <AdminSearchRow>[];
+    final abTot = rows.fold(0, (a, r) => a + r.count);
+    final abMax = rows.isEmpty ? 1 : rows.first.count;
+    final total = s?.total ?? 0;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+      children: [
+        Text.rich(
+          TextSpan(children: [
+            const TextSpan(text: 'O que os visitantes filtram — '),
+            TextSpan(text: groupThousands(total), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
+            const TextSpan(text: ' buscas registradas.'),
+          ]),
+          style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5)),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 38,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < _dims.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  FilterPill(label: _dims[i].$2, selected: _dims[i].$1 == _dim, onTap: () => setState(() => _dim = _dims[i].$1)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (rows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Center(
+              child: Text('Sem buscas registradas nesta dimensão.',
+                  textAlign: TextAlign.center,
+                  style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+            ),
+          )
+        else
+          BrutalCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                for (var i = 0; i < rows.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  _barBlock(i + 1, rows[i].label, rows[i].count, abTot, abMax),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _barBlock(int pos, String label, int count, int abTot, int abMax) {
-    final n = (count * _mult).round();
     final pct = abTot == 0 ? 0 : (count / abTot * 100).round();
     return Column(
       children: [
@@ -110,7 +125,7 @@ class _AdminBuscasScreenState extends State<AdminBuscasScreen> {
             ),
             const SizedBox(width: 8),
             Text.rich(TextSpan(children: [
-              TextSpan(text: '$n', style: AppText.body(size: 13, weight: FontWeight.w800)),
+              TextSpan(text: '$count', style: AppText.body(size: 13, weight: FontWeight.w800)),
               TextSpan(text: ' · $pct%', style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
             ])),
           ],

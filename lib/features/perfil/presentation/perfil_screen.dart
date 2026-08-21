@@ -15,7 +15,6 @@ import '../../auth/auth_controller.dart';
 const _payMethods = [
   ('Pix', 'Aprovação na hora', Symbols.qr_code_2, AppColors.pix, true),
   ('Visa •••• 4412', 'Crédito · até 6x sem juros', Symbols.credit_card, AppColors.credit, false),
-  ('Stablecoin (USDC)', 'Carteira conectada', Symbols.toll, AppColors.usdc, false),
 ];
 
 class PerfilScreen extends ConsumerStatefulWidget {

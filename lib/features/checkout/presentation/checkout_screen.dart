@@ -1,10 +1,11 @@
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/models.dart';
 import '../../../core/data/orders_controller.dart';
@@ -16,6 +17,7 @@ import '../../../core/utils/money.dart';
 import '../../auth/auth_controller.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
+import 'card_wait_screen.dart';
 import 'wallet_buttons.dart';
 
 class _PayMethod {
@@ -30,7 +32,6 @@ const _methods = [
   _PayMethod('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
   _PayMethod('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
   _PayMethod('debito', 'Débito', Symbols.account_balance_wallet, AppColors.debit),
-  _PayMethod('usdc', 'USDC', Symbols.toll, AppColors.usdc),
 ];
 
 /// Checkout: resumo + observação + "Pagar tudo / Dividir conta" + métodos +
@@ -45,7 +46,6 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String _payMode = 'full';
   int _people = 2;
-  List<String?> _paid = [null, null];
   String? _selPay;
   bool _submitting = false;
   final _obsCtrl = TextEditingController();
@@ -58,10 +58,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   void _setPeople(int n) {
     if (n < 2 || n > 8) return;
-    setState(() {
-      _people = n;
-      _paid = List<String?>.filled(n, null);
-    });
+    setState(() => _people = n);
   }
 
   String _genCode() {
@@ -71,12 +68,91 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   void _pay(double grand) {
-    final isSplit = _payMode == 'split';
-    final nPaid = _paid.where((x) => x != null).length;
-    final canPay = isSplit ? nPaid > 0 : _selPay != null;
-    if (!canPay) return;
-    final allPaid = !isSplit || nPaid == _people;
-    _finish(incomplete: !allPaid);
+    if (_payMode == 'split') {
+      _paySplit();
+      return;
+    }
+    if (_selPay == null) return;
+    // Pix (pagar tudo) → cobrança real: gera o QR e vai pra tela do Pix.
+    if (_selPay == 'pix') {
+      _payPix();
+      return;
+    }
+    // Crédito/Débito (pagar tudo) → checkout hospedado da Pagar.me.
+    if (_selPay == 'credito' || _selPay == 'debito') {
+      _payCard();
+      return;
+    }
+    _finish(incomplete: false);
+  }
+
+  /// Cria o pedido Pix (cobrança real na Pagar.me) e abre a tela do QR.
+  Future<void> _payPix() async {
+    if (_submitting) return;
+    final payload = _orderPayload(method: 'PIX');
+    if (payload == null) {
+      // Sem estabelecimento real (demo) → mantém o fluxo antigo.
+      _finish(incomplete: false);
+      return;
+    }
+    setState(() => _submitting = true);
+    ClientOrder? order;
+    try {
+      order = await ref.read(publicApiProvider).createOrder(payload);
+    } catch (_) {
+      order = null;
+    }
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (order == null) {
+      _toast('Não foi possível gerar o Pix. Tente novamente.');
+      return;
+    }
+    final id = order.dbId;
+    if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+    if (!mounted) return;
+    ref.read(cartProvider.notifier).clear();
+    // Sem cobrança Pix (gateway não-Pagar.me ou sem recebedor) → confirma como
+    // pedido normal em vez de travar o cliente numa tela vazia.
+    if (order.pixPayload == null && order.pixQrImage == null) {
+      context.go('/done', extra: DoneArgs(incomplete: false, code: order.code));
+      return;
+    }
+    context.go('/pix', extra: order);
+  }
+
+  /// Crédito/Débito → cria o pedido e abre o checkout hospedado da Pagar.me
+  /// (cartão + 3DS acontecem na página segura). A confirmação vem pelo polling.
+  Future<void> _payCard() async {
+    if (_submitting) return;
+    final payload = _orderPayload(method: _enumMethod(_selPay));
+    if (payload == null) {
+      // Sem estabelecimento real (demo) → mantém o fluxo antigo.
+      _finish(incomplete: false);
+      return;
+    }
+    setState(() => _submitting = true);
+    ({bool ok, String? checkoutUrl, ClientOrder? order})? res;
+    try {
+      res = await ref.read(publicApiProvider).createCardCheckout(payload);
+    } catch (_) {
+      res = null;
+    }
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    final url = res?.checkoutUrl;
+    final order = res?.order;
+    if (res == null || res.ok != true || url == null || url.isEmpty || order == null) {
+      _toast('Não foi possível abrir o pagamento no cartão. Tente novamente.');
+      return;
+    }
+    final id = order.dbId;
+    if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+    final uri = Uri.tryParse(url);
+    if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+    ref.read(cartProvider.notifier).clear();
+    context.go('/pagamento', extra: CardWaitArgs(order: order, checkoutUrl: url));
   }
 
   /// Cria o pedido real (best-effort) e vai pra confirmação. Sem backend /
@@ -91,13 +167,51 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<ClientOrder?> _submitOrder() async {
+    final payload = _orderPayload(method: _enumMethod(_selPay));
+    if (payload == null) return null;
+    try {
+      final order = await ref.read(publicApiProvider).createOrder(payload);
+      final id = order.dbId;
+      if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+      return order;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Enum do backend a partir do método escolhido no app.
+  String _enumMethod(String? sel) {
+    switch (sel) {
+      case 'pix':
+        return 'PIX';
+      case 'debito':
+        return 'DEBIT';
+      case 'usdc':
+        return 'USDC';
+      default:
+        return 'CREDIT';
+    }
+  }
+
+  /// Monta o payload do pedido (estabelecimento escolhido + carrinho). Null se
+  /// não houver estabelecimento real ou o carrinho estiver vazio.
+  Map<String, dynamic>? _orderPayload({required String method}) {
     final ests = ref.read(establishmentsProvider).asData?.value ?? const <Establishment>[];
+    final slug = ref.read(selectedSlugProvider);
     Establishment? est;
+    // 1) o estabelecimento que o cliente abriu (slug); 2) senão, o primeiro real.
     for (final e in ests) {
-      if (e.slug != null) {
-        // primeiro estabelecimento REAL (com slug vindo do Neon)
+      if (slug != null && e.slug == slug) {
         est = e;
         break;
+      }
+    }
+    if (est == null) {
+      for (final e in ests) {
+        if (e.slug != null) {
+          est = e;
+          break;
+        }
       }
     }
     if (est == null) return null;
@@ -105,7 +219,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (lines.isEmpty) return null;
     final name = ref.read(authProvider).name;
     final note = _obsCtrl.text.trim();
-    final payload = <String, dynamic>{
+    return <String, dynamic>{
       'establishmentId': est.id,
       'locationLabel': 'Pedido pelo app',
       if (name != null && name.isNotEmpty) 'customerName': name,
@@ -119,19 +233,34 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             'unitPrice': l.$1.price,
           },
       ],
-      // Pagamento adiado: CREDIT não dispara cobrança dentro do createOrder,
-      // então o pedido nasce "aguardando pagamento". Trocar pelo método real
-      // quando o pagamento for ligado.
-      'payment': {'kind': 'full', 'method': 'CREDIT', 'installments': 1},
+      'payment': {'kind': 'full', 'method': method, 'installments': 1},
     };
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.ink,
+        content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
+      ));
+  }
+
+  /// Extrai o token da carteira do resultado do plugin `pay`.
+  String? _walletToken(Map<String, dynamic> result) {
     try {
-      final order = await ref.read(publicApiProvider).createOrder(payload);
-      final id = order.dbId;
-      if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
-      return order;
-    } catch (_) {
-      return null;
-    }
+      // Google Pay: paymentMethodData.tokenizationData.token (string JSON).
+      final pmd = result['paymentMethodData'];
+      if (pmd is Map) {
+        final td = pmd['tokenizationData'];
+        if (td is Map && td['token'] is String) return td['token'] as String;
+      }
+      // Apple Pay: chave 'token' (finalizar quando o iOS estiver de pé).
+      final t = result['token'];
+      if (t is String) return t;
+    } catch (_) {}
+    return null;
   }
 
   @override
@@ -139,31 +268,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     ref.watch(cartProvider);
     final ctrl = ref.read(cartProvider.notifier);
     final ests = ref.watch(establishmentsProvider).asData?.value ?? const <Establishment>[];
+    final selSlug = ref.watch(selectedSlugProvider);
     final est = ests.firstWhere(
-      (e) => e.slug != null,
-      orElse: () => kEstablishments.firstWhere((e) => e.id == 'live'),
+      (e) => e.slug == selSlug,
+      orElse: () => ests.firstWhere(
+        (e) => e.slug != null,
+        orElse: () => kEstablishments.firstWhere((e) => e.id == 'live'),
+      ),
     );
     final total = ctrl.total;
-    final fee = total * 0.08;
-    final estFee = total * 0.10;
+    // Taxas REAIS do bar (vêm da API; fallback 8%/10% no seed).
+    final fee = total * est.platformFeePct / 100;
+    final estFee = total * est.serviceFeePct / 100;
     final grand = total + fee + estFee;
     final isSplit = _payMode == 'split';
     final share = _people == 0 ? 0.0 : grand / _people;
-    final nPaid = _paid.where((x) => x != null).length;
-    final canPay = isSplit ? nPaid > 0 : _selPay != null;
+    final canPay = isSplit ? true : _selPay != null;
     final topSafe = MediaQuery.paddingOf(context).top;
 
     final String payLabel;
     final Color payBg;
     if (isSplit) {
-      payLabel = nPaid == 0
-          ? 'Escolha ao menos 1 pagamento'
-          : nPaid == _people
-          ? 'Finalizar — ${money(grand)}'
-          : 'Enviar pedido · $nPaid/$_people pagos';
-      payBg = !canPay
-          ? AppColors.inkA(0.25)
-          : (nPaid < _people ? AppColors.warning : AppColors.coral);
+      payLabel = 'Gerar Pix da divisão — ${money(grand)}';
+      payBg = AppColors.coral;
     } else {
       payLabel = 'Pagar ${money(grand)}';
       payBg = canPay ? AppColors.coral : AppColors.inkA(0.25);
@@ -213,7 +340,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   _walletSection(grand),
                   _payGrid(),
                 ] else
-                  _splitCard(grand, share, nPaid),
+                  _splitCard(grand, share),
               ],
             ),
           ),
@@ -280,9 +407,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               children: [
                 _sumRow('Subtotal', money(total)),
                 const SizedBox(height: 5),
-                _sumRow('Taxa Jurandir (8%)', money(fee)),
+                _sumRow('Taxa Jurandir', money(fee)),
                 const SizedBox(height: 5),
-                _sumRow('Taxa de serviço (10%)', money(estFee)),
+                _sumRow('Taxa de serviço', money(estFee)),
                 Container(
                   margin: const EdgeInsets.only(top: 5),
                   padding: const EdgeInsets.only(top: 5),
@@ -379,10 +506,48 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  void _onWallet(Map<String, dynamic> _) {
-    // TODO(#3b): enviar o token da wallet pro backend que cobra via Pagar.me.
-    // Por ora cria o pedido real (aguardando pagamento) e vai pra confirmação.
-    _finish(incomplete: false);
+  /// Recebe o resultado do Google/Apple Pay, cria o pedido e cobra na hora
+  /// (POST /orders/wallet → Pagar.me). Aprovado → confirmação "em produção".
+  Future<void> _onWallet(Map<String, dynamic> result) async {
+    if (_submitting) return;
+    final token = _walletToken(result);
+    if (token == null) {
+      _toast('Não foi possível ler o pagamento da carteira.');
+      return;
+    }
+    final payload = _orderPayload(method: 'CREDIT');
+    if (payload == null) {
+      // Sem estabelecimento real (demo) → mantém o comportamento antigo.
+      _finish(incomplete: false);
+      return;
+    }
+    final walletType =
+        defaultTargetPlatform == TargetPlatform.iOS ? 'apple_pay' : 'google_pay';
+    setState(() => _submitting = true);
+    try {
+      final r = await ref
+          .read(publicApiProvider)
+          .createWalletOrder(payload, walletType, token);
+      if (!mounted) return;
+      if (r.ok && r.status == 'paid') {
+        final id = r.order?.dbId;
+        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+        if (!mounted) return;
+        ref.read(cartProvider.notifier).clear();
+        context.go('/done',
+            extra: DoneArgs(incomplete: false, code: r.order?.code ?? _genCode()));
+      } else {
+        setState(() => _submitting = false);
+        _toast(r.status == 'pending'
+            ? 'Pagamento em processamento — acompanhe em Pedidos.'
+            : 'Pagamento não aprovado. Tente outro método.');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast('Não foi possível concluir o pagamento.');
+      }
+    }
   }
 
   Widget _walletSection(double amount) {
@@ -456,7 +621,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  Widget _splitCard(double grand, double share, int nPaid) {
+  Widget _splitCard(double grand, double share) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: _brutal,
@@ -466,7 +631,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Quantos amigos?', style: AppText.body(size: 13, weight: FontWeight.w700)),
+              Text('Quantas pessoas?', style: AppText.body(size: 13, weight: FontWeight.w700)),
               Row(
                 children: [
                   _stepBtn(Symbols.remove, AppColors.inkA(0.08), AppColors.ink, () => _setPeople(_people - 1)),
@@ -491,135 +656,64 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          for (var i = 0; i < _people; i++) ...[
-            if (i > 0) const SizedBox(height: 8),
-            _friendRow(i, share),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('$nPaid de $_people pagaram',
-                  style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
-              Text('${money(nPaid * share)} de ${money(grand)}',
-                  style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
-            ],
-          ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: _people == 0 ? 0 : nPaid / _people,
-              minHeight: 8,
-              backgroundColor: AppColors.inkA(0.08),
-              valueColor: const AlwaysStoppedAnimation(AppColors.success),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.pix.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.pix.withValues(alpha: 0.25)),
             ),
-          ),
-          if (nPaid > 0 && nPaid < _people) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFFDE68A)),
-              ),
-              child: Text.rich(
-                TextSpan(
-                  style: AppText.body(size: 11, weight: FontWeight.w600, height: 1.45, color: const Color(0xFF92400E)),
-                  children: const [
-                    TextSpan(text: 'O pedido só vai para a cozinha quando estiver '),
-                    TextSpan(text: '100% pago', style: TextStyle(fontWeight: FontWeight.w800)),
-                    TextSpan(text: ' — quem faltar pode pagar depois em Pedidos.'),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _friendRow(int idx, double share) {
-    final method = _paid[idx];
-    final paid = method != null;
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.inkA(0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.inkA(0.08), shape: BoxShape.circle),
-                    child: Text('${idx + 1}', style: AppText.body(size: 11, weight: FontWeight.w800)),
-                  ),
-                  const SizedBox(width: 8),
-                  Text('Amigo ${idx + 1}', style: AppText.body(size: 13, weight: FontWeight.w700)),
-                ],
-              ),
-              if (paid)
-                Row(
-                  children: [
-                    const Icon(Symbols.check, size: 13, color: AppColors.successText),
-                    const SizedBox(width: 4),
-                    Text('Pago · ${_labelOf(method)}',
-                        style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.successText)),
-                  ],
-                )
-              else
-                Text(money(share), style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.45))),
-            ],
-          ),
-          if (!paid) ...[
-            const SizedBox(height: 8),
-            Row(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var m = 0; m < _methods.length; m++) ...[
-                  if (m > 0) const SizedBox(width: 6),
-                  Expanded(child: _friendPayBtn(idx, _methods[m])),
-                ],
+                const Icon(Symbols.qr_code_2, size: 16, color: AppColors.pix),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Geramos um Pix por pessoa. Você paga o seu e compartilha os '
+                    'outros no WhatsApp — o pedido vai pra cozinha quando todos pagarem.',
+                    style: AppText.body(size: 11, weight: FontWeight.w600, height: 1.4, color: AppColors.inkA(0.7)),
+                  ),
+                ),
               ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _friendPayBtn(int idx, _PayMethod pm) {
-    return GestureDetector(
-      onTap: () => setState(() => _paid[idx] = pm.id),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        decoration: BoxDecoration(
-          color: AppColors.duneA(0.35),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: AppColors.inkA(0.1)),
-        ),
-        child: Column(
-          children: [
-            Icon(pm.icon, size: 15, color: AppColors.inkA(0.7)),
-            const SizedBox(height: 2),
-            Text(pm.label, style: AppText.body(size: 9, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
-          ],
-        ),
-      ),
-    );
+  /// Gera o pedido dividido (N cobranças Pix, uma por pessoa) e abre a tela de split.
+  Future<void> _paySplit() async {
+    if (_submitting) return;
+    final payload = _orderPayload(method: 'PIX');
+    if (payload == null) {
+      _finish(incomplete: false);
+      return;
+    }
+    payload['payment'] = {
+      'kind': 'split',
+      'shares': List.generate(_people, (_) => <String, dynamic>{'method': null}),
+    };
+    setState(() => _submitting = true);
+    ClientOrder? order;
+    try {
+      order = await ref.read(publicApiProvider).createOrder(payload);
+    } catch (_) {
+      order = null;
+    }
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (order == null || order.splits == null || order.splits!.isEmpty) {
+      _toast('Não foi possível gerar as cobranças da divisão. Tente de novo.');
+      return;
+    }
+    final id = order.dbId;
+    if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+    if (!mounted) return;
+    ref.read(cartProvider.notifier).clear();
+    context.go('/split', extra: order);
   }
-
-  String _labelOf(String id) => _methods.firstWhere((m) => m.id == id).label;
 
   Widget _stepBtn(IconData icon, Color bg, Color fg, VoidCallback onTap) {
     return GestureDetector(

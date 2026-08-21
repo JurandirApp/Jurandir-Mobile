@@ -12,6 +12,8 @@ class Establishment {
   final int orders;
   final double rating;
   final bool open;
+  final double platformFeePct; // comissão da plataforma (%)
+  final double serviceFeePct; // taxa de serviço do bar (%)
 
   const Establishment({
     required this.id,
@@ -22,6 +24,8 @@ class Establishment {
     required this.orders,
     required this.rating,
     required this.open,
+    this.platformFeePct = 8,
+    this.serviceFeePct = 10,
   });
 
   factory Establishment.fromJson(Map<String, dynamic> j) => Establishment(
@@ -33,6 +37,8 @@ class Establishment {
     orders: (j['orders'] as int?) ?? 0,
     rating: (j['rating'] as num?)?.toDouble() ?? 0,
     open: (j['open'] as bool?) ?? true,
+    platformFeePct: (j['platformFeePct'] as num?)?.toDouble() ?? 8,
+    serviceFeePct: (j['serviceFeePct'] as num?)?.toDouble() ?? 10,
   );
 }
 
@@ -95,6 +101,28 @@ class ClientOrderItem {
   );
 }
 
+/// Uma parte da conta dividida: valor, se já foi paga, e o Pix daquela pessoa.
+class ClientShare {
+  final double amount;
+  final bool paid;
+  final String? pixPayload;
+  final String? pixQrImage;
+
+  const ClientShare({
+    required this.amount,
+    required this.paid,
+    this.pixPayload,
+    this.pixQrImage,
+  });
+
+  factory ClientShare.fromJson(Map<String, dynamic> j) => ClientShare(
+    amount: (j['amount'] as num?)?.toDouble() ?? 0,
+    paid: (j['paid'] as bool?) ?? false,
+    pixPayload: (j['pixPayload'] as String?)?.isNotEmpty == true ? j['pixPayload'] as String : null,
+    pixQrImage: (j['pixQrImage'] as String?)?.isNotEmpty == true ? j['pixQrImage'] as String : null,
+  );
+}
+
 class ClientOrder {
   final String? dbId;
   final String code;
@@ -105,6 +133,9 @@ class ClientOrder {
   final String status; // aguardando | producao | entregue
   final String name;
   final String note;
+  final String? pixPayload; // copia-e-cola (só em pedido Pix aguardando)
+  final String? pixQrImage; // PNG base64 (sem prefixo data:)
+  final List<ClientShare>? splits; // partes da divisão (split real por Pix)
 
   const ClientOrder({
     this.dbId,
@@ -116,6 +147,9 @@ class ClientOrder {
     required this.status,
     required this.name,
     required this.note,
+    this.pixPayload,
+    this.pixQrImage,
+    this.splits,
   });
 
   factory ClientOrder.fromJson(Map<String, dynamic> j) => ClientOrder(
@@ -131,6 +165,12 @@ class ClientOrder {
     status: (j['status'] as String?) ?? 'aguardando',
     name: (j['name'] as String?) ?? '',
     note: (j['note'] as String?) ?? '',
+    pixPayload: (j['pixPayload'] as String?)?.isNotEmpty == true ? j['pixPayload'] as String : null,
+    pixQrImage: (j['pixQrImage'] as String?)?.isNotEmpty == true ? j['pixQrImage'] as String : null,
+    splits: (j['splits'] as List?)
+        ?.cast<Map<String, dynamic>>()
+        .map(ClientShare.fromJson)
+        .toList(),
   );
 }
 
@@ -158,6 +198,7 @@ class PanelOrder {
   final String? cust;
   final int ts; // epoch ms
   final String? note;
+  final String pay; // pix | credito | debito | usdc
   final List<PanelOrderLine> items;
   final PanelSplit? split;
 
@@ -170,6 +211,7 @@ class PanelOrder {
     this.cust,
     required this.ts,
     this.note,
+    this.pay = 'pix',
     required this.items,
     this.split,
   });
@@ -189,6 +231,7 @@ class PanelOrder {
       cust: j['cust'] as String?,
       ts: (j['ts'] as num?)?.toInt() ?? 0,
       note: j['note'] as String?,
+      pay: (j['pay'] as String?) ?? 'pix',
       items: ((j['items'] as List?) ?? const []).map((it) {
         final l = it as List;
         return PanelOrderLine(
@@ -205,6 +248,53 @@ class PanelOrder {
             ),
     );
   }
+}
+
+/// Item do cardápio no painel do estabelecimento (de `/establishment/menu`).
+class PanelMenuItem {
+  final String dbId;
+  final String name;
+  final String desc;
+  final double price;
+  final double? oldPrice;
+  final String photo;
+  final String cat;
+  final String sub;
+  final bool active;
+
+  const PanelMenuItem({
+    required this.dbId,
+    required this.name,
+    required this.desc,
+    required this.price,
+    this.oldPrice,
+    required this.photo,
+    required this.cat,
+    required this.sub,
+    required this.active,
+  });
+
+  factory PanelMenuItem.fromJson(Map<String, dynamic> j) => PanelMenuItem(
+        dbId: (j['dbId'] as String?) ?? '',
+        name: (j['name'] as String?) ?? '',
+        desc: (j['desc'] as String?) ?? '',
+        price: (j['price'] as num?)?.toDouble() ?? 0,
+        oldPrice: j['old'] == null ? null : (j['old'] as num).toDouble(),
+        photo: (j['photo'] as String?) ?? '',
+        cat: (j['cat'] as String?) ?? '',
+        sub: (j['sub'] as String?) ?? '',
+        active: (j['active'] as bool?) ?? true,
+      );
+}
+
+/// Ponto de QR (mesa/guarda-sol) no painel do estabelecimento.
+class QrSpot {
+  final String id;
+  final String label;
+  const QrSpot({required this.id, required this.label});
+
+  factory QrSpot.fromJson(Map<String, dynamic> j) =>
+      QrSpot(id: (j['id'] as String?) ?? '', label: (j['label'] as String?) ?? '');
 }
 
 /// Pedido no painel do estabelecimento.
@@ -232,6 +322,154 @@ class EstabOrder {
   });
 
   int get total => items.fold(0, (s, i) => s + i.$1 * i.$3);
+}
+
+/// Visão geral da plataforma (Admin) — de `/api/public/admin/overview`.
+class AdminEstablishment {
+  final String id;
+  final String name;
+  final String owner;
+  final String type;
+  final String city;
+  final String plan;
+  final String ownerEmail;
+  final int feePct;
+  final int orders;
+  final double gmv;
+  final double fees;
+  final bool active;
+
+  const AdminEstablishment({
+    required this.id,
+    required this.name,
+    required this.owner,
+    required this.type,
+    required this.city,
+    required this.plan,
+    required this.ownerEmail,
+    required this.feePct,
+    required this.orders,
+    required this.gmv,
+    required this.fees,
+    required this.active,
+  });
+
+  factory AdminEstablishment.fromJson(Map<String, dynamic> j) => AdminEstablishment(
+        id: (j['id'] as String?) ?? '',
+        name: (j['name'] as String?) ?? '',
+        owner: (j['owner'] as String?) ?? '',
+        type: (j['type'] as String?) ?? 'Bar',
+        city: (j['city'] as String?) ?? '—',
+        plan: (j['plan'] as String?) ?? '',
+        ownerEmail: (j['ownerEmail'] as String?) ?? '',
+        feePct: (j['feePct'] as num?)?.toInt() ?? 0,
+        orders: (j['orders'] as num?)?.toInt() ?? 0,
+        gmv: (j['gmv'] as num?)?.toDouble() ?? 0,
+        fees: (j['fees'] as num?)?.toDouble() ?? 0,
+        active: (j['active'] as bool?) ?? true,
+      );
+}
+
+class AdminBacklogOrder {
+  final String code;
+  final String estab;
+  final String city;
+  final String method;
+  final String card;
+  final String items;
+  final double total;
+  final int ts;
+
+  const AdminBacklogOrder({
+    required this.code,
+    required this.estab,
+    required this.city,
+    required this.method,
+    required this.card,
+    required this.items,
+    required this.total,
+    required this.ts,
+  });
+
+  factory AdminBacklogOrder.fromJson(Map<String, dynamic> j) => AdminBacklogOrder(
+        code: (j['code'] as String?) ?? '',
+        estab: (j['estab'] as String?) ?? '—',
+        city: (j['city'] as String?) ?? '—',
+        method: (j['method'] as String?) ?? 'pix',
+        card: (j['card'] as String?) ?? '',
+        items: (j['items'] as String?) ?? '',
+        total: (j['total'] as num?)?.toDouble() ?? 0,
+        ts: (j['ts'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class AdminOverview {
+  final List<AdminEstablishment> establishments;
+  final Map<String, double> byPayment;
+  final double gmv;
+  final double fees;
+  final int orders;
+  final int count;
+  final List<AdminBacklogOrder> backlog;
+
+  const AdminOverview({
+    required this.establishments,
+    required this.byPayment,
+    required this.gmv,
+    required this.fees,
+    required this.orders,
+    required this.count,
+    required this.backlog,
+  });
+
+  factory AdminOverview.fromJson(Map<String, dynamic> j) {
+    final pay = (j['byPayment'] as Map<String, dynamic>? ?? const {});
+    final totals = (j['totals'] as Map<String, dynamic>? ?? const {});
+    return AdminOverview(
+      establishments: ((j['establishments'] as List?) ?? const [])
+          .cast<Map<String, dynamic>>()
+          .map(AdminEstablishment.fromJson)
+          .toList(),
+      byPayment: {for (final e in pay.entries) e.key: (e.value as num?)?.toDouble() ?? 0},
+      gmv: (totals['gmv'] as num?)?.toDouble() ?? 0,
+      fees: (totals['fees'] as num?)?.toDouble() ?? 0,
+      orders: (totals['orders'] as num?)?.toInt() ?? 0,
+      count: (totals['count'] as num?)?.toInt() ?? 0,
+      backlog: ((j['backlog'] as List?) ?? const [])
+          .cast<Map<String, dynamic>>()
+          .map(AdminBacklogOrder.fromJson)
+          .toList(),
+    );
+  }
+}
+
+/// Buscas dos visitantes por dimensão (Admin) — de `/api/public/admin/searches`.
+class AdminSearchRow {
+  final String label;
+  final int count;
+  const AdminSearchRow({required this.label, required this.count});
+  factory AdminSearchRow.fromJson(Map<String, dynamic> j) =>
+      AdminSearchRow(label: (j['label'] as String?) ?? '', count: (j['count'] as num?)?.toInt() ?? 0);
+}
+
+class AdminSearches {
+  final int total;
+  final Map<String, List<AdminSearchRow>> dims; // city | bairro | culinaria | tipo
+  const AdminSearches({required this.total, required this.dims});
+
+  factory AdminSearches.fromJson(Map<String, dynamic> j) {
+    final d = (j['dims'] as Map<String, dynamic>? ?? const {});
+    return AdminSearches(
+      total: (j['total'] as num?)?.toInt() ?? 0,
+      dims: {
+        for (final e in d.entries)
+          e.key: ((e.value as List?) ?? const [])
+              .cast<Map<String, dynamic>>()
+              .map(AdminSearchRow.fromJson)
+              .toList(),
+      },
+    );
+  }
 }
 
 /// Compra no backlog da plataforma (Admin).

@@ -1,5 +1,5 @@
 {
-  "API_BASE_URL": "http://10.0.2.2:3000/api/public",
+  "API_BASE_URL": "https://jurandir.app.br/api/public",
   "PAY_ENV": "TEST",
   "PAY_GATEWAY": "example",
   "PAY_MERCHANT_ID": "exampleGatewayMerchantId",

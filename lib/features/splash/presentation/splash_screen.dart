@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/data/onboarding_controller.dart';
+import '../../auth/auth_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -32,6 +33,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     )..forward();
     _timer = Timer(const Duration(milliseconds: 2000), () {
       if (!mounted) return;
+      // Sessão persistida: estab/admin voltam direto pro painel.
+      final auth = ref.read(authProvider);
+      if (auth.isAuthed && auth.role == 'estab') {
+        context.go('/estab/pedidos');
+        return;
+      }
+      if (auth.isAuthed && auth.role == 'admin') {
+        context.go('/admin/dashboard');
+        return;
+      }
       // Onboarding só aparece uma vez (flag persistente em shared_preferences).
       final seen = ref.read(onboardingProvider).seen;
       context.go(seen ? '/home' : '/onboarding');

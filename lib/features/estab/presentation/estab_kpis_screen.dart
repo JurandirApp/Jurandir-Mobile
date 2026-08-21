@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../core/data/seed_data.dart';
+import '../../../core/data/models.dart';
+import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
@@ -9,82 +11,43 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/donut_chart.dart';
 import '../../../core/widgets/segmented_control.dart';
+import '../../auth/auth_controller.dart';
 
-const _payInfo = [
-  ('Pix', Symbols.qr_code_2, AppColors.pix, 0.44),
-  ('Crédito', Symbols.credit_card, AppColors.credit, 0.30),
-  ('Débito', Symbols.account_balance_wallet, AppColors.debit, 0.14),
-  ('USDC', Symbols.toll, AppColors.usdc, 0.12),
+const _payMeta = [
+  ('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
+  ('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
+  ('debito', 'Débito', Symbols.account_balance_wallet, AppColors.debit),
+  ('usdc', 'USDC', Symbols.toll, AppColors.usdc),
 ];
 
-const _topSellers = [
-  ('Caipirinha de Limão', 14),
-  ('Porção de Camarão', 9),
-  ('Heineken Long Neck', 8),
-];
-
-class EstabKpisScreen extends StatefulWidget {
+/// Estab · Resumo (KPIs) com dados reais: calcula faturamento, categorias,
+/// método e mais vendidos a partir dos pedidos do estabelecimento.
+class EstabKpisScreen extends ConsumerStatefulWidget {
   const EstabKpisScreen({super.key});
 
   @override
-  State<EstabKpisScreen> createState() => _EstabKpisScreenState();
+  ConsumerState<EstabKpisScreen> createState() => _EstabKpisScreenState();
 }
 
-class _EstabKpisScreenState extends State<EstabKpisScreen> {
+class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
   int _period = 0; // 0=hoje, 1=7 dias, 2=30 dias
-
-  double get _f => switch (_period) { 1 => 6.4, 2 => 26.0, _ => 1.0 };
 
   @override
   Widget build(BuildContext context) {
-    final catOf = {for (final m in kMenu) m.name: m.category};
-    final byCat = <String, double>{};
-    for (final o in kEstabOrders.where((o) => o.status != 'aguardando')) {
-      for (final i in o.items) {
-        final c = catOf[i.$2] ?? 'Outros';
-        byCat[c] = (byCat[c] ?? 0) + i.$1 * i.$3;
-      }
-    }
-    final catTot = byCat.values.fold(0.0, (a, b) => a + b);
-    final sortedCats = byCat.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final eFat = kEstabOrders.fold(0.0, (s, o) => s + o.total);
-    final eProd = kEstabOrders.where((o) => o.status == 'producao').length;
-
-    final stats = [
-      ('Faturamento', money(eFat * _f), AppColors.coralDeep),
-      ('Pedidos', (kEstabOrders.length * _f).round().toString(), AppColors.ink),
-      ('Ticket médio', money(eFat / kEstabOrders.length), AppColors.oceanDeep),
-      ('Em produção', eProd.toString(), AppColors.warningText),
-    ];
+    final ordersAsync = ref.watch(establishmentOrdersProvider);
+    final menu = ref.watch(establishmentMenuProvider).asData?.value ?? const <PanelMenuItem>[];
+    final estName = ref.watch(authProvider).name ?? 'Estabelecimento';
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Quiosque do Mar', title: 'Resumo'),
+          DarkHeader(eyebrow: estName, title: 'Resumo'),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-              children: [
-                SegmentedControl(
-                  segments: const ['Hoje', '7 dias', '30 dias'],
-                  selected: _period,
-                  onChanged: (i) => setState(() => _period = i),
-                ),
-                const SizedBox(height: 14),
-                Row(children: [Expanded(child: _statCard(stats[0])), const SizedBox(width: 10), Expanded(child: _statCard(stats[1]))]),
-                const SizedBox(height: 10),
-                Row(children: [Expanded(child: _statCard(stats[2])), const SizedBox(width: 10), Expanded(child: _statCard(stats[3]))]),
-                const SizedBox(height: 22),
-                _h2('Vendas por categoria'),
-                _donutCard(sortedCats, catTot),
-                const SizedBox(height: 22),
-                _h2('Vendas por método'),
-                _methodCard(eFat),
-                const SizedBox(height: 22),
-                _h2('Mais vendidos'),
-                _topCard(),
-              ],
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
+              error: (_, _) => _errorState(),
+              data: (orders) => _content(orders, menu),
             ),
           ),
         ],
@@ -92,10 +55,120 @@ class _EstabKpisScreenState extends State<EstabKpisScreen> {
     );
   }
 
+  Widget _errorState() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
+              const SizedBox(height: 12),
+              Text('Não foi possível carregar o resumo.',
+                  style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: () => ref.invalidate(establishmentOrdersProvider),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
+                  child: Text('Tentar de novo',
+                      style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _content(List<PanelOrder> all, List<PanelMenuItem> menu) {
+    final now = DateTime.now();
+    final cutoffMs = switch (_period) {
+      0 => DateTime(now.year, now.month, now.day).millisecondsSinceEpoch,
+      1 => now.subtract(const Duration(days: 7)).millisecondsSinceEpoch,
+      _ => now.subtract(const Duration(days: 30)).millisecondsSinceEpoch,
+    };
+    final orders = all.where((o) => o.ts >= cutoffMs).toList();
+    final confirmed = orders.where((o) => o.status != 'aguardando').toList();
+
+    final faturamento = orders.fold(0.0, (s, o) => s + o.total);
+    final pedidos = orders.length;
+    final ticket = pedidos == 0 ? 0.0 : faturamento / pedidos;
+    final emProducao = all.where((o) => o.status == 'producao').length;
+
+    // vendas por categoria (usa o cardápio p/ mapear nome → categoria)
+    final catOf = {for (final m in menu) m.name: m.cat};
+    final byCat = <String, double>{};
+    for (final o in confirmed) {
+      for (final it in o.items) {
+        var c = catOf[it.name] ?? 'Outros';
+        if (c.isEmpty) c = 'Outros';
+        byCat[c] = (byCat[c] ?? 0) + it.qty * it.price;
+      }
+    }
+    final catTot = byCat.values.fold(0.0, (a, b) => a + b);
+    final sortedCats = byCat.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    // vendas por método
+    final byPay = <String, double>{};
+    for (final o in orders) {
+      byPay[o.pay] = (byPay[o.pay] ?? 0) + o.total;
+    }
+
+    // mais vendidos (por quantidade)
+    final byItem = <String, int>{};
+    for (final o in confirmed) {
+      for (final it in o.items) {
+        byItem[it.name] = (byItem[it.name] ?? 0) + it.qty;
+      }
+    }
+    final topSellers = (byItem.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(3).toList();
+
+    final stats = [
+      ('Faturamento', money(faturamento), AppColors.coralDeep),
+      ('Pedidos', pedidos.toString(), AppColors.ink),
+      ('Ticket médio', money(ticket), AppColors.oceanDeep),
+      ('Em produção', emProducao.toString(), AppColors.warningText),
+    ];
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+      children: [
+        SegmentedControl(
+          segments: const ['Hoje', '7 dias', '30 dias'],
+          selected: _period,
+          onChanged: (i) => setState(() => _period = i),
+        ),
+        const SizedBox(height: 14),
+        Row(children: [Expanded(child: _statCard(stats[0])), const SizedBox(width: 10), Expanded(child: _statCard(stats[1]))]),
+        const SizedBox(height: 10),
+        Row(children: [Expanded(child: _statCard(stats[2])), const SizedBox(width: 10), Expanded(child: _statCard(stats[3]))]),
+        const SizedBox(height: 22),
+        if (pedidos == 0)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Center(
+              child: Text('Sem pedidos neste período.',
+                  style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+            ),
+          )
+        else ...[
+          _h2('Vendas por categoria'),
+          _donutCard(sortedCats, catTot),
+          const SizedBox(height: 22),
+          _h2('Vendas por método'),
+          _methodCard(byPay, faturamento),
+          const SizedBox(height: 22),
+          _h2('Mais vendidos'),
+          _topCard(topSellers),
+        ],
+      ],
+    );
+  }
+
   Widget _h2(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Text(text.toUpperCase(), style: AppText.sectionTitle),
-  );
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(text.toUpperCase(), style: AppText.sectionTitle),
+      );
 
   Widget _statCard((String, String, Color) s) {
     return BrutalCard(
@@ -111,10 +184,9 @@ class _EstabKpisScreenState extends State<EstabKpisScreen> {
   }
 
   Widget _donutCard(List<MapEntry<String, double>> cats, double tot) {
-    final totF = tot * _f;
-    final centerStr = totF >= 1000
-        ? 'R\$ ${(totF / 1000).toStringAsFixed(1).replaceAll('.', ',')}k'
-        : money(totF);
+    final centerStr = tot >= 1000
+        ? 'R\$ ${(tot / 1000).toStringAsFixed(1).replaceAll('.', ',')}k'
+        : money(tot);
 
     return BrutalCard(
       padding: const EdgeInsets.all(16),
@@ -144,7 +216,7 @@ class _EstabKpisScreenState extends State<EstabKpisScreen> {
                     AppColors.chart[i % AppColors.chart.length],
                     cats[i].key,
                     tot == 0 ? 0 : (cats[i].value / tot * 100).round(),
-                    money(cats[i].value * _f),
+                    money(cats[i].value),
                   ),
                 ],
               ],
@@ -172,25 +244,25 @@ class _EstabKpisScreenState extends State<EstabKpisScreen> {
     );
   }
 
-  Widget _methodCard(double eFat) {
+  Widget _methodCard(Map<String, double> byPay, double total) {
+    final maxV = byPay.values.isEmpty ? 0.0 : byPay.values.reduce((a, b) => a > b ? a : b);
     return BrutalCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          for (var i = 0; i < _payInfo.length; i++) ...[
+          for (var i = 0; i < _payMeta.length; i++) ...[
             if (i > 0) const SizedBox(height: 12),
-            _methodRow(_payInfo[i], eFat),
+            _methodRow(_payMeta[i], byPay[_payMeta[i].$1] ?? 0, total, maxV),
           ],
         ],
       ),
     );
   }
 
-  Widget _methodRow((String, IconData, Color, double) pm, double eFat) {
-    final (label, icon, color, share) = pm;
-    final val = money(eFat * share * _f);
-    final pct = (share * 100).round();
-    final w = share / 0.44;
+  Widget _methodRow((String, String, IconData, Color) pm, double value, double total, double maxV) {
+    final (_, label, icon, color) = pm;
+    final pct = total == 0 ? 0 : (value / total * 100).round();
+    final w = maxV == 0 ? 0.0 : value / maxV;
     return Column(
       children: [
         Row(
@@ -214,7 +286,7 @@ class _EstabKpisScreenState extends State<EstabKpisScreen> {
               ],
             ),
             Text.rich(TextSpan(children: [
-              TextSpan(text: val, style: AppText.body(size: 13, weight: FontWeight.w800)),
+              TextSpan(text: money(value), style: AppText.body(size: 13, weight: FontWeight.w800)),
               TextSpan(text: ' · $pct%', style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
             ])),
           ],
@@ -225,22 +297,22 @@ class _EstabKpisScreenState extends State<EstabKpisScreen> {
     );
   }
 
-  Widget _topCard() {
+  Widget _topCard(List<MapEntry<String, int>> top) {
+    final maxQty = top.isEmpty ? 1 : top.first.value;
     return BrutalCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          for (var i = 0; i < _topSellers.length; i++) ...[
+          for (var i = 0; i < top.length; i++) ...[
             if (i > 0) const SizedBox(height: 12),
-            _topRow(i + 1, _topSellers[i]),
+            _topRow(i + 1, top[i], maxQty),
           ],
         ],
       ),
     );
   }
 
-  Widget _topRow(int pos, (String, int) row) {
-    final (name, qty) = row;
+  Widget _topRow(int pos, MapEntry<String, int> row, int maxQty) {
     return Column(
       children: [
         Row(
@@ -249,15 +321,15 @@ class _EstabKpisScreenState extends State<EstabKpisScreen> {
             Expanded(
               child: Text.rich(TextSpan(children: [
                 TextSpan(text: '$posº  ', style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.inkA(0.4))),
-                TextSpan(text: name, style: AppText.body(size: 13, weight: FontWeight.w700)),
+                TextSpan(text: row.key, style: AppText.body(size: 13, weight: FontWeight.w700)),
               ]), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 8),
-            Text('${(qty * _f).round()} un', style: AppText.body(size: 13, weight: FontWeight.w800)),
+            Text('${row.value} un', style: AppText.body(size: 13, weight: FontWeight.w800)),
           ],
         ),
         const SizedBox(height: 4),
-        _bar(qty / 14, AppColors.coral),
+        _bar(maxQty == 0 ? 0 : row.value / maxQty, AppColors.coral),
       ],
     );
   }

@@ -28,7 +28,7 @@ class DoneScreen extends StatelessWidget {
     final title = incomplete ? 'Falta gente pagar' : 'Pedido confirmado!';
     final sub = incomplete
         ? 'Seu pedido vai à cozinha quando todos pagarem. Complete em Pedidos.'
-        : 'O Quiosque do Mar já recebeu seu pagamento. Acompanhe em Pedidos.';
+        : 'Pagamento confirmado! O estabelecimento já está preparando. Acompanhe em Pedidos.';
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -75,7 +75,7 @@ class DoneScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              AppButton.primary(label: 'Acompanhar pedido', onPressed: () => context.go('/home')),
+              AppButton.primary(label: 'Acompanhar pedido', onPressed: () => context.go('/pedidos')),
               const SizedBox(height: 10),
               AppButton.dark(label: 'Voltar ao início', onPressed: () => context.go('/home')),
             ],

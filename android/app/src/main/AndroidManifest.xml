@@ -2,11 +2,13 @@
     <!-- Necessária p/ a API pública (10.0.2.2) e imagens de rede; o build debug
          injeta sozinho, o release não. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Scanner de QR (mobile_scanner) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
         android:label="jurandir"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -48,6 +50,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- url_launcher: abrir a página de pagamento (checkout Pagar.me) no navegador -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

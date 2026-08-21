@@ -29,8 +29,13 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
     final ctrl = ref.read(cartProvider.notifier);
-    final menu = ref.watch(menuProvider(kDemoSlug)).asData?.value ?? kMenu;
-    final est = kEstablishments.firstWhere((e) => e.id == 'live');
+    final slug = ref.watch(selectedSlugProvider) ?? kDemoSlug;
+    final menu = ref.watch(menuProvider(slug)).asData?.value ?? kMenu;
+    final ests = ref.watch(establishmentsProvider).asData?.value ?? const <Establishment>[];
+    final est = ests.firstWhere(
+      (e) => e.slug == slug,
+      orElse: () => kEstablishments.firstWhere((e) => e.id == 'live'),
+    );
     final cats = <String>['Todos', ...{for (final m in menu) m.category}];
     final items = _cat == 'Todos' ? menu : menu.where((m) => m.category == _cat).toList();
     final count = cartCount(cart);

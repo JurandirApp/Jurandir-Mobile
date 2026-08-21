@@ -9,7 +9,10 @@ import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_faturamento_screen.dart';
 import '../../features/admin/presentation/admin_taxas_screen.dart';
 import '../../features/buscar/presentation/buscar_screen.dart';
+import '../../features/checkout/presentation/card_wait_screen.dart';
 import '../../features/checkout/presentation/checkout_screen.dart';
+import '../../features/checkout/presentation/pix_screen.dart';
+import '../../features/checkout/presentation/split_screen.dart';
 import '../../features/done/presentation/done_screen.dart';
 import '../../features/estab/presentation/estab_auditoria_screen.dart';
 import '../../features/estab/presentation/estab_cardapio_screen.dart';
@@ -134,6 +137,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/checkout',
         builder: (context, state) => const CheckoutScreen(),
       ),
+      GoRoute(path: '/pix', builder: (context, state) => const PixScreen()),
+      GoRoute(path: '/split', builder: (context, state) => const SplitScreen()),
+      GoRoute(path: '/pagamento', builder: (context, state) => const CardWaitScreen()),
       GoRoute(path: '/done', builder: (context, state) => const DoneScreen()),
       GoRoute(path: '/scanner', builder: (context, state) => const ScannerScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),

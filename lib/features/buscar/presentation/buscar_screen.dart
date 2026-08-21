@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/data/models.dart';
@@ -127,9 +128,18 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
     );
   }
 
+  void _openEstablishment(Establishment e) {
+    final slug = e.slug;
+    if (slug == null) return; // item de seed sem slug real → não abre
+    ref.read(selectedSlugProvider.notifier).set(slug);
+    context.go('/menu');
+  }
+
   Widget _resultCard(Establishment e, int rank) {
     final top3 = rank <= 3;
-    return Container(
+    return GestureDetector(
+      onTap: () => _openEstablishment(e),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -190,6 +200,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

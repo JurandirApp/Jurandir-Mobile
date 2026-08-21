@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../auth/auth_controller.dart';
 import '../../../core/widgets/app_toggle.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/labeled_input.dart';
@@ -23,15 +26,16 @@ const _gwMethods = [
 ];
 
 /// Estab · Config: impressora + gateways por método + alterar senha.
-class EstabConfigScreen extends StatefulWidget {
+class EstabConfigScreen extends ConsumerStatefulWidget {
   const EstabConfigScreen({super.key});
 
   @override
-  State<EstabConfigScreen> createState() => _EstabConfigScreenState();
+  ConsumerState<EstabConfigScreen> createState() => _EstabConfigScreenState();
 }
 
-class _EstabConfigScreenState extends State<EstabConfigScreen> {
+class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
   bool _auto = true;
+  bool _changingPw = false;
   final _ip = TextEditingController(text: '192.168.0.50');
   final _model = TextEditingController(text: 'Epson TM-T20');
   final _pwCur = TextEditingController();
@@ -54,6 +58,36 @@ class _EstabConfigScreenState extends State<EstabConfigScreen> {
         backgroundColor: AppColors.ink,
         content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
       ));
+  }
+
+  Future<void> _changePassword() async {
+    if (_changingPw) return;
+    final cur = _pwCur.text;
+    final nova = _pwNova.text;
+    if (cur.isEmpty || nova.length < 6) {
+      _toast('Informe a senha atual e uma nova de ao menos 6 caracteres.');
+      return;
+    }
+    final token = ref.read(authProvider).token;
+    if (token == null) {
+      _toast('Sessão expirada. Entre novamente.');
+      return;
+    }
+    setState(() => _changingPw = true);
+    final r = await ref.read(publicApiProvider).changePassword(token, cur, nova);
+    if (!mounted) return;
+    setState(() => _changingPw = false);
+    if (r.ok) {
+      _pwCur.clear();
+      _pwNova.clear();
+      _toast('Senha alterada com sucesso.');
+    } else {
+      _toast(r.error == 'currentWrong'
+          ? 'Senha atual incorreta.'
+          : r.error == 'invalid'
+              ? 'A nova senha precisa de ao menos 6 caracteres.'
+              : 'Não foi possível alterar a senha. Tente de novo.');
+    }
   }
 
   @override
@@ -209,7 +243,10 @@ class _EstabConfigScreenState extends State<EstabConfigScreen> {
           const SizedBox(height: 10),
           LabeledInput(hint: 'Nova senha (mín. 6)', controller: _pwNova, obscure: true),
           const SizedBox(height: 10),
-          AppButton.dark(label: 'Alterar senha', onPressed: () => _toast('Senha alterada')),
+          AppButton.dark(
+            label: _changingPw ? 'Alterando…' : 'Alterar senha',
+            onPressed: _changingPw ? null : _changePassword,
+          ),
         ],
       ),
     );

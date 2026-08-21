@@ -30,7 +30,7 @@ const _slides = <_Slide>[
   _Slide(
     Symbols.group,
     'Divida com a galera',
-    'Conta dividida em segundos: cada um paga a sua parte com Pix, cartão ou USDC.',
+    'Conta dividida em segundos: cada um paga a sua parte com Pix ou cartão.',
   ),
 ];
 

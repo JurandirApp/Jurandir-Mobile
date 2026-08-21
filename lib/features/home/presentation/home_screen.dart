@@ -66,7 +66,11 @@ class HomeScreen extends ConsumerWidget {
               gap: 12,
               children: [
                 for (var i = 0; i < ests.length; i++)
-                  _estCard(ests[i], i + 1, () => context.go('/menu')),
+                  _estCard(ests[i], i + 1, () {
+                    final s = ests[i].slug;
+                    if (s != null) ref.read(selectedSlugProvider.notifier).set(s);
+                    context.go('/menu');
+                  }),
               ],
             ),
             const SizedBox(height: 14),
