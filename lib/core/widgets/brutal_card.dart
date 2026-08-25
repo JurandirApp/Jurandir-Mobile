@@ -30,9 +30,18 @@ class BrutalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // O clip fica SÓ no conteúdo: `clipBehavior` no mesmo Container que pinta a
+    // sombra dura recortava a sombra/borda nos cantos (aparecia "cortado" na UI).
+    // Raio interno = raio externo − largura da borda, para o conteúdo (foto)
+    // acompanhar a curva por dentro da borda sem vazar 1px.
+    final content = clip
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular((radius - 2).clamp(0.0, radius)),
+            child: child,
+          )
+        : child;
     final card = Container(
       padding: padding,
-      clipBehavior: clip ? Clip.antiAlias : Clip.none,
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(radius),
@@ -41,7 +50,7 @@ class BrutalCard extends StatelessWidget {
           BoxShadow(color: AppColors.ink, offset: Offset(4, 4)),
         ],
       ),
-      child: child,
+      child: content,
     );
     if (onTap == null) return card;
     return GestureDetector(onTap: onTap, child: card);
