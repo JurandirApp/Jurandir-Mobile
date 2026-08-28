@@ -89,7 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SvgPicture.asset('assets/images/jurandir-logo-horizontal.svg', width: 150),
+                        SvgPicture.asset('assets/images/jurandir-logo-white.svg', width: 168),
                         const SizedBox(height: 28),
                         Text.rich(
                           const TextSpan(children: [

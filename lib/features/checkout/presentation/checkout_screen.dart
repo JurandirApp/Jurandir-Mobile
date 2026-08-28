@@ -10,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/data/models.dart';
 import '../../../core/data/orders_controller.dart';
 import '../../../core/data/public_api.dart';
-import '../../../core/data/seed_data.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
@@ -273,7 +272,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       (e) => e.slug == selSlug,
       orElse: () => ests.firstWhere(
         (e) => e.slug != null,
-        orElse: () => kEstablishments.firstWhere((e) => e.id == 'live'),
+        // Sem estabelecimento real ainda → placeholder neutro (sem mock). O
+        // pagamento só é montado com um estabelecimento real (_orderPayload).
+        orElse: () => const Establishment(
+          id: '', name: '', location: '', cuisine: '', orders: 0, rating: 0, open: true,
+        ),
       ),
     );
     final total = ctrl.total;
@@ -576,19 +579,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Widget _payGrid() {
-    return Column(
+    // Uma coluna por método (dinâmico) — evita índices fixos e não estoura
+    // quando a lista muda (ex.: USDC removido deixou 3 métodos).
+    return Row(
       children: [
-        Row(children: [
-          Expanded(child: _payOption(_methods[0])),
-          const SizedBox(width: 8),
-          Expanded(child: _payOption(_methods[1])),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: _payOption(_methods[2])),
-          const SizedBox(width: 8),
-          Expanded(child: _payOption(_methods[3])),
-        ]),
+        for (var i = 0; i < _methods.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(child: _payOption(_methods[i])),
+        ],
       ],
     );
   }

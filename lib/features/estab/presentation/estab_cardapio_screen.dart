@@ -174,7 +174,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
       child: GestureDetector(
         onTap: () => _openForm(m),
         child: Container(
-          clipBehavior: Clip.antiAlias,
+          clipBehavior: Clip.antiAliasWithSaveLayer,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),

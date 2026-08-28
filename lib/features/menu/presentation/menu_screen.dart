@@ -6,11 +6,12 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/data/models.dart';
 import '../../../core/data/public_api.dart';
-import '../../../core/data/seed_data.dart';
+import '../../../core/data/seed_data.dart'; // só o slug padrão (kDemoSlug)
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/filter_pill.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../cart/cart_controller.dart';
 
 /// Cardápio: header do estabelecimento, barra de categorias fixa (sticky),
@@ -30,11 +31,16 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     final cart = ref.watch(cartProvider);
     final ctrl = ref.read(cartProvider.notifier);
     final slug = ref.watch(selectedSlugProvider) ?? kDemoSlug;
-    final menu = ref.watch(menuProvider(slug)).asData?.value ?? kMenu;
+    final menuAsync = ref.watch(menuProvider(slug));
+    final menu = menuAsync.asData?.value ?? const <MenuItem>[];
     final ests = ref.watch(establishmentsProvider).asData?.value ?? const <Establishment>[];
+    // Estabelecimento aberto pelo cliente; placeholder neutro (sem mock) até
+    // a lista real chegar — a home/busca já deixam o provider em cache.
     final est = ests.firstWhere(
       (e) => e.slug == slug,
-      orElse: () => kEstablishments.firstWhere((e) => e.id == 'live'),
+      orElse: () => Establishment(
+        id: '', slug: slug, name: '', location: '', cuisine: '', orders: 0, rating: 0, open: true,
+      ),
     );
     final cats = <String>['Todos', ...{for (final m in menu) m.category}];
     final items = _cat == 'Todos' ? menu : menu.where((m) => m.category == _cat).toList();
@@ -66,13 +72,36 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     20,
                     (count > 0 ? 96 : 20) + bottomSafe,
                   ),
-                  sliver: SliverList.separated(
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) {
-                      final m = items[i];
-                      return _itemRow(m, cart[m.id] ?? 0, ctrl);
-                    },
+                  sliver: menuAsync.when(
+                    loading: () => SliverList.separated(
+                      itemCount: 6,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, _) => _itemRowSkeleton(),
+                    ),
+                    error: (_, _) => SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 40),
+                        child: _errorState(() => ref.invalidate(menuProvider(slug))),
+                      ),
+                    ),
+                    data: (_) => items.isEmpty
+                        ? SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 48),
+                              child: Center(
+                                child: Text('Cardápio em breve por aqui.',
+                                    style: AppText.body(size: 14, color: AppColors.inkA(0.45))),
+                              ),
+                            ),
+                          )
+                        : SliverList.separated(
+                            itemCount: items.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 10),
+                            itemBuilder: (_, i) {
+                              final m = items[i];
+                              return _itemRow(m, cart[m.id] ?? 0, ctrl);
+                            },
+                          ),
                   ),
                 ),
               ],
@@ -243,6 +272,72 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _itemRowSkeleton() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.ink, width: 2),
+        boxShadow: const [BoxShadow(color: AppColors.ink, offset: Offset(4, 4))],
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(width: 58, height: 58, color: AppColors.inkA(0.08)),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SkeletonBox(width: 120, height: 14),
+                SizedBox(height: 8),
+                SkeletonBox(width: 170, height: 11),
+                SizedBox(height: 10),
+                SkeletonBox(width: 60, height: 15),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const SkeletonBox(width: 36, height: 36, radius: 999),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorState(VoidCallback onRetry) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Não foi possível carregar o cardápio.',
+                textAlign: TextAlign.center,
+                style: AppText.body(size: 15, weight: FontWeight.w700, color: AppColors.inkA(0.7))),
+            const SizedBox(height: 6),
+            Text('Verifique sua conexão e tente de novo.',
+                textAlign: TextAlign.center,
+                style: AppText.body(size: 13, color: AppColors.inkA(0.45))),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
+                child: Text('Tentar de novo',
+                    style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.dune)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

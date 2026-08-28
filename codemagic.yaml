@@ -1,0 +1,49 @@
+# Codemagic — builda o iOS (.ipa) num Mac na nuvem e publica no TestFlight.
+#
+# PRÉ-REQUISITOS (você faz, uma vez):
+#   1. App Store Connect > crie o app com o bundle id  br.app.jurandir
+#   2. App Store Connect > Usuários e Acesso > Integrações/Chaves > gere uma
+#      API Key (acesso "App Manager"): baixe o .p8 e anote Key ID + Issuer ID.
+#   3. Codemagic > Team settings > Integrations > App Store Connect > adicione
+#      essa API Key e DÊ UM NOME. Use o mesmo nome abaixo em
+#      `integrations > app_store_connect`.
+#   4. TestFlight > crie um grupo de teste externo. Use o nome dele em
+#      `publishing > ... > beta_groups`.
+
+workflows:
+  ios-testflight:
+    name: iOS - TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      # >>> troque pelo NOME que você deu à API Key no Codemagic <<<
+      app_store_connect: Jurandir ASC
+    environment:
+      ios_signing:
+        distribution_type: app_store       # TestFlight usa o perfil de App Store
+        bundle_identifier: br.app.jurandir
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter packages
+        script: flutter pub get
+      - name: CocoaPods
+        script: find . -name "Podfile" -execdir pod install \;
+      - name: Assinatura (perfis)
+        script: xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --dart-define-from-file=dart_defines.prod.json \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          # >>> troque pelo NOME do seu grupo de teste no TestFlight <<<
+          - Socios

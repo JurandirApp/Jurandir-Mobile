@@ -4,8 +4,15 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Scanner de QR (mobile_scanner) -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Localização: ordenar "perto de você" por distância (geolocator) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- GPS é OPCIONAL: sem ele o app só cai no fallback (ordem por pedidos), não
+         exige o hardware — assim não exclui tablets/aparelhos sem GPS no Play. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+    <uses-feature android:name="android.hardware.location" android:required="false"/>
     <application
-        android:label="jurandir"
+        android:label="Jurandir"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config">

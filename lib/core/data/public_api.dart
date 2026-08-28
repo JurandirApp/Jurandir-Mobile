@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/auth_controller.dart';
 import '../api/api_client.dart';
 import 'models.dart';
-import 'seed_data.dart';
 
 /// Camada de API pública — dados reais do Neon via backend Next.js
 /// (`/api/public/...`).
@@ -22,6 +21,26 @@ class PublicApi {
     final res = await _dio.get<Map<String, dynamic>>('/$slug');
     final list = (res.data!['menu'] as List).cast<Map<String, dynamic>>();
     return list.map(MenuItem.fromJson).toList();
+  }
+
+  /// "Bairro, Cidade" a partir das coordenadas do GPS (pro header "Você está
+  /// em…"). Null se o backend não conseguir resolver.
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/geocode/reverse',
+      queryParameters: {'lat': lat, 'lng': lng},
+    );
+    return res.data?['label'] as String?;
+  }
+
+  /// Ofertas do dia — itens com desconto real de vários bares (cada um traz
+  /// slug/nome do bar). Alimenta o carrossel da Home.
+  Future<List<Offer>> offers() async {
+    final res = await _dio.get<Map<String, dynamic>>('/offers');
+    return ((res.data!['offers'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(Offer.fromJson)
+        .toList();
   }
 
   /// Cria um pedido real (POST /orders). Devolve o pedido já no formato do app.
@@ -270,22 +289,20 @@ class SelectedSlug extends Notifier<String?> {
 
 final selectedSlugProvider = NotifierProvider<SelectedSlug, String?>(SelectedSlug.new);
 
-/// Estabelecimentos — API real com fallback pro seed (o app roda sem backend).
+/// Estabelecimentos — dados reais da API. Erros propagam pra tela mostrar
+/// carregamento/estado de erro (nunca caímos em dados falsos).
 final establishmentsProvider = FutureProvider<List<Establishment>>((ref) async {
-  try {
-    return await ref.watch(publicApiProvider).establishments();
-  } catch (_) {
-    return kEstablishments;
-  }
+  return ref.watch(publicApiProvider).establishments();
 });
 
-/// Cardápio de um estabelecimento — API real com fallback pro seed.
+/// Cardápio de um estabelecimento — dados reais da API. Erros propagam.
 final menuProvider = FutureProvider.family<List<MenuItem>, String>((ref, slug) async {
-  try {
-    return await ref.watch(publicApiProvider).menu(slug);
-  } catch (_) {
-    return kMenu;
-  }
+  return ref.watch(publicApiProvider).menu(slug);
+});
+
+/// Ofertas do dia — itens com desconto real de vários bares. Erros propagam.
+final offersProvider = FutureProvider<List<Offer>>((ref) async {
+  return ref.watch(publicApiProvider).offers();
 });
 
 /// Pedidos reais do estabelecimento logado (usa o token do login). Sem token,

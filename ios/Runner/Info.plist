@@ -16,6 +16,10 @@
 		<string>6.0</string>
 		<key>CFBundleName</key>
 		<string>jurandir</string>
+		<key>NSCameraUsageDescription</key>
+		<string>O Jurandir usa a câmera para ler o QR code da mesa e abrir o cardápio.</string>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>O Jurandir usa sua localização para mostrar os bares e quiosques mais perto de você.</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>

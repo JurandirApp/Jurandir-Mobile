@@ -14,6 +14,10 @@ class Establishment {
   final bool open;
   final double platformFeePct; // comissão da plataforma (%)
   final double serviceFeePct; // taxa de serviço do bar (%)
+  final double? lat; // coordenadas geocodificadas (null = sem geocode)
+  final double? lng;
+  final String? logo; // imagem quadrada do bar
+  final String? cover; // capa (paisagem)
 
   const Establishment({
     required this.id,
@@ -26,7 +30,18 @@ class Establishment {
     required this.open,
     this.platformFeePct = 8,
     this.serviceFeePct = 10,
+    this.lat,
+    this.lng,
+    this.logo,
+    this.cover,
   });
+
+  /// Melhor imagem pro thumb do card: logo (quadrada) → capa → nada.
+  String? get imageUrl {
+    if (logo != null && logo!.isNotEmpty) return logo;
+    if (cover != null && cover!.isNotEmpty) return cover;
+    return null;
+  }
 
   factory Establishment.fromJson(Map<String, dynamic> j) => Establishment(
     id: j['id'] as String,
@@ -39,6 +54,10 @@ class Establishment {
     open: (j['open'] as bool?) ?? true,
     platformFeePct: (j['platformFeePct'] as num?)?.toDouble() ?? 8,
     serviceFeePct: (j['serviceFeePct'] as num?)?.toDouble() ?? 10,
+    lat: (j['lat'] as num?)?.toDouble(),
+    lng: (j['lng'] as num?)?.toDouble(),
+    logo: j['logo'] as String?,
+    cover: j['cover'] as String?,
   );
 }
 
@@ -83,6 +102,22 @@ class MenuItem {
     category: (j['cat'] as String?) ?? '',
     photo: j['photo'] as String?,
   );
+}
+
+/// Uma oferta da Home ("Ofertas do dia"): o item em promoção + o bar dele
+/// (slug/nome), pra abrir o cardápio certo ao tocar.
+class Offer {
+  final MenuItem item;
+  final String estSlug;
+  final String estName;
+
+  const Offer({required this.item, required this.estSlug, required this.estName});
+
+  factory Offer.fromJson(Map<String, dynamic> j) => Offer(
+        item: MenuItem.fromJson(j),
+        estSlug: (j['estSlug'] as String?) ?? '',
+        estName: (j['estName'] as String?) ?? '',
+      );
 }
 
 /// Pedido do cliente (retorno de `/api/public/orders`). `dbId` = id do pedido no
