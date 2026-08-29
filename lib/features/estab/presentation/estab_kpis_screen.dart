@@ -17,7 +17,6 @@ const _payMeta = [
   ('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
   ('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
   ('debito', 'Débito', Symbols.account_balance_wallet, AppColors.debit),
-  ('usdc', 'USDC', Symbols.toll, AppColors.usdc),
 ];
 
 /// Estab · Resumo (KPIs) com dados reais: calcula faturamento, categorias,
@@ -88,17 +87,18 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
       _ => now.subtract(const Duration(days: 30)).millisecondsSinceEpoch,
     };
     final orders = all.where((o) => o.ts >= cutoffMs).toList();
-    final confirmed = orders.where((o) => o.status != 'aguardando').toList();
 
     final faturamento = orders.fold(0.0, (s, o) => s + o.total);
     final pedidos = orders.length;
     final ticket = pedidos == 0 ? 0.0 : faturamento / pedidos;
     final emProducao = all.where((o) => o.status == 'producao').length;
 
-    // vendas por categoria (usa o cardápio p/ mapear nome → categoria)
+    // vendas por categoria (usa o cardápio p/ mapear nome → categoria).
+    // Usa os MESMOS pedidos do faturamento/método pra não dar divergência
+    // (ex.: método mostra Pix R$24 mas categoria zerada).
     final catOf = {for (final m in menu) m.name: m.cat};
     final byCat = <String, double>{};
-    for (final o in confirmed) {
+    for (final o in orders) {
       for (final it in o.items) {
         var c = catOf[it.name] ?? 'Outros';
         if (c.isEmpty) c = 'Outros';
@@ -114,9 +114,9 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
       byPay[o.pay] = (byPay[o.pay] ?? 0) + o.total;
     }
 
-    // mais vendidos (por quantidade)
+    // mais vendidos (por quantidade) — mesmo conjunto de pedidos
     final byItem = <String, int>{};
-    for (final o in confirmed) {
+    for (final o in orders) {
       for (final it in o.items) {
         byItem[it.name] = (byItem[it.name] ?? 0) + it.qty;
       }

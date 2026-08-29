@@ -20,11 +20,13 @@ class EstabQrScreen extends ConsumerStatefulWidget {
 
 class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
   final _ctrl = TextEditingController();
+  final _scroll = ScrollController();
   bool _adding = false;
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -44,15 +46,30 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
   }
 
   Future<void> _add() async {
+    if (_adding) return;
     final t = _ctrl.text.trim();
-    if (t.isEmpty || _adding) return;
+    if (t.isEmpty) {
+      _toast('Digite um nome, ex: Mesa 5 ou Guarda-sol 12');
+      return;
+    }
     final token = ref.read(authProvider).token;
     if (token == null) return;
+    FocusScope.of(context).unfocus();
     setState(() => _adding = true);
     try {
       await ref.read(publicApiProvider).addQrSpot(token, t);
       _ctrl.clear();
       ref.invalidate(establishmentQrProvider);
+      _toast('QR "$t" criado');
+      // O novo QR entra no fim da lista — rola até ele pra dar retorno visual.
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+        );
+      }
     } catch (_) {
       _toast('Não foi possível criar');
     } finally {
@@ -120,6 +137,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
 
   Widget _body(String slug, List<QrSpot> spots) {
     return ListView(
+      controller: _scroll,
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
       children: [
         Text('Cada QR abre o cardápio já identificando o guarda-sol ou mesa.',

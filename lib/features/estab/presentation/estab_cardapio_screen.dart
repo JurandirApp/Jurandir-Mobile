@@ -1,5 +1,9 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/data/models.dart';
@@ -8,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_toggle.dart';
+import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../auth/auth_controller.dart';
@@ -193,65 +198,61 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
     final busy = _busy.contains(m.dbId);
     return Opacity(
       opacity: m.active ? 1 : 0.55,
-      child: GestureDetector(
+      // BrutalCard (2 camadas): borda por cima + sombra fora do clip, então os
+      // cantos ficam nítidos e a foto não vaza. `padding: zero` deixa a faixa
+      // da imagem encostar na borda.
+      child: BrutalCard(
+        clip: true,
+        padding: EdgeInsets.zero,
         onTap: () => _openForm(m),
-        child: Container(
-          clipBehavior: Clip.antiAliasWithSaveLayer,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.ink, width: 2),
-            boxShadow: const [BoxShadow(color: AppColors.ink, offset: Offset(4, 4))],
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: 64,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    image: m.photo.isEmpty
-                        ? null
-                        : DecorationImage(image: NetworkImage(m.photo), fit: BoxFit.cover),
-                  ),
-                  child: m.photo.isEmpty
-                      ? Icon(Symbols.restaurant, size: 22, color: AppColors.inkA(0.3))
-                      : null,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  image: m.photo.isEmpty
+                      ? null
+                      : DecorationImage(image: NetworkImage(m.photo), fit: BoxFit.cover),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(m.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppText.body(size: 14, weight: FontWeight.w700)),
-                              const SizedBox(height: 2),
-                              Text.rich(TextSpan(children: [
-                                TextSpan(text: money(m.price), style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.coralDeep)),
-                                TextSpan(text: '  · ${m.active ? 'À venda' : 'Pausado'}',
-                                    style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
-                              ])),
-                            ],
-                          ),
+                child: m.photo.isEmpty
+                    ? Icon(Symbols.restaurant, size: 22, color: AppColors.inkA(0.3))
+                    : null,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(m.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppText.body(size: 14, weight: FontWeight.w700)),
+                            const SizedBox(height: 2),
+                            Text.rich(TextSpan(children: [
+                              TextSpan(text: money(m.price), style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.coralDeep)),
+                              TextSpan(text: '  · ${m.active ? 'À venda' : 'Pausado'}',
+                                  style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
+                            ])),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        busy
-                            ? const SizedBox(width: 30, height: 20, child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.coral))))
-                            : AppToggle(value: m.active, onChanged: (_) => _toggleActive(m)),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      busy
+                          ? const SizedBox(width: 30, height: 20, child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.coral))))
+                          : AppToggle(value: m.active, onChanged: (_) => _toggleActive(m)),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -271,6 +272,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
     bool active = item?.active ?? true;
     String? err;
     bool saving = false;
+    bool uploadingPhoto = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -279,6 +281,34 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetCtx) => StatefulBuilder(
         builder: (sheetCtx, setSheet) {
+          // Escolhe câmera/galeria, envia a foto pro Cloudinary e guarda a URL
+          // resultante em `photo` (que o save() já usa).
+          Future<void> pickPhoto() async {
+            if (uploadingPhoto || saving) return;
+            final source = await _pickSource(sheetCtx);
+            if (source == null) return;
+            final XFile? picked = await ImagePicker().pickImage(
+              source: source,
+              maxWidth: 1600,
+              imageQuality: 82,
+            );
+            if (picked == null) return;
+            setSheet(() => uploadingPhoto = true);
+            try {
+              final token = ref.read(authProvider).token;
+              if (token == null) throw Exception('no-token');
+              final url = await ref.read(publicApiProvider).uploadMenuPhoto(token, File(picked.path));
+              photo.text = url;
+              setSheet(() => uploadingPhoto = false);
+            } catch (e) {
+              setSheet(() => uploadingPhoto = false);
+              final notConfigured = e is DioException && e.response?.statusCode == 503;
+              _toast(notConfigured
+                  ? 'Fotos ainda não estão configuradas no servidor.'
+                  : 'Não foi possível enviar a foto');
+            }
+          }
+
           Future<void> save() async {
             final nm = name.text.trim();
             final pr = double.tryParse(price.text.trim().replaceAll(',', '.'));
@@ -347,7 +377,12 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                   const SizedBox(height: 10),
                   _sheetField(desc, 'Descrição (opc.)', lines: 2),
                   const SizedBox(height: 10),
-                  _sheetField(photo, 'URL da foto (opc.)'),
+                  _photoField(
+                    url: photo.text,
+                    uploading: uploadingPhoto,
+                    onPick: pickPhoto,
+                    onRemove: () => setSheet(() => photo.text = ''),
+                  ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -400,6 +435,104 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
           );
         },
       ),
+    );
+  }
+
+  /// Pergunta câmera x galeria antes de abrir o seletor de imagem.
+  Future<ImageSource?> _pickSource(BuildContext ctx) {
+    return showModalBottomSheet<ImageSource>(
+      context: ctx,
+      backgroundColor: AppColors.canvas,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
+            const SizedBox(height: 6),
+            ListTile(
+              leading: const Icon(Symbols.photo_camera, color: AppColors.coralDeep),
+              title: Text('Tirar foto', style: AppText.body(size: 14, weight: FontWeight.w700)),
+              onTap: () => Navigator.pop(c, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.photo_library, color: AppColors.coralDeep),
+              title: Text('Escolher da galeria', style: AppText.body(size: 14, weight: FontWeight.w700)),
+              onTap: () => Navigator.pop(c, ImageSource.gallery),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Campo de foto: preview + "Adicionar/Trocar/Remover". Upload vai pro
+  /// Cloudinary; o que guardamos no item é a URL https resultante.
+  Widget _photoField({
+    required String url,
+    required bool uploading,
+    required VoidCallback onPick,
+    required VoidCallback onRemove,
+  }) {
+    final hasPhoto = url.trim().isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Foto do item (opcional)',
+            style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: uploading ? null : onPick,
+              child: Container(
+                width: 76,
+                height: 76,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.ink, width: 2),
+                  image: hasPhoto ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover) : null,
+                ),
+                child: uploading
+                    ? Container(
+                        color: Colors.white.withValues(alpha: 0.65),
+                        child: const Center(
+                          child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.coral)),
+                        ),
+                      )
+                    : (hasPhoto ? null : Icon(Symbols.add_a_photo, size: 24, color: AppColors.inkA(0.4))),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: uploading ? null : onPick,
+                    child: Text(uploading ? 'Enviando…' : (hasPhoto ? 'Trocar foto' : 'Adicionar foto'),
+                        style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text('Câmera ou galeria do celular',
+                      style: AppText.body(size: 11.5, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+                  if (hasPhoto && !uploading) ...[
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: onRemove,
+                      child: Text('Remover', style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.rose)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

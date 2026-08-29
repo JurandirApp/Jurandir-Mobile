@@ -48,10 +48,10 @@ class EstabContaScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Quiosque do Mar',
+                              Text(ref.watch(authProvider).name ?? 'Estabelecimento',
                                   style: AppText.display(size: 16, weight: FontWeight.w700, letterSpacing: 0)),
                               const SizedBox(height: 1),
-                              Text(ref.watch(authProvider).email ?? 'contato@quiosquedomar.com.br',
+                              Text(ref.watch(authProvider).email ?? '',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),

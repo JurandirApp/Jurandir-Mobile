@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -167,6 +169,33 @@ class PublicApi {
       queryParameters: {'id': id},
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
+  }
+
+  /// Envia a foto de um item pro Cloudinary e devolve a URL https.
+  /// Fluxo seguro: pede a assinatura pro backend (o api_secret nunca vem pro
+  /// app) e faz o upload do arquivo direto pra Cloudinary.
+  Future<String> uploadMenuPhoto(String token, File file) async {
+    final sig = await _dio.get<Map<String, dynamic>>(
+      '/establishment/menu/photo-sign',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    final s = sig.data!;
+    final cloudName = s['cloudName'] as String;
+    final form = FormData.fromMap({
+      'file': await MultipartFile.fromFile(file.path, filename: file.uri.pathSegments.last),
+      'api_key': s['apiKey'],
+      'timestamp': '${s['timestamp']}',
+      'folder': s['folder'],
+      'signature': s['signature'],
+    });
+    // Dio separado: URL absoluta da Cloudinary, fora do baseUrl do backend.
+    final res = await Dio().post<Map<String, dynamic>>(
+      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
+      data: form,
+    );
+    final url = res.data?['secure_url'] as String?;
+    if (url == null) throw Exception('no-url');
+    return url;
   }
 
   /// Slug do estabelecimento (p/ a URL do QR) + pontos de QR (mesas/guarda-sóis).
