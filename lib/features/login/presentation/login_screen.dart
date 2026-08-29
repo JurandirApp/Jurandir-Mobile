@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -89,7 +88,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SvgPicture.asset('assets/images/jurandir-logo-white.svg', width: 168),
+                        ClipOval(
+                          child: Image.asset('assets/images/mascot.png', width: 108, height: 108),
+                        ),
                         const SizedBox(height: 28),
                         Text.rich(
                           const TextSpan(children: [

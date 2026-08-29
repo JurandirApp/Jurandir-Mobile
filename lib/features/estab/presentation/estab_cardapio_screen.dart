@@ -24,6 +24,28 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
   String _cat = 'Todos';
   final Set<String> _busy = {};
 
+  // Controllers do formulário — donos do State (descartados no dispose da tela),
+  // pra não serem usados após dispose enquanto o modal ainda anima o fechamento.
+  final _fName = TextEditingController();
+  final _fPrice = TextEditingController();
+  final _fOldPrice = TextEditingController();
+  final _fCat = TextEditingController();
+  final _fSub = TextEditingController();
+  final _fDesc = TextEditingController();
+  final _fPhoto = TextEditingController();
+
+  @override
+  void dispose() {
+    _fName.dispose();
+    _fPrice.dispose();
+    _fOldPrice.dispose();
+    _fCat.dispose();
+    _fSub.dispose();
+    _fDesc.dispose();
+    _fPhoto.dispose();
+    super.dispose();
+  }
+
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -239,13 +261,13 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
   // ---- Form (criar/editar) ----
   Future<void> _openForm(PanelMenuItem? item) async {
     final isEdit = item != null;
-    final name = TextEditingController(text: item?.name ?? '');
-    final price = TextEditingController(text: item != null ? item.price.toStringAsFixed(2) : '');
-    final oldPrice = TextEditingController(text: item?.oldPrice != null ? item!.oldPrice!.toStringAsFixed(2) : '');
-    final cat = TextEditingController(text: item?.cat ?? '');
-    final sub = TextEditingController(text: item?.sub ?? '');
-    final desc = TextEditingController(text: item?.desc ?? '');
-    final photo = TextEditingController(text: item?.photo ?? '');
+    final name = _fName..text = item?.name ?? '';
+    final price = _fPrice..text = (item != null ? item.price.toStringAsFixed(2) : '');
+    final oldPrice = _fOldPrice..text = (item?.oldPrice != null ? item!.oldPrice!.toStringAsFixed(2) : '');
+    final cat = _fCat..text = item?.cat ?? '';
+    final sub = _fSub..text = item?.sub ?? '';
+    final desc = _fDesc..text = item?.desc ?? '';
+    final photo = _fPhoto..text = item?.photo ?? '';
     bool active = item?.active ?? true;
     String? err;
     bool saving = false;
@@ -379,14 +401,6 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
         },
       ),
     );
-
-    name.dispose();
-    price.dispose();
-    oldPrice.dispose();
-    cat.dispose();
-    sub.dispose();
-    desc.dispose();
-    photo.dispose();
   }
 
   Widget _sheetField(TextEditingController c, String hint, {bool number = false, int lines = 1}) {
