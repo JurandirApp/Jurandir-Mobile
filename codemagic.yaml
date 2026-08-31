@@ -8,7 +8,8 @@
 #      Issuer ID.
 #   3. Codemagic > Team > Integrations > App Store Connect > adicione a chave e
 #      dê o nome  Jurandir ASC  (igual em `integrations > app_store_connect`).
-#   4. TestFlight > crie o grupo externo  Socios  (usado em publishing).
+#   4. TestFlight > distribuição é feita na tela (interno instantâneo; externo
+#      por e-mail/link após a Beta Review). Não precisa de grupo pro build subir.
 
 workflows:
   ios-testflight:
@@ -51,5 +52,8 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        beta_groups:
-          - Socios
+        # Sem beta_groups: o build sobe pro TestFlight e você distribui pela
+        # tela (interno = instantâneo; externo = convida por e-mail/link após a
+        # Beta Review). Pra auto-distribuir a um grupo, readicione:
+        #   beta_groups:
+        #     - <nome do grupo>
