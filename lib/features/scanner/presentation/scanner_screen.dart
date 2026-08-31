@@ -78,14 +78,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     setState(() => _torch = !_torch);
   }
 
-  /// Registra o erro da câmera pra tela reagir. Só trava na tela de erro quando
-  /// é permissão negada ou câmera sem suporte — erros transitórios de startup
-  /// (controller ainda inicializando) não devem prender o usuário aqui.
+  /// Registra o erro da câmera pra tela reagir com uma mensagem — em vez de
+  /// deixar a câmera preta silenciosa. Trata permissão negada, câmera sem
+  /// suporte e falha ao abrir a câmera (genericError, ex.: hardware indisponível
+  /// / emulador sem câmera). Erros de ciclo de vida (controller ainda
+  /// inicializando/descartado) são transitórios e não devem prender o usuário.
   void _recordError(MobileScannerException error) {
-    if (error.errorCode != MobileScannerErrorCode.permissionDenied &&
-        error.errorCode != MobileScannerErrorCode.unsupported) {
-      return;
-    }
+    const terminal = {
+      MobileScannerErrorCode.permissionDenied,
+      MobileScannerErrorCode.unsupported,
+      MobileScannerErrorCode.genericError,
+    };
+    if (!terminal.contains(error.errorCode)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _error == null) setState(() => _error = error);
     });
@@ -216,6 +220,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   Widget _errorView() {
+    // Permissão negada tem um caminho diferente (configurações) de uma falha ao
+    // abrir a câmera (retry direto).
+    final permission = _error?.errorCode == MobileScannerErrorCode.permissionDenied;
     return Column(
       children: [
         _header(showTorch: false),
@@ -229,32 +236,43 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 height: 76,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(color: AppColors.duneA(0.12), shape: BoxShape.circle),
-                child: const Icon(Symbols.no_photography, size: 38, color: AppColors.dune),
+                child: Icon(permission ? Symbols.no_photography : Symbols.videocam_off, size: 38, color: AppColors.dune),
               ),
               const SizedBox(height: 18),
               Text(
-                'Precisamos da câmera pra ler o QR da sua mesa',
+                permission
+                    ? 'Precisamos da câmera pra ler o QR da sua mesa'
+                    : 'Não foi possível acessar a câmera',
                 textAlign: TextAlign.center,
                 style: AppText.display(size: 20, letterSpacing: -0.3, color: Colors.white),
               ),
               const SizedBox(height: 10),
               Text(
-                'Libere o acesso à câmera nas configurações do app e toque em "Tentar de novo".',
+                permission
+                    ? 'Libere o acesso à câmera nas configurações do app e toque em "Tentar de novo".'
+                    : 'Feche outros apps que estejam usando a câmera e toque em "Tentar de novo".',
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 14, height: 1.45, color: AppColors.duneA(0.7)),
               ),
               const SizedBox(height: 26),
-              AppButton.primary(
-                label: 'Abrir configurações',
-                icon: Symbols.settings,
-                onPressed: _openSettings,
-              ),
-              const SizedBox(height: 10),
-              AppButton.dark(
-                label: 'Tentar de novo',
-                icon: Symbols.refresh,
-                onPressed: _retry,
-              ),
+              if (permission) ...[
+                AppButton.primary(
+                  label: 'Abrir configurações',
+                  icon: Symbols.settings,
+                  onPressed: _openSettings,
+                ),
+                const SizedBox(height: 10),
+                AppButton.dark(
+                  label: 'Tentar de novo',
+                  icon: Symbols.refresh,
+                  onPressed: _retry,
+                ),
+              ] else
+                AppButton.primary(
+                  label: 'Tentar de novo',
+                  icon: Symbols.refresh,
+                  onPressed: _retry,
+                ),
               const SizedBox(height: 6),
               TextButton(
                 onPressed: () => context.go('/home'),
