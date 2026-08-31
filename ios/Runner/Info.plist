@@ -24,6 +24,8 @@
 		<string>O Jurandir acessa suas fotos para você escolher a imagem dos itens do cardápio.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>O Jurandir usa sua localização para mostrar os bares e quiosques mais perto de você.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>O Jurandir usa sua localização para mostrar os bares e quiosques mais perto de você.</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
