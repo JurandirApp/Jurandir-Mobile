@@ -1,14 +1,14 @@
 # Codemagic — builda o iOS (.ipa) num Mac na nuvem e publica no TestFlight.
 #
 # PRÉ-REQUISITOS (você faz, uma vez):
-#   1. App Store Connect > crie o app com o bundle id  br.app.jurandir
-#   2. App Store Connect > Usuários e Acesso > Integrações/Chaves > gere uma
-#      API Key (acesso "App Manager"): baixe o .p8 e anote Key ID + Issuer ID.
-#   3. Codemagic > Team settings > Integrations > App Store Connect > adicione
-#      essa API Key e DÊ UM NOME. Use o mesmo nome abaixo em
-#      `integrations > app_store_connect`.
-#   4. TestFlight > crie um grupo de teste externo. Use o nome dele em
-#      `publishing > ... > beta_groups`.
+#   1. App Store Connect > app criado com o bundle id  br.app.jurandir
+#   2. App Store Connect > Usuários e Acesso > Integrações > API do App Store
+#      Connect > gere uma chave com papel "App Manager" (ou Admin) — precisa
+#      desse papel pra CRIAR certificado + perfil. Baixe o .p8, anote Key ID +
+#      Issuer ID.
+#   3. Codemagic > Team > Integrations > App Store Connect > adicione a chave e
+#      dê o nome  Jurandir ASC  (igual em `integrations > app_store_connect`).
+#   4. TestFlight > crie o grupo externo  Socios  (usado em publishing).
 
 workflows:
   ios-testflight:
@@ -16,22 +16,29 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
-      # >>> troque pelo NOME que você deu à API Key no Codemagic <<<
       app_store_connect: Jurandir ASC
     environment:
-      ios_signing:
-        distribution_type: app_store       # TestFlight usa o perfil de App Store
-        bundle_identifier: br.app.jurandir
+      vars:
+        BUNDLE_ID: "br.app.jurandir"
       flutter: stable
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Inicializa keychain (assinatura)
+        script: keychain initialize
+      - name: Busca/cria certificado + perfil (App Store Connect)
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Instala o certificado no keychain
+        script: keychain add-certificates
+      - name: Aplica os perfis no projeto Xcode
+        script: xcode-project use-profiles
       - name: Flutter packages
         script: flutter pub get
       - name: CocoaPods
         script: find . -name "Podfile" -execdir pod install \;
-      - name: Assinatura (perfis)
-        script: xcode-project use-profiles
       - name: Build IPA
         script: |
           flutter build ipa --release \
@@ -45,5 +52,4 @@ workflows:
         auth: integration
         submit_to_testflight: true
         beta_groups:
-          # >>> troque pelo NOME do seu grupo de teste no TestFlight <<<
           - Socios
