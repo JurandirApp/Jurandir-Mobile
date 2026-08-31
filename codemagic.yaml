@@ -2,17 +2,14 @@
 #
 # PRÉ-REQUISITOS (você faz, uma vez):
 #   1. App Store Connect > app criado com o bundle id  br.app.jurandir
-#   2. App Store Connect > Usuários e Acesso > Integrações > gere uma API Key
-#      com papel "App Manager"/"Admin". Baixe o .p8, anote Key ID + Issuer ID.
-#   3. Codemagic > Team > Integrations > App Store Connect > adicione a chave com
-#      o nome  Jurandir ASC  (igual em `integrations > app_store_connect`).
+#   2. Codemagic > Integrations > App Store Connect > API Key com o nome
+#      Jurandir ASC  (papel App Manager/Admin).
+#   3. Codemagic > App settings > Environment variables > grupo `ios_signing` com
+#      a variável CERTIFICATE_PRIVATE_KEY (a chave privada PEM que geramos),
+#      marcada como Secure. Ela permite CRIAR o certificado de distribuição — a
+#      conta não tinha nenhum — e reutilizá-lo em todo build.
 #   4. TestFlight > distribuição é feita na tela (interno instantâneo; externo
 #      por e-mail/link após a Beta Review). Não precisa de grupo pro build subir.
-#
-# Assinatura: modo AUTOMÁTICO do Codemagic (bloco `ios_signing`). Ele cria e
-# gerencia o certificado de distribuição (com a chave privada) + o provisioning
-# profile via a API Key, e reutiliza entre builds. É o jeito certo em CI — sem
-# depender de um certificado externo cuja chave privada não temos.
 
 workflows:
   ios-testflight:
@@ -22,13 +19,26 @@ workflows:
     integrations:
       app_store_connect: Jurandir ASC
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: br.app.jurandir
+      groups:
+        - ios_signing            # contém CERTIFICATE_PRIVATE_KEY (Secure)
+      vars:
+        BUNDLE_ID: "br.app.jurandir"
       flutter: stable
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Inicializa keychain
+        script: keychain initialize
+      - name: Cria/baixa certificado + perfil (App Store Connect)
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+      - name: Instala o certificado no keychain
+        script: keychain add-certificates
+      - name: Aplica os perfis no projeto Xcode
+        script: xcode-project use-profiles
       - name: Flutter packages
         script: flutter pub get
       - name: CocoaPods
