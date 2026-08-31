@@ -171,17 +171,6 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          Row(
-            children: [
-              const Icon(Symbols.star, size: 14, color: AppColors.amber, fill: 1),
-              const SizedBox(width: 4),
-              Text(
-                est.rating.toStringAsFixed(1),
-                style: AppText.body(size: 13, weight: FontWeight.w700, color: Colors.white),
-              ),
-            ],
-          ),
         ],
       ),
     );

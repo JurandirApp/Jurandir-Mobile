@@ -7,7 +7,6 @@ import '../../../core/data/models.dart';
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../../core/widgets/skeleton.dart';
@@ -266,17 +265,6 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        const Icon(Symbols.star, size: 13, color: AppColors.amber, fill: 1),
-                        const SizedBox(width: 4),
-                        Text(e.rating.toStringAsFixed(1), style: AppText.body(size: 12, weight: FontWeight.w700)),
-                        const SizedBox(width: 4),
-                        Text('· ${groupThousands(e.orders)} pedidos',
-                            style: AppText.body(size: 12, weight: FontWeight.w500, color: AppColors.inkA(0.4))),
-                      ],
-                    ),
                   ],
                 ),
               ),
