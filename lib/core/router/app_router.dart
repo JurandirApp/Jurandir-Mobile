@@ -26,6 +26,7 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/login/presentation/login_screen.dart';
 import '../../features/menu/presentation/menu_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/onboarding/presentation/profile_onboarding_screen.dart';
 import '../../features/pedidos/presentation/pedidos_screen.dart';
 import '../../features/perfil/presentation/perfil_screen.dart';
 import '../../features/scanner/presentation/scanner_screen.dart';
@@ -33,6 +34,17 @@ import '../../features/shell/admin_scaffold.dart';
 import '../../features/shell/client_scaffold.dart';
 import '../../features/shell/estab_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
+import '../data/client_profile.dart';
+
+/// Rotas que exigem perfil local do cliente completo (nome + telefone).
+/// Fora dessa lista: splash, apresentação (tour), onboarding de perfil,
+/// login e as áreas de estabelecimento/admin (não passam pelo gate).
+bool _isClientGatedRoute(String location) {
+  const openPrefixes = ['/estab', '/admin'];
+  const openPaths = ['/', '/onboarding', '/profile-onboarding', '/login'];
+  if (openPaths.contains(location)) return false;
+  return !openPrefixes.any((p) => location.startsWith(p));
+}
 
 /// Rotas do app:
 /// - Splash / Onboarding: tela cheia.
@@ -43,11 +55,31 @@ import '../../features/splash/presentation/splash_screen.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
+    // Gate do perfil local do cliente: sem login, sem servidor — só nome e
+    // telefone (`clientProfileProvider`, salvos em shared_preferences).
+    // Se incompleto, qualquer rota "de cliente" redireciona pro onboarding
+    // de perfil; uma vez salvo, o próprio gate libera a navegação normal
+    // (não bloqueia depois de completo, nem trava se o usuário voltar lá).
+    redirect: (context, state) {
+      final loc = state.matchedLocation;
+      final profile = ref.read(clientProfileProvider);
+      if (!profile.isComplete && _isClientGatedRoute(loc)) {
+        return '/profile-onboarding';
+      }
+      if (profile.isComplete && loc == '/profile-onboarding') {
+        return '/home';
+      }
+      return null;
+    },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/profile-onboarding',
+        builder: (context, state) => const ProfileOnboardingScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
