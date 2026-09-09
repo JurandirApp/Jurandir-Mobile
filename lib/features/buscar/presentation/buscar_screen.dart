@@ -7,6 +7,7 @@ import '../../../core/data/models.dart';
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/images.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../../core/widgets/skeleton.dart';
@@ -129,7 +130,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(width: 72, color: AppColors.inkA(0.06)),
+            const SkeletonBox(width: 72, height: 82, radius: 0),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -277,7 +278,10 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
   // Thumb do bar: tile quadrado FIXO (logo → capa → placeholder), pra toda linha
   // ter a logo do mesmo tamanho/formato — independe do aspecto da imagem.
   Widget _thumb(Establishment e) {
-    final url = e.imageUrl;
+    // Normaliza o logo (Cloudinary) num quadrado consistente — o tile já é fixo,
+    // e isto garante que o conteúdo preencha igual, sem depender da margem/tamanho
+    // do arquivo enviado.
+    final url = squareThumbUrl(e.imageUrl);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
       child: Container(

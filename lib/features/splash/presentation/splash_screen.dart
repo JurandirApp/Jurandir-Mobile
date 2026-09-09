@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/client_profile.dart';
 import '../../../core/data/onboarding_controller.dart';
 import '../../auth/auth_controller.dart';
 import '../../../core/theme/app_colors.dart';
@@ -47,7 +48,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         context.go('/waiter');
         return;
       }
-      // Onboarding só aparece uma vez (flag persistente em shared_preferences).
+      // Cliente: o perfil local (nome+telefone) é OBRIGATÓRIO e vem ANTES do
+      // tour. Sem perfil → onboarding de perfil; com perfil → tour (só 1x) ou app.
+      final profile = ref.read(clientProfileProvider);
+      if (!profile.isComplete) {
+        context.go('/profile-onboarding');
+        return;
+      }
       final seen = ref.read(onboardingProvider).seen;
       context.go(seen ? '/home' : '/onboarding');
     });

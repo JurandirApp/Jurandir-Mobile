@@ -298,7 +298,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Container(width: 58, height: 58, color: AppColors.inkA(0.08)),
+            child: const SkeletonBox(width: 58, height: 58, radius: 0),
           ),
           const SizedBox(width: 12),
           const Expanded(

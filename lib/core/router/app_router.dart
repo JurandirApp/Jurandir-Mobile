@@ -40,12 +40,13 @@ import '../../features/waiter/presentation/waiter_ready_screen.dart';
 import '../data/client_profile.dart';
 
 /// Rotas que exigem perfil local do cliente completo (nome + telefone).
-/// Fora dessa lista: splash, apresentação (tour), onboarding de perfil,
-/// login e as áreas de estabelecimento/admin/garçom (não passam pelo gate —
-/// o garçom não tem perfil local de cliente).
+/// Fora dessa lista: splash, onboarding de perfil, login e as áreas de
+/// estabelecimento/admin/garçom (não passam pelo gate — o garçom não tem
+/// perfil local de cliente). A apresentação (tour) NÃO é isenta: o nome+telefone
+/// é obrigatório e vem ANTES do tour.
 bool _isClientGatedRoute(String location) {
   const openPrefixes = ['/estab', '/admin', '/waiter'];
-  const openPaths = ['/', '/onboarding', '/profile-onboarding', '/login'];
+  const openPaths = ['/', '/profile-onboarding', '/login'];
   if (openPaths.contains(location)) return false;
   return !openPrefixes.any((p) => location.startsWith(p));
 }

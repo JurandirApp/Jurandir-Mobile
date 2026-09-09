@@ -479,7 +479,7 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: 88, width: double.infinity, color: AppColors.inkA(0.10)),
+            const SkeletonBox(height: 88, width: double.infinity, radius: 0),
             const Padding(
               padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
               child: Column(
@@ -509,7 +509,7 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: 88, width: double.infinity, color: AppColors.inkA(0.10)),
+            const SkeletonBox(height: 88, width: double.infinity, radius: 0),
             const Padding(
               padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
               child: Column(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/data/client_profile.dart';
+import '../../../core/data/onboarding_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
@@ -66,7 +67,9 @@ class _ProfileOnboardingScreenState extends ConsumerState<ProfileOnboardingScree
     });
     await ref.read(clientProfileProvider.notifier).save(name, phone);
     if (!mounted) return;
-    context.go('/home');
+    // Perfil salvo → segue pro tour (se ainda não visto), senão direto pro app.
+    final seen = ref.read(onboardingProvider).seen;
+    context.go(seen ? '/home' : '/onboarding');
   }
 
   @override
