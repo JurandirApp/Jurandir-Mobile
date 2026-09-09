@@ -343,13 +343,15 @@ class PublicApi {
   }
 
   /// Marca uma quantidade de um item como retirada (POST /waiter/order-items/:id/pick).
-  /// Retorna false em 409 (já retirado) ou erro de rede.
-  Future<bool> waiterPick(String token, String itemId, int qty) async {
+  /// `taken` em 409 (outro garçom já pegou), `error` em falha de rede/servidor.
+  Future<PickResult> waiterPick(String token, String itemId, int qty) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>('/waiter/order-items/$itemId/pick',
         data: {'qty': qty}, options: Options(headers: {'Authorization': 'Bearer $token'}));
-      return (res.data?['ok'] as bool?) ?? false;
-    } on DioException { return false; }
+      return ((res.data?['ok'] as bool?) ?? false) ? PickResult.ok : PickResult.taken;
+    } on DioException catch (e) {
+      return e.response?.statusCode == 409 ? PickResult.taken : PickResult.error;
+    }
   }
 
   /// Marca uma quantidade de um item como entregue (POST /waiter/order-items/:id/deliver).

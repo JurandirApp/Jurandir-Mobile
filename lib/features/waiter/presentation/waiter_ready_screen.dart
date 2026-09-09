@@ -13,13 +13,15 @@ import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
 import '../data/waiter_models.dart';
 
-/// Tela do garçom: itens prontos para retirada (bar/cozinha concluiu).
-/// Faz polling a cada ~4s (mesmo padrão de `pix_screen.dart`) e, ao pegar,
-/// abre automaticamente a confirmação de entrega (`/waiter/deliver`).
+/// Tela do garçom: fila de trabalho em duas seções —
+///  • **Prontos p/ retirada** (bar/cozinha concluiu): PEGAR abre a confirmação.
+///  • **Em entrega** (já pegos, aguardando código): reabre a confirmação. Cobre
+///    o caso do garçom que pegou e saiu da tela sem confirmar (código errado /
+///    cliente ausente) — sem isso as unidades ficariam "a caminho" pra sempre.
 ///
-/// Pensada pra uso com uma mão só: cards grandes, botão PEGAR de largura
-/// cheia com alvo de toque generoso, stepper opcional só quando há mais de
-/// 1 unidade pronta.
+/// Faz polling a cada ~4s (mesmo padrão de `pix_screen.dart`). Pensada pra uso
+/// com uma mão só: cards grandes, botões de largura cheia, stepper só quando há
+/// mais de 1 unidade pronta.
 class WaiterReadyScreen extends ConsumerStatefulWidget {
   const WaiterReadyScreen({super.key});
 
@@ -81,34 +83,44 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
       ));
   }
 
-  /// Pega `qty` unidades de `item`. Em sucesso, abre a confirmação de
-  /// entrega automaticamente; em `false` (outro garçom já pegou) ou falha,
-  /// avisa e recarrega a lista.
+  /// Abre a confirmação de entrega (`/waiter/deliver`) de `qty` unidades de
+  /// `item`. Ao voltar, recarrega a lista (o polling também cobre).
+  void _openDeliver(ReadyItem item, int qty) {
+    context.push('/waiter/deliver', extra: <String, dynamic>{
+      'orderItemId': item.orderItemId,
+      'name': item.name,
+      'mesa': item.mesa,
+      'cliente': item.cliente,
+      'qty': qty,
+    }).then((_) {
+      if (mounted) _load(silent: true);
+    });
+  }
+
+  /// Pega `qty` unidades de `item`. Em sucesso, abre a confirmação de entrega;
+  /// em `taken` avisa que outro garçom já pegou; em `error` avisa falha de rede.
   Future<void> _pick(ReadyItem item, int qty) async {
     final token = ref.read(authProvider).token;
     if (token == null) return;
     setState(() => _busy.add(item.orderItemId));
-    bool ok;
+    PickResult r;
     try {
-      ok = await ref.read(publicApiProvider).waiterPick(token, item.orderItemId, qty);
+      r = await ref.read(publicApiProvider).waiterPick(token, item.orderItemId, qty);
     } catch (_) {
-      ok = false;
+      r = PickResult.error;
     }
     if (!mounted) return;
     setState(() => _busy.remove(item.orderItemId));
-    if (ok) {
-      _qtyN.remove(item.orderItemId);
-      context.push('/waiter/deliver', extra: <String, dynamic>{
-        'orderItemId': item.orderItemId,
-        'name': item.name,
-        'mesa': item.mesa,
-        'cliente': item.cliente,
-        'qty': qty,
-      });
-      _load(silent: true);
-    } else {
-      _toast('Outro garçom já pegou', bg: AppColors.danger, fg: Colors.white);
-      _load(silent: true);
+    switch (r) {
+      case PickResult.ok:
+        _qtyN.remove(item.orderItemId);
+        _openDeliver(item, qty);
+        _load(silent: true);
+      case PickResult.taken:
+        _toast('Outro garçom já pegou', bg: AppColors.danger, fg: Colors.white);
+        _load(silent: true);
+      case PickResult.error:
+        _toast('Sem conexão. Tente de novo.', bg: AppColors.danger, fg: Colors.white);
     }
   }
 
@@ -118,7 +130,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Garçom', title: 'Prontos p/ retirada'),
+          const DarkHeader(eyebrow: 'Garçom', title: 'Fila do garçom'),
           Expanded(child: _body()),
         ],
       ),
@@ -134,31 +146,57 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
       return _errorState();
     }
     final list = items ?? const <ReadyItem>[];
-    if (list.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Symbols.task_alt, size: 44, color: AppColors.inkA(0.35)),
-              const SizedBox(height: 12),
-              Text('Nenhum pedido pronto agora',
-                  style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
-            ],
-          ),
-        ),
-      );
+    final prontos = list.where((i) => i.qtyReady > 0).toList();
+    final emEntrega = list.where((i) => i.qtyOutForDelivery > 0).toList();
+    if (prontos.isEmpty && emEntrega.isEmpty) {
+      return _emptyState();
     }
     return RefreshIndicator(
       color: AppColors.coral,
       onRefresh: () => _load(),
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        itemCount: list.length,
-        itemBuilder: (_, i) => Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: _readyCard(list[i]),
+        children: [
+          if (prontos.isNotEmpty) ...[
+            _sectionLabel('Prontos p/ retirada', prontos.length),
+            for (final it in prontos)
+              Padding(padding: const EdgeInsets.only(bottom: 14), child: _readyCard(it)),
+          ],
+          if (emEntrega.isNotEmpty) ...[
+            if (prontos.isNotEmpty) const SizedBox(height: 10),
+            _sectionLabel('Em entrega', emEntrega.length),
+            for (final it in emEntrega)
+              Padding(padding: const EdgeInsets.only(bottom: 14), child: _deliveringCard(it)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    return LayoutBuilder(
+      builder: (_, c) => RefreshIndicator(
+        color: AppColors.coral,
+        onRefresh: () => _load(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: c.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Symbols.task_alt, size: 44, color: AppColors.inkA(0.35)),
+                    const SizedBox(height: 12),
+                    Text('Nenhum pedido na fila agora',
+                        style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -188,6 +226,26 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text, int count) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 2),
+      child: Row(
+        children: [
+          Text(text.toUpperCase(),
+              style: AppText.body(
+                  size: 12, weight: FontWeight.w800, color: AppColors.inkA(0.55), letterSpacing: 0.4)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
+            child: Text('$count',
+                style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.dune)),
+          ),
+        ],
       ),
     );
   }
@@ -239,6 +297,54 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
                             ),
                           ],
                         ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Card de item já em entrega (pego, aguardando confirmação por código).
+  /// Reabre a tela de confirmação com as unidades que ainda estão "a caminho".
+  Widget _deliveringCard(ReadyItem item) {
+    final qty = item.qtyOutForDelivery;
+    return BrutalCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$qty× ${item.name}', style: AppText.display(size: 22, letterSpacing: -0.4)),
+          const SizedBox(height: 10),
+          _infoRow(Symbols.table_restaurant, item.mesa),
+          const SizedBox(height: 4),
+          _infoRow(Symbols.person, item.cliente),
+          const SizedBox(height: 6),
+          _infoRow(Symbols.schedule, 'Aguardando código do cliente'),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: Material(
+              color: AppColors.ink,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => _openDeliver(item, qty),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Symbols.check_circle, size: 20, color: AppColors.dune),
+                      const SizedBox(width: 8),
+                      Text(
+                        'CONFIRMAR ENTREGA',
+                        style: AppText.body(
+                            size: 16, weight: FontWeight.w800, color: AppColors.dune, letterSpacing: 0.3),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
