@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/auth_controller.dart';
+import '../../features/waiter/data/waiter_models.dart';
 import '../api/api_client.dart';
 import 'models.dart';
 
@@ -332,6 +333,37 @@ class PublicApi {
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     return AdminSearches.fromJson(res.data!);
+  }
+
+  /// Itens prontos para retirada pelo garçom (GET /waiter/ready).
+  Future<List<ReadyItem>> waiterReady(String token) async {
+    final res = await _dio.get<Map<String, dynamic>>('/waiter/ready',
+      options: Options(headers: {'Authorization': 'Bearer $token'}));
+    return ((res.data!['items'] as List?) ?? const []).cast<Map<String, dynamic>>().map(ReadyItem.fromJson).toList();
+  }
+
+  /// Marca uma quantidade de um item como retirada (POST /waiter/order-items/:id/pick).
+  /// Retorna false em 409 (já retirado) ou erro de rede.
+  Future<bool> waiterPick(String token, String itemId, int qty) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>('/waiter/order-items/$itemId/pick',
+        data: {'qty': qty}, options: Options(headers: {'Authorization': 'Bearer $token'}));
+      return (res.data?['ok'] as bool?) ?? false;
+    } on DioException { return false; }
+  }
+
+  /// Marca uma quantidade de um item como entregue (POST /waiter/order-items/:id/deliver).
+  /// Retorna estrutura com sucesso, erro específico (code/qty/notfound) e se o pedido foi concluído.
+  Future<({bool ok, String? error, bool orderDone})> waiterDeliver(String token, String itemId, int qty, String code) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>('/waiter/order-items/$itemId/deliver',
+        data: {'qty': qty, 'code': code}, options: Options(headers: {'Authorization': 'Bearer $token'}));
+      final d = res.data!;
+      return (ok: (d['ok'] as bool?) ?? false, error: null, orderDone: (d['orderDone'] as bool?) ?? false);
+    } on DioException catch (e) {
+      final err = (e.response?.data is Map) ? (e.response!.data['error'] as String?) : null;
+      return (ok: false, error: err ?? 'erro', orderDone: false);
+    }
   }
 }
 
