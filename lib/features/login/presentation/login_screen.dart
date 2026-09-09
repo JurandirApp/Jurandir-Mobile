@@ -47,7 +47,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final r = await ref.read(publicApiProvider).login(email, pass);
       if (!mounted) return;
-      final appRole = r.role == 'ADMIN' ? 'admin' : 'estab';
+      final appRole = switch (r.role) {
+        'ADMIN' => 'admin',
+        'WAITER' => 'waiter',
+        _ => 'estab',
+      };
       ref.read(authProvider.notifier).login(
             role: appRole,
             name: r.name,
@@ -55,7 +59,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             establishmentId: r.establishmentId,
             token: r.token,
           );
-      context.go(appRole == 'admin' ? '/admin/dashboard' : '/estab/pedidos');
+      final home = switch (appRole) {
+        'admin' => '/admin/dashboard',
+        'waiter' => '/waiter',
+        _ => '/estab/pedidos',
+      };
+      context.go(home);
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.response?.statusCode == 401

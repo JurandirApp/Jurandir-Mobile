@@ -8,6 +8,7 @@ import '../../features/admin/presentation/admin_conta_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_faturamento_screen.dart';
 import '../../features/admin/presentation/admin_taxas_screen.dart';
+import '../../features/auth/auth_controller.dart';
 import '../../features/buscar/presentation/buscar_screen.dart';
 import '../../features/checkout/presentation/card_wait_screen.dart';
 import '../../features/checkout/presentation/checkout_screen.dart';
@@ -34,13 +35,16 @@ import '../../features/shell/admin_scaffold.dart';
 import '../../features/shell/client_scaffold.dart';
 import '../../features/shell/estab_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
+import '../../features/waiter/presentation/waiter_deliver_screen.dart';
+import '../../features/waiter/presentation/waiter_ready_screen.dart';
 import '../data/client_profile.dart';
 
 /// Rotas que exigem perfil local do cliente completo (nome + telefone).
 /// Fora dessa lista: splash, apresentação (tour), onboarding de perfil,
-/// login e as áreas de estabelecimento/admin (não passam pelo gate).
+/// login e as áreas de estabelecimento/admin/garçom (não passam pelo gate —
+/// o garçom não tem perfil local de cliente).
 bool _isClientGatedRoute(String location) {
-  const openPrefixes = ['/estab', '/admin'];
+  const openPrefixes = ['/estab', '/admin', '/waiter'];
   const openPaths = ['/', '/onboarding', '/profile-onboarding', '/login'];
   if (openPaths.contains(location)) return false;
   return !openPrefixes.any((p) => location.startsWith(p));
@@ -49,7 +53,8 @@ bool _isClientGatedRoute(String location) {
 /// Rotas do app:
 /// - Splash / Onboarding: tela cheia.
 /// - Shell do cliente (bottom nav): /home, /buscar, /pedidos, /perfil.
-/// - Tela cheia: /menu, /checkout, /done, /scanner, /login.
+/// - Tela cheia: /menu, /checkout, /done, /scanner, /login, /waiter,
+///   /waiter/deliver.
 ///
 /// TODO(migração): shells de Estabelecimento e Admin.
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -62,6 +67,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     // (não bloqueia depois de completo, nem trava se o usuário voltar lá).
     redirect: (context, state) {
       final loc = state.matchedLocation;
+      // Área do garçom: exige sessão autenticada com role WAITER; senão,
+      // manda pro login (não passa pelo gate de perfil do cliente abaixo).
+      if (loc.startsWith('/waiter')) {
+        final auth = ref.read(authProvider);
+        if (!auth.isAuthed || auth.role != 'waiter') {
+          return '/login';
+        }
+        return null;
+      }
       final profile = ref.read(clientProfileProvider);
       if (!profile.isComplete && _isClientGatedRoute(loc)) {
         return '/profile-onboarding';
@@ -175,6 +189,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/done', builder: (context, state) => const DoneScreen()),
       GoRoute(path: '/scanner', builder: (context, state) => const ScannerScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/waiter', builder: (context, state) => const WaiterReadyScreen()),
+      GoRoute(path: '/waiter/deliver', builder: (context, state) => const WaiterDeliverScreen()),
     ],
   );
 });

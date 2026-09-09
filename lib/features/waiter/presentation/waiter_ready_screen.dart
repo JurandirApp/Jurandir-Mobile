@@ -203,7 +203,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
         children: [
           Text('$n× ${item.name}', style: AppText.display(size: 22, letterSpacing: -0.4)),
           const SizedBox(height: 10),
-          _infoRow(Symbols.table_restaurant, 'Mesa ${item.mesa}'),
+          _infoRow(Symbols.table_restaurant, item.mesa),
           const SizedBox(height: 4),
           _infoRow(Symbols.person, item.cliente),
           if (max > 1) ...[

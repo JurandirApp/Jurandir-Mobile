@@ -33,7 +33,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     )..forward();
     _timer = Timer(const Duration(milliseconds: 2000), () {
       if (!mounted) return;
-      // Sessão persistida: estab/admin voltam direto pro painel.
+      // Sessão persistida: estab/admin/garçom voltam direto pro painel.
       final auth = ref.read(authProvider);
       if (auth.isAuthed && auth.role == 'estab') {
         context.go('/estab/pedidos');
@@ -41,6 +41,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       }
       if (auth.isAuthed && auth.role == 'admin') {
         context.go('/admin/dashboard');
+        return;
+      }
+      if (auth.isAuthed && auth.role == 'waiter') {
+        context.go('/waiter');
         return;
       }
       // Onboarding só aparece uma vez (flag persistente em shared_preferences).

@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/data/onboarding_controller.dart' show sharedPrefsProvider;
 
-/// Estado de autenticação: papel (client/estab/admin) + nome/e-mail +
+/// Estado de autenticação: papel (client/estab/admin/waiter) + nome/e-mail +
 /// establishmentId e token JWT (para as rotas protegidas dos painéis).
 /// Sem e-mail = não autenticado.
 class AuthState {
-  final String role; // client | estab | admin
+  final String role; // client | estab | admin | waiter
   final String? name;
   final String? email;
   final String? establishmentId;
@@ -44,8 +44,9 @@ class AuthState {
       );
 }
 
-/// Sessão persistida — sobrevive a fechar o app (estab/admin não deslogam ao
-/// reabrir). O token é reusado nas chamadas autenticadas dos painéis.
+/// Sessão persistida — sobrevive a fechar o app (estab/admin/waiter não
+/// deslogam ao reabrir). O token é reusado nas chamadas autenticadas dos
+/// painéis.
 class AuthController extends Notifier<AuthState> {
   static const _key = 'auth_session';
 
