@@ -103,17 +103,30 @@ class PedidosScreen extends ConsumerWidget {
           for (final it in o.items)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Text('${it.qty}× ${it.name}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.body(size: 13, weight: FontWeight.w500)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text('${it.qty}× ${it.name}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.body(size: 13, weight: FontWeight.w500)),
+                      ),
+                      Text(money(it.price * it.qty),
+                          style: AppText.body(size: 13, weight: FontWeight.w600)),
+                    ],
                   ),
-                  Text(money(it.price * it.qty),
-                      style: AppText.body(size: 13, weight: FontWeight.w600)),
+                  if (it.options.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 14, top: 1),
+                      child: Text('+ ${it.options.join(', ')}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+                    ),
                 ],
               ),
             ),

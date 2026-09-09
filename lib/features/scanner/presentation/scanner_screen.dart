@@ -65,9 +65,15 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       if (raw == null) continue;
       final slug = _slugFromCode(raw);
       if (slug == null) continue;
+      // O QR carrega a mesa/guarda-sol em `?local=...` — captura pra o pedido
+      // chegar no lugar certo.
+      final local = Uri.tryParse(raw.trim())?.queryParameters['local'];
       _handled = true;
       _controller.stop();
-      ref.read(selectedSlugProvider.notifier).set(slug);
+      ref.read(selectedSlugProvider.notifier).set(slug); // limpa mesa antiga
+      if (local != null && local.trim().isNotEmpty) {
+        ref.read(selectedLocalProvider.notifier).set(local.trim());
+      }
       context.go('/menu');
       return;
     }

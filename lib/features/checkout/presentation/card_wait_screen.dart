@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 
 /// Argumentos passados pelo Checkout via `go('/pagamento', extra: ...)`.
@@ -61,6 +62,9 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
     if (o != null && (o.status == 'producao' || o.status == 'entregue')) {
       _done = true;
       _poll?.cancel();
+      // Pago → encerra o carrinho e a pendência (não dá mais pra editar).
+      ref.read(cartProvider.notifier).clear();
+      ref.read(pendingOrderProvider.notifier).set(null);
       context.go('/done', extra: DoneArgs(incomplete: false, code: o.code));
       return;
     }
@@ -160,6 +164,15 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                       icon: Symbols.check_circle,
                       onPressed: (_checking || id == null) ? null : () => _check(id),
                     ),
+                    if (ref.watch(pendingOrderProvider) != null) ...[
+                      const SizedBox(height: 4),
+                      TextButton.icon(
+                        onPressed: () => context.go('/checkout'),
+                        icon: Icon(Symbols.edit, size: 16, color: AppColors.inkA(0.6)),
+                        label: Text('Editar pedido',
+                            style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+                      ),
+                    ],
                   ],
                 ),
               ),

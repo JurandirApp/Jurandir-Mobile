@@ -13,6 +13,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../cart/cart_controller.dart';
+import 'item_sheet.dart';
 
 /// Cardápio: header do estabelecimento, barra de categorias fixa (sticky),
 /// lista de itens (add / stepper) e barra de carrinho flutuante.
@@ -99,7 +100,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                             separatorBuilder: (_, _) => const SizedBox(height: 10),
                             itemBuilder: (_, i) {
                               final m = items[i];
-                              return _itemRow(m, cart[m.id] ?? 0, ctrl);
+                              return _itemRow(m, ctrl.qtyOfItem(m.id), ctrl);
                             },
                           ),
                   ),
@@ -177,7 +178,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   }
 
   Widget _itemRow(MenuItem m, int qty, CartController ctrl) {
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showItemSheet(context, m),
+      child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -243,12 +247,13 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
           ),
           const SizedBox(width: 12),
           if (qty == 0)
-            _circleBtn(36, AppColors.coral, Symbols.add, Colors.white, () => ctrl.add(m))
-          else
+            _circleBtn(36, AppColors.coral, Symbols.add, Colors.white,
+                () => m.hasGroups ? showItemSheet(context, m) : ctrl.addSimple(m))
+          else if (!m.hasGroups)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _circleBtn(30, AppColors.duneA(0.6), Symbols.remove, AppColors.ink, () => ctrl.dec(m.id)),
+                _circleBtn(30, AppColors.duneA(0.6), Symbols.remove, AppColors.ink, () => ctrl.decSimple(m)),
                 SizedBox(
                   width: 28,
                   child: Text(
@@ -257,12 +262,27 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     style: AppText.body(size: 14, weight: FontWeight.w800),
                   ),
                 ),
-                _circleBtn(30, AppColors.coral, Symbols.add, Colors.white, () => ctrl.add(m)),
+                _circleBtn(30, AppColors.coral, Symbols.add, Colors.white, () => ctrl.addSimple(m)),
+              ],
+            )
+          else
+            // Item com adicionais já no carrinho: badge da qtd + "+" reabre o modal
+            // (cada combinação de opções é uma linha separada).
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: AppColors.duneA(0.4), borderRadius: BorderRadius.circular(999)),
+                  child: Text('$qty', style: AppText.body(size: 13, weight: FontWeight.w800)),
+                ),
+                const SizedBox(width: 8),
+                _circleBtn(36, AppColors.coral, Symbols.add, Colors.white, () => showItemSheet(context, m)),
               ],
             ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _itemRowSkeleton() {

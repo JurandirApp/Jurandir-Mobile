@@ -51,6 +51,20 @@ class PublicApi {
     return ClientOrder.fromJson(res.data!['order'] as Map<String, dynamic>);
   }
 
+  /// Cancela um pedido ainda não pago (DELETE /orders?id=). Best-effort: usado
+  /// ao editar (descarta o pedido antigo antes de recriar). Nunca lança.
+  Future<bool> cancelOrder(String id) async {
+    try {
+      final res = await _dio.delete<Map<String, dynamic>>(
+        '/orders',
+        queryParameters: {'id': id},
+      );
+      return (res.data?['ok'] as bool?) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Cria o pedido + cobra na carteira nativa (Google/Apple Pay) via Pagar.me.
   /// `walletType` = 'google_pay' | 'apple_pay'; `token` = tokenizationData.token.
   Future<({bool ok, String status, ClientOrder? order, String? detail})> createWalletOrder(
@@ -308,12 +322,26 @@ class PublicApi {
 
 final publicApiProvider = Provider((ref) => PublicApi(ref.watch(apiClientProvider)));
 
+/// Mesa/guarda-sol que veio do QR (`?local=...`). Null quando o cliente entrou
+/// sem QR (home/busca) — nesse caso o checkout pergunta a mesa antes de fechar.
+class SelectedLocal extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? local) => state = local;
+}
+
+final selectedLocalProvider = NotifierProvider<SelectedLocal, String?>(SelectedLocal.new);
+
 /// Slug do estabelecimento que o cliente abriu (setado ao tocar num card).
 /// O cardápio e o checkout usam este slug para carregar/atribuir ao bar certo.
 class SelectedSlug extends Notifier<String?> {
   @override
   String? build() => null;
-  void set(String? slug) => state = slug;
+  void set(String? slug) {
+    // Trocou de bar → some a mesa antiga (evita usar a mesa de outro bar).
+    if (slug != state) ref.read(selectedLocalProvider.notifier).set(null);
+    state = slug;
+  }
 }
 
 final selectedSlugProvider = NotifierProvider<SelectedSlug, String?>(SelectedSlug.new);

@@ -20,6 +20,15 @@ class MyOrderIds extends Notifier<List<String>> {
     await prefs.setStringList(_key, next);
     state = next;
   }
+
+  /// Remove um id (pedido cancelado ao editar) da lista local.
+  Future<void> remove(String id) async {
+    if (!state.contains(id)) return;
+    final prefs = ref.read(sharedPrefsProvider);
+    final next = state.where((x) => x != id).toList();
+    await prefs.setStringList(_key, next);
+    state = next;
+  }
 }
 
 final myOrderIdsProvider =

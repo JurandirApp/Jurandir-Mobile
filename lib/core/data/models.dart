@@ -18,6 +18,7 @@ class Establishment {
   final double? lng;
   final String? logo; // imagem quadrada do bar
   final String? cover; // capa (paisagem)
+  final bool walletPay; // aceita Apple/Google Pay (crédito via Pagar.me)
 
   const Establishment({
     required this.id,
@@ -34,6 +35,7 @@ class Establishment {
     this.lng,
     this.logo,
     this.cover,
+    this.walletPay = false,
   });
 
   /// Melhor imagem pro thumb do card: logo (quadrada) → capa → nada.
@@ -58,7 +60,60 @@ class Establishment {
     lng: (j['lng'] as num?)?.toDouble(),
     logo: j['logo'] as String?,
     cover: j['cover'] as String?,
+    walletPay: (j['walletPay'] as bool?) ?? false,
   );
+}
+
+/// Opção de um grupo de adicionais (ex.: "Bacon +R$3").
+class MenuOption {
+  final String id;
+  final String name;
+  final double priceDelta;
+
+  const MenuOption({required this.id, required this.name, required this.priceDelta});
+
+  factory MenuOption.fromJson(Map<String, dynamic> j) => MenuOption(
+        id: (j['id'] as String?) ?? '',
+        name: (j['name'] as String?) ?? '',
+        priceDelta: (j['priceDelta'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// Grupo de adicionais/opções de um item (ex.: "Tamanho", "Ponto da carne").
+class MenuOptionGroup {
+  final String id;
+  final String name;
+  final bool required;
+  final int minSelect;
+  final int maxSelect;
+  final List<MenuOption> options;
+
+  const MenuOptionGroup({
+    required this.id,
+    required this.name,
+    required this.required,
+    required this.minSelect,
+    required this.maxSelect,
+    required this.options,
+  });
+
+  /// Escolha única (radio) quando só cabe 1; senão é múltipla (checkbox).
+  bool get single => maxSelect <= 1;
+
+  /// Mínimo efetivo de escolhas: obrigatório exige ao menos 1.
+  int get minRequired => required ? (minSelect > 0 ? minSelect : 1) : minSelect;
+
+  factory MenuOptionGroup.fromJson(Map<String, dynamic> j) => MenuOptionGroup(
+        id: (j['id'] as String?) ?? '',
+        name: (j['name'] as String?) ?? '',
+        required: (j['required'] as bool?) ?? false,
+        minSelect: (j['minSelect'] as num?)?.toInt() ?? 0,
+        maxSelect: (j['maxSelect'] as num?)?.toInt() ?? 1,
+        options: ((j['options'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(MenuOption.fromJson)
+            .toList(),
+      );
 }
 
 class MenuItem {
@@ -71,6 +126,7 @@ class MenuItem {
   final String category;
   final String? photoId; // seed (Unsplash)
   final String? photo; // API (URL direta)
+  final List<MenuOptionGroup> groups; // adicionais/opções (vazio = sem)
 
   const MenuItem({
     required this.id,
@@ -82,6 +138,7 @@ class MenuItem {
     this.photoId,
     this.photo,
     required this.category,
+    this.groups = const [],
   });
 
   String get photoUrl =>
@@ -91,6 +148,7 @@ class MenuItem {
           : 'https://images.unsplash.com/$photoId?auto=format&fit=crop&w=400&q=70');
 
   bool get hasOffer => oldPrice != null && oldPrice! > price;
+  bool get hasGroups => groups.isNotEmpty;
 
   factory MenuItem.fromJson(Map<String, dynamic> j) => MenuItem(
     id: j['id'] as int,
@@ -101,6 +159,10 @@ class MenuItem {
     oldPrice: j['old'] == null ? null : (j['old'] as num).toDouble(),
     category: (j['cat'] as String?) ?? '',
     photo: j['photo'] as String?,
+    groups: ((j['groups'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(MenuOptionGroup.fromJson)
+        .toList(),
   );
 }
 
@@ -126,13 +188,20 @@ class ClientOrderItem {
   final String name;
   final int qty;
   final double price;
+  final List<String> options; // adicionais escolhidos (nomes)
 
-  const ClientOrderItem({required this.name, required this.qty, required this.price});
+  const ClientOrderItem({
+    required this.name,
+    required this.qty,
+    required this.price,
+    this.options = const [],
+  });
 
   factory ClientOrderItem.fromJson(Map<String, dynamic> j) => ClientOrderItem(
     name: j['name'] as String,
     qty: (j['qty'] as num).toInt(),
     price: (j['price'] as num).toDouble(),
+    options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).toList(),
   );
 }
 
@@ -215,7 +284,13 @@ class PanelOrderLine {
   final int qty;
   final String name;
   final double price;
-  const PanelOrderLine({required this.qty, required this.name, required this.price});
+  final List<String> options; // adicionais escolhidos (nomes)
+  const PanelOrderLine({
+    required this.qty,
+    required this.name,
+    required this.price,
+    this.options = const [],
+  });
 }
 
 class PanelSplit {
@@ -257,6 +332,9 @@ class PanelOrder {
 
   factory PanelOrder.fromJson(Map<String, dynamic> j) {
     final splits = j['splits'] as Map<String, dynamic>?;
+    // Adicionais por item vêm em `itemOpts`, alinhados por índice com `items`.
+    final itemOpts = (j['itemOpts'] as List?) ?? const [];
+    final rawItems = (j['items'] as List?) ?? const [];
     return PanelOrder(
       id: (j['id'] as num?)?.toInt() ?? 0,
       dbId: (j['dbId'] as String?) ?? '',
@@ -267,14 +345,19 @@ class PanelOrder {
       ts: (j['ts'] as num?)?.toInt() ?? 0,
       note: j['note'] as String?,
       pay: (j['pay'] as String?) ?? 'pix',
-      items: ((j['items'] as List?) ?? const []).map((it) {
-        final l = it as List;
-        return PanelOrderLine(
-          qty: (l[0] as num).toInt(),
-          name: l[1] as String,
-          price: (l[2] as num).toDouble(),
-        );
-      }).toList(),
+      items: [
+        for (var k = 0; k < rawItems.length; k++)
+          () {
+            final l = rawItems[k] as List;
+            final opts = k < itemOpts.length ? (itemOpts[k] as List?) ?? const [] : const [];
+            return PanelOrderLine(
+              qty: (l[0] as num).toInt(),
+              name: l[1] as String,
+              price: (l[2] as num).toDouble(),
+              options: opts.map((e) => e.toString()).toList(),
+            );
+          }(),
+      ],
       split: splits == null
           ? null
           : PanelSplit(

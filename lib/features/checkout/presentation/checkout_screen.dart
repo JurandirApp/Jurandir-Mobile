@@ -16,6 +16,7 @@ import '../../../core/utils/money.dart';
 import '../../auth/auth_controller.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
+import '../../menu/presentation/item_sheet.dart';
 import 'card_wait_screen.dart';
 import 'wallet_buttons.dart';
 
@@ -66,12 +67,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return 'PED-${List.generate(8, (_) => chars[r.nextInt(chars.length)]).join()}';
   }
 
-  void _pay(double grand) {
+  Future<void> _pay(double grand) async {
+    if (_submitting) return;
     if (_payMode == 'split') {
       _paySplit();
       return;
     }
     if (_selPay == null) return;
+    // Se o cliente não veio de um QR (sem mesa), pergunta onde ele está antes
+    // de gerar o pedido — assim o bar sabe pra onde levar.
+    if ((ref.read(selectedLocalProvider) ?? '').trim().isEmpty) {
+      final table = await _askTable();
+      if (table == null || !mounted) return; // cancelou
+      ref.read(selectedLocalProvider.notifier).set(table);
+    }
     // Pix (pagar tudo) → cobrança real: gera o QR e vai pra tela do Pix.
     if (_selPay == 'pix') {
       _payPix();
@@ -85,6 +94,79 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _finish(incomplete: false);
   }
 
+  /// Pergunta a mesa/guarda-sol quando o cliente entrou sem QR. Retorna o texto
+  /// digitado, ou null se ele cancelar.
+  Future<String?> _askTable() async {
+    final ctrl = TextEditingController();
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.canvas,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final bottom = MediaQuery.viewInsetsOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 18 + bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
+              ),
+              const SizedBox(height: 16),
+              Text('Qual a sua mesa?', style: AppText.display(size: 20, letterSpacing: -0.3)),
+              const SizedBox(height: 6),
+              Text('Diga onde você está pra o pedido chegar no lugar certo.',
+                  style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.55))),
+              const SizedBox(height: 14),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (v) {
+                  if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
+                },
+                style: AppText.body(size: 15, weight: FontWeight.w600),
+                decoration: InputDecoration(
+                  hintText: 'Ex: Mesa 5, Guarda-sol 12',
+                  hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.4)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.inkA(0.15), width: 1.5)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.ink, width: 2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: Material(
+                  color: AppColors.coral,
+                  borderRadius: BorderRadius.circular(999),
+                  child: InkWell(
+                    onTap: () {
+                      final v = ctrl.text.trim();
+                      if (v.isNotEmpty) Navigator.pop(ctx, v);
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      child: Center(child: Text('Confirmar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white))),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    ctrl.dispose();
+    return result;
+  }
+
   /// Cria o pedido Pix (cobrança real na Pagar.me) e abre a tela do QR.
   Future<void> _payPix() async {
     if (_submitting) return;
@@ -95,6 +177,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
     setState(() => _submitting = true);
+    await _replacePending(); // descarta um Pix anterior deste carrinho, se houver
     ClientOrder? order;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
@@ -110,13 +193,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final id = order.dbId;
     if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
     if (!mounted) return;
-    ref.read(cartProvider.notifier).clear();
     // Sem cobrança Pix (gateway não-Pagar.me ou sem recebedor) → confirma como
     // pedido normal em vez de travar o cliente numa tela vazia.
     if (order.pixPayload == null && order.pixQrImage == null) {
+      _markPending(null);
+      ref.read(cartProvider.notifier).clear();
       context.go('/done', extra: DoneArgs(incomplete: false, code: order.code));
       return;
     }
+    // Mantém o carrinho (permite "Editar pedido" na tela do Pix); limpa só quando
+    // o pagamento cair.
+    _markPending(id);
     context.go('/pix', extra: order);
   }
 
@@ -131,6 +218,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
     setState(() => _submitting = true);
+    await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
     ({bool ok, String? checkoutUrl, ClientOrder? order})? res;
     try {
       res = await ref.read(publicApiProvider).createCardCheckout(payload);
@@ -150,7 +238,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final uri = Uri.tryParse(url);
     if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!mounted) return;
-    ref.read(cartProvider.notifier).clear();
+    // Mantém o carrinho (permite "Editar pedido" na tela de espera do cartão).
+    _markPending(id);
     context.go('/pagamento', extra: CardWaitArgs(order: order, checkoutUrl: url));
   }
 
@@ -159,8 +248,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<void> _finish({required bool incomplete}) async {
     if (_submitting) return;
     setState(() => _submitting = true);
+    await _replacePending();
     final order = await _submitOrder();
     if (!mounted) return;
+    _markPending(null);
     ref.read(cartProvider.notifier).clear();
     context.go('/done', extra: DoneArgs(incomplete: incomplete, code: order?.code ?? _genCode()));
   }
@@ -176,6 +267,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Editar pedido = descartar o pedido pendente (não pago) antes de criar o
+  /// novo. Best-effort: se o cancelamento falhar, segue mesmo assim.
+  Future<void> _replacePending() async {
+    final pending = ref.read(pendingOrderProvider);
+    if (pending == null) return;
+    // Só tira da lista local se REALMENTE cancelou; se já tinha sido pago
+    // (cancel devolve false), mantém pra o cliente ainda ver o pedido.
+    final cancelled = await ref.read(publicApiProvider).cancelOrder(pending);
+    if (cancelled) await ref.read(myOrderIdsProvider.notifier).remove(pending);
+    ref.read(pendingOrderProvider.notifier).set(null);
+  }
+
+  /// Marca o pedido recém-criado como "pendente" deste carrinho (mantém o
+  /// carrinho pra permitir editar). O carrinho só é limpo quando o pagamento cai.
+  void _markPending(String? id) {
+    ref.read(pendingOrderProvider.notifier).set(id);
   }
 
   /// Enum do backend a partir do método escolhido no app.
@@ -218,18 +327,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (lines.isEmpty) return null;
     final name = ref.read(authProvider).name;
     final note = _obsCtrl.text.trim();
+    final table = (ref.read(selectedLocalProvider) ?? '').trim();
     return <String, dynamic>{
       'establishmentId': est.id,
-      'locationLabel': 'Pedido pelo app',
+      'locationLabel': table.isEmpty ? 'Pedido pelo app' : table,
       if (name != null && name.isNotEmpty) 'customerName': name,
       if (note.isNotEmpty) 'note': note,
       'items': [
         for (final l in lines)
           <String, dynamic>{
-            if (l.$1.dbId != null) 'menuItemId': l.$1.dbId,
-            'name': l.$1.name,
-            'qty': l.$2,
-            'unitPrice': l.$1.price,
+            if (l.item.dbId != null) 'menuItemId': l.item.dbId,
+            'name': l.item.name,
+            'qty': l.qty,
+            'unitPrice': l.unitPrice,
+            if (l.options.isNotEmpty)
+              'options': [
+                for (final o in l.options)
+                  {'group': o.groupName, 'name': o.name, 'priceDelta': o.priceDelta},
+              ],
           },
       ],
       'payment': {'kind': 'full', 'method': method, 'installments': 1},
@@ -340,7 +455,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 _modeToggle(),
                 const SizedBox(height: 12),
                 if (!isSplit) ...[
-                  _walletSection(grand),
+                  // Carteira nativa só quando o bar aceita (crédito via Pagar.me);
+                  // senão o token não teria como ser cobrado.
+                  if (est.walletPay) _walletSection(grand),
                   _payGrid(),
                 ] else
                   _splitCard(grand, share),
@@ -365,10 +482,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     boxShadow: const [BoxShadow(color: AppColors.ink, offset: Offset(4, 4))],
   );
 
-  Widget _summary(List<(MenuItem, int)> cartLines, dynamic est, double total, double fee, double estFee, double grand) {
-    final lines = cartLines
-        .map((l) => (label: '${l.$2}× ${l.$1.name}', value: money(l.$1.price * l.$2)))
-        .toList();
+  Widget _summary(List<CartLine> cartLines, dynamic est, double total, double fee, double estFee, double grand) {
+    final ctrl = ref.read(cartProvider.notifier);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -389,14 +504,52 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          for (final l in lines)
+          // Linhas editáveis: +/- na quantidade, lápis (adicionais) e lixeira.
+          for (final l in cartLines)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Flexible(child: Text(l.label, style: AppText.body(size: 13))),
-                  Text(l.value, style: AppText.body(size: 13, weight: FontWeight.w600)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(l.item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body(size: 13, weight: FontWeight.w700)),
+                            ),
+                            if (l.options.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => showItemSheet(context, l.item, editing: l),
+                                child: Icon(Symbols.edit, size: 14, color: AppColors.coralDeep),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (l.optionsLabel.isNotEmpty)
+                          Text(l.optionsLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.55))),
+                        Text(money(l.unitPrice), style: AppText.body(size: 11, weight: FontWeight.w500, color: AppColors.inkA(0.45))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _cartStep(Symbols.remove, () => ctrl.decLine(l.lineId)),
+                  SizedBox(width: 26, child: Text('${l.qty}', textAlign: TextAlign.center, style: AppText.body(size: 13, weight: FontWeight.w800))),
+                  _cartStep(Symbols.add, () => ctrl.incLine(l.lineId)),
+                  const SizedBox(width: 10),
+                  SizedBox(width: 58, child: Text(money(l.lineTotal), textAlign: TextAlign.right, style: AppText.body(size: 13, weight: FontWeight.w700))),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => ctrl.removeLine(l.lineId),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Icon(Symbols.delete, size: 16, color: AppColors.inkA(0.4)),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -431,6 +584,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _cartStep(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 26,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: AppColors.duneA(0.5), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, size: 15, color: AppColors.ink),
       ),
     );
   }
@@ -527,6 +694,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final walletType =
         defaultTargetPlatform == TargetPlatform.iOS ? 'apple_pay' : 'google_pay';
     setState(() => _submitting = true);
+    await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
     try {
       final r = await ref
           .read(publicApiProvider)
@@ -536,6 +704,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         final id = r.order?.dbId;
         if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
         if (!mounted) return;
+        _markPending(null);
         ref.read(cartProvider.notifier).clear();
         context.go('/done',
             extra: DoneArgs(incomplete: false, code: r.order?.code ?? _genCode()));
@@ -694,6 +863,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       'shares': List.generate(_people, (_) => <String, dynamic>{'method': null}),
     };
     setState(() => _submitting = true);
+    await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
     ClientOrder? order;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
@@ -709,6 +879,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final id = order.dbId;
     if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
     if (!mounted) return;
+    _markPending(null);
     ref.read(cartProvider.notifier).clear();
     context.go('/split', extra: order);
   }
@@ -728,6 +899,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Widget _payBar(BuildContext context, String label, Color bg, bool canPay, double grand) {
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
+    // Enquanto envia, o botão vira spinner e trava — assim o cliente vê que
+    // está processando e não fica tocando de novo (era o que fazia o Pix
+    // "precisar de 2-3 cliques").
+    final enabled = canPay && !_submitting;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 24, 16, 20 + bottomSafe),
       decoration: BoxDecoration(
@@ -739,15 +914,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
       ),
       child: Material(
-        color: bg,
+        color: _submitting ? AppColors.coral.withValues(alpha: 0.6) : bg,
         borderRadius: BorderRadius.circular(999),
         child: InkWell(
-          onTap: canPay ? () => _pay(grand) : null,
+          onTap: enabled ? () => _pay(grand) : null,
           borderRadius: BorderRadius.circular(999),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 15),
             child: Center(
-              child: Text(label, style: AppText.body(size: 15, weight: FontWeight.w700, color: Colors.white)),
+              child: _submitting
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                    )
+                  : Text(label, style: AppText.body(size: 15, weight: FontWeight.w700, color: Colors.white)),
             ),
           ),
         ),

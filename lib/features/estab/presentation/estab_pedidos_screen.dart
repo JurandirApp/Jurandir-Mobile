@@ -248,11 +248,22 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
           for (final i in o.items)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${i.qty}× ${i.name}', style: AppText.body(size: 13)),
-                  Text(money(i.qty * i.price), style: AppText.body(size: 13, color: AppColors.inkA(0.5))),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${i.qty}× ${i.name}', style: AppText.body(size: 13)),
+                      Text(money(i.qty * i.price), style: AppText.body(size: 13, color: AppColors.inkA(0.5))),
+                    ],
+                  ),
+                  if (i.options.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 14, top: 1),
+                      child: Text('+ ${i.options.join(', ')}',
+                          style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+                    ),
                 ],
               ),
             ),
