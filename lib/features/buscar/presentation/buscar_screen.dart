@@ -236,9 +236,8 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
         radius: 16,
         padding: EdgeInsets.zero,
         onTap: () => _openEstablishment(e),
-        child: IntrinsicHeight(
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _thumb(e),
             Expanded(
@@ -271,31 +270,39 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
             ),
           ],
         ),
-        ),
       ),
     );
   }
 
-  // Thumb do bar (logo → capa → placeholder), na coluna esquerda do card.
+  // Thumb do bar: tile quadrado FIXO (logo → capa → placeholder), pra toda linha
+  // ter a logo do mesmo tamanho/formato — independe do aspecto da imagem.
   Widget _thumb(Establishment e) {
     final url = e.imageUrl;
-    return SizedBox(
-      width: 72,
-      child: url == null
-          ? _thumbPlaceholder()
-          : Image.network(
-              url,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _thumbPlaceholder(),
-            ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+      child: Container(
+        width: 58,
+        height: 58,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.inkA(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.inkA(0.12)),
+        ),
+        child: url == null
+            ? _thumbPlaceholder()
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _thumbPlaceholder(),
+              ),
+      ),
     );
   }
 
   Widget _thumbPlaceholder() {
-    return Container(
-      color: AppColors.inkA(0.06),
-      alignment: Alignment.center,
-      child: Icon(Symbols.storefront, size: 22, color: AppColors.inkA(0.3)),
+    return Center(
+      child: Icon(Symbols.storefront, size: 24, color: AppColors.inkA(0.3)),
     );
   }
 
