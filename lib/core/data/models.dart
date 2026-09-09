@@ -240,6 +240,7 @@ class ClientOrder {
   final String? pixPayload; // copia-e-cola (só em pedido Pix aguardando)
   final String? pixQrImage; // PNG base64 (sem prefixo data:)
   final List<ClientShare>? splits; // partes da divisão (split real por Pix)
+  final String? code4; // código de 4 dígitos pro garçom confirmar a entrega
 
   const ClientOrder({
     this.dbId,
@@ -254,11 +255,13 @@ class ClientOrder {
     this.pixPayload,
     this.pixQrImage,
     this.splits,
+    this.code4,
   });
 
   factory ClientOrder.fromJson(Map<String, dynamic> j) => ClientOrder(
     dbId: j['dbId'] as String?,
     code: (j['code'] as String?) ?? '',
+    code4: (j['code4'] as String?)?.isNotEmpty == true ? j['code4'] as String : null,
     ts: (j['ts'] as num?)?.toInt() ?? 0,
     items: ((j['items'] as List?) ?? const [])
         .cast<Map<String, dynamic>>()

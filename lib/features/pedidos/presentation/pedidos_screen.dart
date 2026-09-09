@@ -145,6 +145,21 @@ class PedidosScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (o.code4 != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text('Seu código de entrega: ${o.code4}',
+                    style: AppText.display(size: 16, letterSpacing: -0.2)),
+              ),
+            ),
+          ],
         ],
       ),
     );

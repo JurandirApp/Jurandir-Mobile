@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/data/client_profile.dart';
 import '../../../core/data/models.dart';
 import '../../../core/data/orders_controller.dart';
 import '../../../core/data/public_api.dart';
@@ -325,13 +326,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (est == null) return null;
     final lines = ref.read(cartProvider.notifier).lines;
     if (lines.isEmpty) return null;
-    final name = ref.read(authProvider).name;
+    // Nome preferencial: perfil local do cliente (Task 2); cai pro authProvider
+    // só se o perfil ainda não tiver nome preenchido.
+    final profile = ref.read(clientProfileProvider);
+    final authName = ref.read(authProvider).name;
+    final name = (profile.name ?? '').isNotEmpty ? profile.name : authName;
+    final phone = profile.phone ?? '';
     final note = _obsCtrl.text.trim();
     final table = (ref.read(selectedLocalProvider) ?? '').trim();
     return <String, dynamic>{
       'establishmentId': est.id,
       'locationLabel': table.isEmpty ? 'Pedido pelo app' : table,
       if (name != null && name.isNotEmpty) 'customerName': name,
+      if (phone.isNotEmpty) 'customerPhone': phone,
+      'clientId': profile.clientId,
       if (note.isNotEmpty) 'note': note,
       'items': [
         for (final l in lines)

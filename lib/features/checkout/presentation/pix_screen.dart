@@ -163,6 +163,7 @@ class _PixScreenState extends ConsumerState<PixScreen> {
   }
 
   Widget _amountRow(ClientOrder order) {
+    final code4 = order.code4;
     return Column(
       children: [
         Text('Valor a pagar', style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
@@ -170,6 +171,26 @@ class _PixScreenState extends ConsumerState<PixScreen> {
         Text(money(order.grand), style: AppText.display(size: 30, letterSpacing: -0.5)),
         const SizedBox(height: 2),
         Text('Pedido ${order.code}', style: AppText.body(size: 12, color: AppColors.inkA(0.5)).copyWith(fontFamily: 'monospace')),
+        if (code4 != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.amber.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.ink, width: 2),
+            ),
+            child: Column(
+              children: [
+                Text('Seu código de entrega',
+                    style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+                const SizedBox(height: 2),
+                Text(code4,
+                    style: AppText.display(size: 28, letterSpacing: 1).copyWith(fontFamily: 'monospace')),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
