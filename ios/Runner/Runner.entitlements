@@ -2,9 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Apple Pay adiado pro lançamento. Pra reativar, readicione:
-	     <key>com.apple.developer.in-app-payments</key>
-	     <array><string>merchant.br.app.jurandir</string></array>
-	     e habilite a capability "Apple Pay" no App ID br.app.jurandir. -->
+	<!-- Apple Pay. O merchant precisa existir no Apple Developer (Merchant ID
+	     merchant.br.app.jurandir) e a capability "Apple Pay" habilitada no App ID
+	     br.app.jurandir, senão o perfil de assinatura não inclui o direito. -->
+	<key>com.apple.developer.in-app-payments</key>
+	<array>
+		<string>merchant.br.app.jurandir</string>
+	</array>
 </dict>
 </plist>
