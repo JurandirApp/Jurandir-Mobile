@@ -278,6 +278,36 @@ class ClientOrder {
   );
 }
 
+/// Estado de progresso de um item (contadores prontos/saída/entregues), de
+/// `itemStates` em `/establishment/orders` (alinhado por índice com `items`).
+/// `id` é o id do `OrderItem` no banco — usado em `markItemReady`.
+class PanelItemState {
+  final String id;
+  final int qty;
+  final int ready;
+  final int out;
+  final int delivered;
+
+  const PanelItemState({
+    required this.id,
+    required this.qty,
+    this.ready = 0,
+    this.out = 0,
+    this.delivered = 0,
+  });
+
+  /// Ainda em preparo: total menos o que já foi marcado pronto/saída/entregue.
+  int get preparing => qty - (ready + out + delivered);
+
+  factory PanelItemState.fromJson(Map<String, dynamic> j) => PanelItemState(
+        id: (j['id'] as String?) ?? '',
+        qty: (j['qty'] as num?)?.toInt() ?? 0,
+        ready: (j['ready'] as num?)?.toInt() ?? 0,
+        out: (j['out'] as num?)?.toInt() ?? 0,
+        delivered: (j['delivered'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// Pedido REAL no painel do estabelecimento (de `/establishment/orders`,
 /// formato do `toPanelOrder` do web).
 class PanelOrderLine {
@@ -285,11 +315,13 @@ class PanelOrderLine {
   final String name;
   final double price;
   final List<String> options; // adicionais escolhidos (nomes)
+  final PanelItemState? state; // contadores prontos/saída/entregues (null = sem dado)
   const PanelOrderLine({
     required this.qty,
     required this.name,
     required this.price,
     this.options = const [],
+    this.state,
   });
 }
 
@@ -334,6 +366,8 @@ class PanelOrder {
     final splits = j['splits'] as Map<String, dynamic>?;
     // Adicionais por item vêm em `itemOpts`, alinhados por índice com `items`.
     final itemOpts = (j['itemOpts'] as List?) ?? const [];
+    // Contadores prontos/saída/entregues por item, também alinhados por índice.
+    final itemStates = (j['itemStates'] as List?) ?? const [];
     final rawItems = (j['items'] as List?) ?? const [];
     return PanelOrder(
       id: (j['id'] as num?)?.toInt() ?? 0,
@@ -350,11 +384,13 @@ class PanelOrder {
           () {
             final l = rawItems[k] as List;
             final opts = k < itemOpts.length ? (itemOpts[k] as List?) ?? const [] : const [];
+            final st = k < itemStates.length ? itemStates[k] as Map<String, dynamic>? : null;
             return PanelOrderLine(
               qty: (l[0] as num).toInt(),
               name: l[1] as String,
               price: (l[2] as num).toDouble(),
               options: opts.map((e) => e.toString()).toList(),
+              state: st == null ? null : PanelItemState.fromJson(st),
             );
           }(),
       ],

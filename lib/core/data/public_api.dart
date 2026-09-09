@@ -154,6 +154,21 @@ class PublicApi {
     );
   }
 
+  /// Marca `qty` unidades de um item do pedido como prontas (bar → cozinha
+  /// concluiu). `false` em 409 (já marcado/qty inválida) ou erro de rede.
+  Future<bool> markItemReady(String token, String orderItemId, int qty) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/panel/order-items/$orderItemId/ready',
+        data: {'qty': qty},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return (res.data?['ok'] as bool?) ?? false;
+    } on DioException {
+      return false;
+    }
+  }
+
   /// Cardápio real do estabelecimento logado.
   Future<List<PanelMenuItem>> establishmentMenu(String token) async {
     final res = await _dio.get<Map<String, dynamic>>(

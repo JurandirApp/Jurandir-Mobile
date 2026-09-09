@@ -33,6 +33,8 @@ class EstabPedidosScreen extends ConsumerStatefulWidget {
 class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
   String _filter = 'todos';
   final Set<String> _busy = {}; // dbIds sendo entregues
+  final Set<String> _busyItems = {}; // ids de OrderItem sendo marcados prontos
+  final Map<String, int> _readyN = {}; // stepper por id de OrderItem
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
@@ -56,6 +58,29 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
       _toast('Não foi possível concluir agora');
     } finally {
       if (mounted) setState(() => _busy.remove(o.dbId));
+    }
+  }
+
+  /// Marca `qty` unidades do item `st` como prontas. Em sucesso, some com o
+  /// stepper local (realinha ao novo teto quando a lista atualizar) e
+  /// atualiza os pedidos; em 409 (já marcado) ou falha de rede, avisa.
+  Future<void> _markReady(PanelItemState st, int qty) async {
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    setState(() => _busyItems.add(st.id));
+    try {
+      final ok = await ref.read(publicApiProvider).markItemReady(token, st.id, qty);
+      if (ok) {
+        _readyN.remove(st.id);
+        ref.invalidate(establishmentOrdersProvider);
+        _toast(qty == 1 ? '1 item marcado pronto' : '$qty itens marcados prontos');
+      } else {
+        _toast('Não foi possível marcar agora');
+      }
+    } catch (_) {
+      _toast('Não foi possível marcar agora');
+    } finally {
+      if (mounted) setState(() => _busyItems.remove(st.id));
     }
   }
 
@@ -264,6 +289,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
                       child: Text('+ ${i.options.join(', ')}',
                           style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
                     ),
+                  if (i.state != null && i.state!.preparing > 0) _readyControl(i.state!),
                 ],
               ),
             ),
@@ -325,6 +351,79 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Controle "marcar N pronto" de um item ainda em preparo: stepper (min 1,
+  /// max = preparando) + botão que chama `markItemReady`.
+  Widget _readyControl(PanelItemState st) {
+    final preparing = st.preparing;
+    final n = (_readyN[st.id] ?? preparing).clamp(1, preparing);
+    final busy = _busyItems.contains(st.id);
+    return Container(
+      margin: const EdgeInsets.only(top: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.duneA(0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Symbols.soup_kitchen, size: 14, color: AppColors.inkA(0.5)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text('$preparing em preparo',
+                style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
+          ),
+          _stepBtn(Symbols.remove, busy || n <= 1 ? null : () => setState(() => _readyN[st.id] = n - 1)),
+          SizedBox(
+            width: 24,
+            child: Text('$n',
+                textAlign: TextAlign.center,
+                style: AppText.body(size: 13, weight: FontWeight.w800)),
+          ),
+          _stepBtn(
+              Symbols.add, busy || n >= preparing ? null : () => setState(() => _readyN[st.id] = n + 1)),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: busy ? null : () => _markReady(st, n),
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: busy ? AppColors.coral.withValues(alpha: 0.6) : AppColors.coral,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text('Marcar $n pronto',
+                      style: AppText.body(size: 11, weight: FontWeight.w800, color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepBtn(IconData icon, VoidCallback? onTap) {
+    final enabled = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: enabled ? AppColors.ink : AppColors.inkA(0.2), width: 1.5),
+        ),
+        child: Icon(icon, size: 15, color: enabled ? AppColors.ink : AppColors.inkA(0.25)),
       ),
     );
   }
