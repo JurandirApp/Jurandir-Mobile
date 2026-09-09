@@ -189,19 +189,41 @@ class ClientOrderItem {
   final int qty;
   final double price;
   final List<String> options; // adicionais escolhidos (nomes)
+  final int ready; // qtd já marcada pronta pelo bar
+  final int outForDelivery; // qtd já saiu pra entrega (com o garçom)
+  final int delivered; // qtd já entregue ao cliente
 
   const ClientOrderItem({
     required this.name,
     required this.qty,
     required this.price,
     this.options = const [],
+    this.ready = 0,
+    this.outForDelivery = 0,
+    this.delivered = 0,
   });
+
+  /// Resumo textual da distribuição de status desta linha, ex. "3 entregues ·
+  /// 2 a caminho · 1 preparando". Se tudo está no mesmo balde, mostra só esse.
+  String get statusLabel {
+    final preparing = qty - (ready + outForDelivery + delivered);
+    final parts = <String>[
+      if (delivered > 0) '$delivered entregue${delivered > 1 ? 's' : ''}',
+      if (outForDelivery > 0) '$outForDelivery a caminho',
+      if (ready > 0) '$ready pronto${ready > 1 ? 's' : ''}',
+      if (preparing > 0) '$preparing preparando',
+    ];
+    return parts.join(' · ');
+  }
 
   factory ClientOrderItem.fromJson(Map<String, dynamic> j) => ClientOrderItem(
     name: j['name'] as String,
     qty: (j['qty'] as num).toInt(),
     price: (j['price'] as num).toDouble(),
     options: ((j['options'] as List?) ?? const []).map((e) => e.toString()).toList(),
+    ready: (j['ready'] as num?)?.toInt() ?? 0,
+    outForDelivery: (j['outForDelivery'] as num?)?.toInt() ?? 0,
+    delivered: (j['delivered'] as num?)?.toInt() ?? 0,
   );
 }
 

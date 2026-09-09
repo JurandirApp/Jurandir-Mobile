@@ -127,6 +127,17 @@ class PedidosScreen extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
                     ),
+                  // Só mostra o acompanhamento por quantidade quando há
+                  // progresso real (pronto/a caminho/entregue) — pedido recém
+                  // criado (tudo "preparando") não agrega informação nova.
+                  if (it.ready + it.outForDelivery + it.delivered > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 14, top: 1),
+                      child: Text(it.statusLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+                    ),
                 ],
               ),
             ),

@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'onboarding_controller.dart';
 
 /// Perfil local do cliente: nome, telefone e ID anônimo.
-/// Persiste em shared_preferences — nunca enviado para o servidor.
+/// Persiste em shared_preferences — não existe conta/login no servidor, mas
+/// nome, telefone e clientId são enviados junto de cada pedido (Task 4).
 class ClientProfile {
   final String? name;
   final String? phone;
