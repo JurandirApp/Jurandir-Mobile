@@ -196,7 +196,10 @@ class AdminCadastrosScreen extends ConsumerWidget {
     final pass = TextEditingController();
     String? err;
     bool saving = false;
-    bool waiterModule = edit?.waiterModule ?? false;
+    // ValueNotifier: tocar no toggle rebuilda SÓ o switch (ValueListenableBuilder),
+    // não o sheet inteiro — evitar rebuildar os TextFields aqui é o que impede o
+    // crash "ChangeNotifier used after dispose" que o setSheet global disparava.
+    final waiterModuleVN = ValueNotifier<bool>(edit?.waiterModule ?? false);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -238,7 +241,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
                 'platformFeePct': feeInt,
                 'user': login,
                 if (pass.text.trim().isNotEmpty) 'password': pass.text.trim(),
-                'waiterModuleEnabled': waiterModule,
+                'waiterModuleEnabled': waiterModuleVN.value,
               });
               ref.invalidate(adminOverviewProvider);
               if (sheetCtx.mounted) Navigator.pop(sheetCtx);
@@ -299,48 +302,50 @@ class AdminCadastrosScreen extends ConsumerWidget {
                   const SizedBox(height: 10),
                   _field(pass, isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
                   const SizedBox(height: 12),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => setSheet(() => waiterModule = !waiterModule),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.inkA(0.15), width: 1.5),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Symbols.room_service, size: 20, color: AppColors.coralDeep),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Módulo do Garçom', style: AppText.body(size: 14, weight: FontWeight.w700)),
-                                const SizedBox(height: 1),
-                                Text('Fila de prontos, entrega por garçom e código de 4 dígitos',
-                                    style: AppText.body(size: 11, weight: FontWeight.w500, color: AppColors.inkA(0.45))),
-                              ],
+                  ValueListenableBuilder<bool>(
+                    valueListenable: waiterModuleVN,
+                    builder: (_, on, __) => GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => waiterModuleVN.value = !on,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.inkA(0.15), width: 1.5),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Symbols.room_service, size: 20, color: AppColors.coralDeep),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Módulo do Garçom', style: AppText.body(size: 14, weight: FontWeight.w700)),
+                                  const SizedBox(height: 1),
+                                  Text('Fila de prontos, entrega por garçom e código de 4 dígitos',
+                                      style: AppText.body(size: 11, weight: FontWeight.w500, color: AppColors.inkA(0.45))),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width: 46,
-                            height: 26,
-                            alignment: waiterModule ? Alignment.centerRight : Alignment.centerLeft,
-                            padding: const EdgeInsets.all(3),
-                            decoration: BoxDecoration(
-                              color: waiterModule ? AppColors.coral : AppColors.inkA(0.2),
-                              borderRadius: BorderRadius.circular(999),
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 46,
+                              height: 26,
+                              alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: on ? AppColors.coral : AppColors.inkA(0.2),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const DecoratedBox(
+                                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: SizedBox(width: 20, height: 20),
+                              ),
                             ),
-                            child: const DecoratedBox(
-                              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                              child: SizedBox(width: 20, height: 20),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -385,6 +390,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
     fee.dispose();
     loginEmail.dispose();
     pass.dispose();
+    waiterModuleVN.dispose();
   }
 
   Widget _field(TextEditingController c, String hint, {bool number = false, bool obscure = false, TextInputType? keyboard}) {
