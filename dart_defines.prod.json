@@ -1,8 +1,8 @@
 {
   "API_BASE_URL": "https://jurandir.app.br/api/public",
-  "PAY_ENV": "TEST",
-  "PAY_GATEWAY": "example",
-  "PAY_MERCHANT_ID": "exampleGatewayMerchantId",
+  "PAY_ENV": "PRODUCTION",
+  "PAY_GATEWAY": "pagarme",
+  "PAY_MERCHANT_ID": "acc_EyDVN88HkDCg0eGm",
   "GOOGLE_MERCHANT_ID": "",
   "APPLE_MERCHANT_ID": "merchant.br.app.jurandir"
 }
