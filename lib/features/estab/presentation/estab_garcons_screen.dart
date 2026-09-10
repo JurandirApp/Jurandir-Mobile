@@ -227,84 +227,90 @@ class EstabGarconsScreen extends ConsumerWidget {
     final name = TextEditingController(text: edit?.name ?? '');
     final login = TextEditingController(text: edit?.user ?? '');
     final pass = TextEditingController();
-    String? err;
-    bool saving = false;
+    // ValueNotifiers em vez de setState do StatefulBuilder: mutar erro/saving
+    // rebuilda SÓ o texto de erro / o botão (via ValueListenableBuilder), nunca
+    // os TextFields — evita o crash "_dependents.isEmpty" no rebuild do sheet.
+    final errVN = ValueNotifier<String?>(null);
+    final savingVN = ValueNotifier<bool>(false);
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetCtx) => StatefulBuilder(
-        builder: (sheetCtx, setSheet) {
-          Future<void> save() async {
-            final nm = name.text.trim();
-            final lg = login.text.trim();
-            if (nm.isEmpty || lg.isEmpty) {
-              setSheet(() => err = 'Preencha nome e login.');
-              return;
-            }
-            if (!isEdit && pass.text.trim().length < 6) {
-              setSheet(() => err = 'Senha: mínimo 6 caracteres.');
-              return;
-            }
-            final token = ref.read(authProvider).token;
-            if (token == null) return;
-            final messenger = ScaffoldMessenger.of(context);
-            setSheet(() {
-              err = null;
-              saving = true;
-            });
-            try {
-              await ref.read(publicApiProvider).panelUpsertWaiter(token, {
-                if (isEdit) 'id': edit.id,
-                'name': nm,
-                'user': lg,
-                if (pass.text.trim().isNotEmpty) 'password': pass.text.trim(),
-              });
-              ref.invalidate(estabWaitersProvider);
-              if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-              messenger
-                ..clearSnackBars()
-                ..showSnackBar(_snack(isEdit ? 'Garçom atualizado' : 'Garçom criado'));
-            } catch (_) {
-              setSheet(() {
-                saving = false;
-                err = 'Não foi possível salvar (login pode já estar em uso).';
-              });
-            }
+      builder: (sheetCtx) {
+        Future<void> save() async {
+          final nm = name.text.trim();
+          final lg = login.text.trim();
+          if (nm.isEmpty || lg.isEmpty) {
+            errVN.value = 'Preencha nome e login.';
+            return;
           }
+          if (!isEdit && pass.text.trim().length < 6) {
+            errVN.value = 'Senha: mínimo 6 caracteres.';
+            return;
+          }
+          final token = ref.read(authProvider).token;
+          if (token == null) return;
+          final messenger = ScaffoldMessenger.of(context);
+          errVN.value = null;
+          savingVN.value = true;
+          try {
+            await ref.read(publicApiProvider).panelUpsertWaiter(token, {
+              if (isEdit) 'id': edit.id,
+              'name': nm,
+              'user': lg,
+              if (pass.text.trim().isNotEmpty) 'password': pass.text.trim(),
+            });
+            if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+            // Invalida DEPOIS do pop (fora do frame de teardown do sheet).
+            Future.microtask(() => ref.invalidate(estabWaitersProvider));
+            messenger
+              ..clearSnackBars()
+              ..showSnackBar(_snack(isEdit ? 'Garçom atualizado' : 'Garçom criado'));
+          } catch (_) {
+            savingVN.value = false;
+            errVN.value = 'Não foi possível salvar (login pode já estar em uso).';
+          }
+        }
 
-          final bottom = MediaQuery.viewInsetsOf(sheetCtx).bottom;
-          return Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999)),
-                    ),
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.viewInsetsOf(sheetCtx).bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999)),
                   ),
-                  const SizedBox(height: 16),
-                  Text(isEdit ? 'Editar garçom' : 'Novo garçom',
-                      style: AppText.display(size: 20, letterSpacing: -0.3)),
-                  const SizedBox(height: 16),
-                  _field(name, 'Nome'),
-                  const SizedBox(height: 10),
-                  _field(login, 'Login (usuário ou e-mail)', keyboard: TextInputType.emailAddress),
-                  const SizedBox(height: 10),
-                  _field(pass, isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
-                  if (err != null) ...[
-                    const SizedBox(height: 10),
-                    Text(err!, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.danger)),
-                  ],
-                  const SizedBox(height: 18),
-                  SizedBox(
+                ),
+                const SizedBox(height: 16),
+                Text(isEdit ? 'Editar garçom' : 'Novo garçom',
+                    style: AppText.display(size: 20, letterSpacing: -0.3)),
+                const SizedBox(height: 16),
+                _field(name, 'Nome'),
+                const SizedBox(height: 10),
+                _field(login, 'Login (usuário ou e-mail)', keyboard: TextInputType.emailAddress),
+                const SizedBox(height: 10),
+                _field(pass, isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
+                ValueListenableBuilder<String?>(
+                  valueListenable: errVN,
+                  builder: (_, e, _) => e == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Text(e,
+                              style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.danger)),
+                        ),
+                ),
+                const SizedBox(height: 18),
+                ValueListenableBuilder<bool>(
+                  valueListenable: savingVN,
+                  builder: (_, saving, _) => SizedBox(
                     width: double.infinity,
                     child: Material(
                       color: saving ? AppColors.coral.withValues(alpha: 0.6) : AppColors.coral,
@@ -326,17 +332,19 @@ class EstabGarconsScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
 
     name.dispose();
     login.dispose();
     pass.dispose();
+    errVN.dispose();
+    savingVN.dispose();
   }
 
   Widget _field(TextEditingController c, String hint, {bool obscure = false, TextInputType? keyboard}) {
