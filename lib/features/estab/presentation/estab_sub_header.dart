@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../auth/auth_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Header das sub-telas do estabelecimento (Auditoria/Perfil/Config):
-/// back "← Conta" + eyebrow + título.
-class EstabSubHeader extends StatelessWidget {
+/// Header das sub-telas do estabelecimento (Garções/Auditoria/Perfil/Config):
+/// back "← Conta" + nome REAL do estabelecimento logado + título.
+class EstabSubHeader extends ConsumerWidget {
   final String title;
 
   const EstabSubHeader({super.key, required this.title});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final estName = (ref.watch(authProvider).name ?? '').trim();
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 18, 20, 18),
@@ -36,7 +39,7 @@ class EstabSubHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text('Quiosque do Mar'.toUpperCase(), style: AppText.eyebrow),
+          Text((estName.isEmpty ? 'Estabelecimento' : estName).toUpperCase(), style: AppText.eyebrow),
           const SizedBox(height: 3),
           Text(title.toUpperCase(), style: AppText.pageTitle.copyWith(color: AppColors.dune)),
         ],

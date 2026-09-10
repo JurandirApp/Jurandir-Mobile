@@ -58,6 +58,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             email: r.email,
             establishmentId: r.establishmentId,
             token: r.token,
+            waiterModule: r.waiterModule,
           );
       final home = switch (appRole) {
         'admin' => '/admin/dashboard',

@@ -102,7 +102,7 @@ class PublicApi {
 
   /// Login real (POST /login). Lança `DioException` (401) se as credenciais
   /// forem inválidas. Só existem usuários ESTABLISHMENT e ADMIN.
-  Future<({String token, String role, String name, String email, String? establishmentId})> login(
+  Future<({String token, String role, String name, String email, String? establishmentId, bool waiterModule})> login(
     String email,
     String password,
   ) async {
@@ -118,6 +118,7 @@ class PublicApi {
       name: u['name'] as String,
       email: u['email'] as String,
       establishmentId: u['establishmentId'] as String?,
+      waiterModule: (u['waiterModule'] as bool?) ?? false,
     );
   }
 

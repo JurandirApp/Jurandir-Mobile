@@ -289,7 +289,9 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
                       child: Text('+ ${i.options.join(', ')}',
                           style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
                     ),
-                  if (i.state != null && i.state!.preparing > 0) _readyControl(i.state!),
+                  // "Marcar pronto" só quando o estabelecimento usa o módulo do garçom.
+                  if (i.state != null && i.state!.preparing > 0 && ref.read(authProvider).waiterModule)
+                    _readyControl(i.state!),
                 ],
               ),
             ),

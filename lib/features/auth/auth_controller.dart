@@ -14,17 +14,24 @@ class AuthState {
   final String? establishmentId;
   final String? token;
 
-  const AuthState({this.role = 'client', this.name, this.email, this.establishmentId, this.token});
+  /// Estabelecimento tem o módulo do garçom habilitado? (só faz sentido p/ role
+  /// estab/waiter). Gate de UI: "marcar pronto"/fila/rastreio só aparecem quando true.
+  final bool waiterModule;
+
+  const AuthState(
+      {this.role = 'client', this.name, this.email, this.establishmentId, this.token, this.waiterModule = false});
 
   bool get isAuthed => email != null;
 
-  AuthState copyWith({String? role, String? name, String? email, String? establishmentId, String? token}) =>
+  AuthState copyWith(
+          {String? role, String? name, String? email, String? establishmentId, String? token, bool? waiterModule}) =>
       AuthState(
         role: role ?? this.role,
         name: name ?? this.name,
         email: email ?? this.email,
         establishmentId: establishmentId ?? this.establishmentId,
         token: token ?? this.token,
+        waiterModule: waiterModule ?? this.waiterModule,
       );
 
   Map<String, dynamic> toJson() => {
@@ -33,6 +40,7 @@ class AuthState {
         'email': email,
         'establishmentId': establishmentId,
         'token': token,
+        'waiterModule': waiterModule,
       };
 
   factory AuthState.fromJson(Map<String, dynamic> j) => AuthState(
@@ -41,6 +49,7 @@ class AuthState {
         email: j['email'] as String?,
         establishmentId: j['establishmentId'] as String?,
         token: j['token'] as String?,
+        waiterModule: (j['waiterModule'] as bool?) ?? false,
       );
 }
 
@@ -67,8 +76,15 @@ class AuthController extends Notifier<AuthState> {
     required String email,
     String? establishmentId,
     String? token,
+    bool waiterModule = false,
   }) {
-    state = AuthState(role: role, name: name, email: email, establishmentId: establishmentId, token: token);
+    state = AuthState(
+        role: role,
+        name: name,
+        email: email,
+        establishmentId: establishmentId,
+        token: token,
+        waiterModule: waiterModule);
     _persist();
   }
 
