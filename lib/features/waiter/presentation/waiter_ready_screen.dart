@@ -83,6 +83,30 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
       ));
   }
 
+  /// Sai da conta do garçom (device pode ser compartilhado → confirma antes).
+  Future<void> _logout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text('Sair da conta?', style: AppText.display(size: 17, letterSpacing: -0.2)),
+        content: Text('Você volta pra tela de login.',
+            style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.6))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Sair', style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    _poll?.cancel();
+    ref.read(authProvider.notifier).logout();
+    if (mounted) context.go('/login');
+  }
+
   /// Abre a confirmação de entrega (`/waiter/deliver`) de `qty` unidades de
   /// `item`. Ao voltar, recarrega a lista (o polling também cobre).
   void _openDeliver(ReadyItem item, int qty) {
@@ -130,7 +154,21 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Garçom', title: 'Fila do garçom'),
+          DarkHeader(
+            eyebrow: 'Garçom',
+            title: 'Fila do garçom',
+            trailing: GestureDetector(
+              onTap: _logout,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: AppColors.duneA(0.12), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Symbols.logout, size: 20, color: AppColors.dune),
+              ),
+            ),
+          ),
           Expanded(child: _body()),
         ],
       ),
