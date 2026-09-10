@@ -139,13 +139,18 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         const SizedBox(height: 12),
         for (var r = 0; r < stats.length; r += 2) ...[
           if (r > 0) const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _statCard(stats[r])),
-              const SizedBox(width: 10),
-              Expanded(child: _statCard(stats[r + 1])),
-            ],
+          // IntrinsicHeight dá altura finita ao Row: sem ele, o `stretch` dentro
+          // do ListView (altura infinita) estoura "BoxConstraints forces an
+          // infinite height" e a tela inteira fica em branco.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _statCard(stats[r])),
+                const SizedBox(width: 10),
+                Expanded(child: _statCard(stats[r + 1])),
+              ],
+            ),
           ),
         ],
         const SizedBox(height: 22),
