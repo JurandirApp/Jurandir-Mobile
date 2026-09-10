@@ -517,6 +517,7 @@ class AdminEstablishment {
   final double gmv;
   final double fees;
   final bool active;
+  final bool waiterModule;
 
   const AdminEstablishment({
     required this.id,
@@ -531,6 +532,7 @@ class AdminEstablishment {
     required this.gmv,
     required this.fees,
     required this.active,
+    this.waiterModule = false,
   });
 
   factory AdminEstablishment.fromJson(Map<String, dynamic> j) => AdminEstablishment(
@@ -546,6 +548,7 @@ class AdminEstablishment {
         gmv: (j['gmv'] as num?)?.toDouble() ?? 0,
         fees: (j['fees'] as num?)?.toDouble() ?? 0,
         active: (j['active'] as bool?) ?? true,
+        waiterModule: (j['waiterModuleEnabled'] as bool?) ?? false,
       );
 }
 
