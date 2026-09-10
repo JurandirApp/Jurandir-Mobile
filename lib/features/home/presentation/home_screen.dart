@@ -8,9 +8,11 @@ import '../../../core/data/models.dart';
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/images.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/filter_pill.dart';
+import '../../../core/widgets/network_image.dart';
 import '../../../core/widgets/skeleton.dart';
 
 const _homeCats = [
@@ -231,12 +233,11 @@ class HomeScreen extends ConsumerWidget {
                   color: const Color(0xFFE2E8F0),
                   child: img == null
                       ? _estImgPlaceholder()
-                      : Image.network(
-                          img,
+                      : AppNetworkImage(
+                          cardImageUrl(img)!,
                           height: 88,
                           width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _estImgPlaceholder(),
+                          errorWidget: _estImgPlaceholder(),
                         ),
                 ),
                 Positioned(top: 8, left: 8, child: _openChip(e.open)),
@@ -323,12 +324,10 @@ class HomeScreen extends ConsumerWidget {
                   color: const Color(0xFFE2E8F0),
                   child: m.photoUrl.isEmpty
                       ? null
-                      : Image.network(
-                          m.photoUrl,
+                      : AppNetworkImage(
+                          cardImageUrl(m.photoUrl)!,
                           height: 88,
                           width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                 ),
                 Positioned(

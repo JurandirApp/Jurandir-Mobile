@@ -9,8 +9,10 @@ import '../../../core/data/public_api.dart';
 import '../../../core/data/seed_data.dart'; // só o slug padrão (kDemoSlug)
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/images.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/filter_pill.dart';
+import '../../../core/widgets/network_image.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../cart/cart_controller.dart';
 import 'item_sheet.dart';
@@ -197,12 +199,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               width: 58,
               height: 58,
               color: const Color(0xFFE2E8F0),
-              child: Image.network(
-                m.photoUrl,
+              child: AppNetworkImage(
+                squareThumbUrl(m.photoUrl)!,
                 width: 58,
                 height: 58,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
           ),

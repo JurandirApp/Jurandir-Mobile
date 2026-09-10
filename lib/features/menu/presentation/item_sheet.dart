@@ -5,7 +5,9 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/data/models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/images.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/network_image.dart';
 import '../../cart/cart_controller.dart';
 
 /// Abre o detalhe do produto: foto, descrição, adicionais (com regras de
@@ -148,10 +150,9 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
                     height: 220,
                     width: double.infinity,
                     color: const Color(0xFFE2E8F0),
-                    child: Image.network(
-                      _m.photoUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Center(
+                    child: AppNetworkImage(
+                      cardImageUrl(_m.photoUrl, width: 900)!,
+                      errorWidget: Center(
                         child: Icon(Symbols.restaurant, size: 40, color: AppColors.inkA(0.3)),
                       ),
                     ),

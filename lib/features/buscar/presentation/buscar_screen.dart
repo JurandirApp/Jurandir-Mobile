@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/images.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/filter_pill.dart';
+import '../../../core/widgets/network_image.dart';
 import '../../../core/widgets/skeleton.dart';
 
 /// Buscar: header com busca + filtros de culinária + lista de estabelecimentos.
@@ -295,10 +296,9 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
         ),
         child: url == null
             ? _thumbPlaceholder()
-            : Image.network(
+            : AppNetworkImage(
                 url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _thumbPlaceholder(),
+                errorWidget: _thumbPlaceholder(),
               ),
       ),
     );
