@@ -367,9 +367,59 @@ class PublicApi {
       return (ok: false, error: err ?? 'erro', orderDone: false);
     }
   }
+
+  /// Garçons do estabelecimento (com stats de entrega). GET /panel/waiters.
+  Future<List<PanelWaiter>> panelWaiters(String token) async {
+    final res = await _dio.get<Map<String, dynamic>>('/panel/waiters',
+        options: Options(headers: {'Authorization': 'Bearer $token'}));
+    return ((res.data!['waiters'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(PanelWaiter.fromJson)
+        .toList();
+  }
+
+  /// Cria/edita um garçom (POST /panel/waiters; com `id` = editar).
+  Future<void> panelUpsertWaiter(String token, Map<String, dynamic> payload) async {
+    await _dio.post<Map<String, dynamic>>('/panel/waiters',
+        data: payload, options: Options(headers: {'Authorization': 'Bearer $token'}));
+  }
+
+  /// Remove um garçom (DELETE /panel/waiters?id=...).
+  Future<void> panelDeleteWaiter(String token, String id) async {
+    await _dio.delete<Map<String, dynamic>>('/panel/waiters',
+        queryParameters: {'id': id}, options: Options(headers: {'Authorization': 'Bearer $token'}));
+  }
 }
 
 final publicApiProvider = Provider((ref) => PublicApi(ref.watch(apiClientProvider)));
+
+/// Garçom do estabelecimento (painel): identidade + total de entregas/produtos.
+class PanelWaiter {
+  final String id, name, user;
+  final int deliveries, products;
+  const PanelWaiter({
+    required this.id,
+    required this.name,
+    required this.user,
+    this.deliveries = 0,
+    this.products = 0,
+  });
+  factory PanelWaiter.fromJson(Map<String, dynamic> j) => PanelWaiter(
+        id: (j['id'] as String?) ?? '',
+        name: (j['name'] as String?) ?? '',
+        user: (j['user'] as String?) ?? '',
+        deliveries: (j['deliveries'] as num?)?.toInt() ?? 0,
+        products: (j['products'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// Garçons do estabelecimento logado (com stats). autoDispose: refaz o fetch ao
+/// reentrar; invalide após criar/editar/excluir.
+final estabWaitersProvider = FutureProvider.autoDispose<List<PanelWaiter>>((ref) async {
+  final token = ref.watch(authProvider).token;
+  if (token == null) return const [];
+  return ref.watch(publicApiProvider).panelWaiters(token);
+});
 
 /// Mesa/guarda-sol que veio do QR (`?local=...`). Null quando o cliente entrou
 /// sem QR (home/busca) — nesse caso o checkout pergunta a mesa antes de fechar.
