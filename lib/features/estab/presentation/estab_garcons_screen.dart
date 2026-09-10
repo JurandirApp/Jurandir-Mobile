@@ -38,7 +38,7 @@ class EstabGarconsScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(14),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
-                        onTap: () => _openForm(context, ref, null),
+                        onTap: () => _openForm(context, null),
                         child: Center(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -139,7 +139,7 @@ class EstabGarconsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              _iconBtn(Symbols.edit, AppColors.ink, () => _openForm(context, ref, w)),
+              _iconBtn(Symbols.edit, AppColors.ink, () => _openForm(context, w)),
               const SizedBox(width: 6),
               _iconBtn(Symbols.delete, AppColors.danger, () => _confirmDelete(context, ref, w)),
             ],
@@ -208,143 +208,158 @@ class EstabGarconsScreen extends ConsumerWidget {
       ref.invalidate(estabWaitersProvider);
       messenger
         ..clearSnackBars()
-        ..showSnackBar(_snack('Garçom removido'));
+        ..showSnackBar(garconsSnack('Garçom removido'));
     } catch (_) {
       messenger
         ..clearSnackBars()
-        ..showSnackBar(_snack('Não foi possível remover'));
+        ..showSnackBar(garconsSnack('Não foi possível remover'));
     }
   }
 
-  SnackBar _snack(String msg) => SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.ink,
-        content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
-      );
-
-  Future<void> _openForm(BuildContext context, WidgetRef ref, PanelWaiter? edit) async {
-    final isEdit = edit != null;
-    final name = TextEditingController(text: edit?.name ?? '');
-    final login = TextEditingController(text: edit?.user ?? '');
-    final pass = TextEditingController();
-    // ValueNotifiers em vez de setState do StatefulBuilder: mutar erro/saving
-    // rebuilda SÓ o texto de erro / o botão (via ValueListenableBuilder), nunca
-    // os TextFields — evita o crash "_dependents.isEmpty" no rebuild do sheet.
-    final errVN = ValueNotifier<String?>(null);
-    final savingVN = ValueNotifier<bool>(false);
-
-    await showModalBottomSheet<void>(
+  void _openForm(BuildContext context, PanelWaiter? edit) {
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetCtx) {
-        Future<void> save() async {
-          final nm = name.text.trim();
-          final lg = login.text.trim();
-          if (nm.isEmpty || lg.isEmpty) {
-            errVN.value = 'Preencha nome e login.';
-            return;
-          }
-          if (!isEdit && pass.text.trim().length < 6) {
-            errVN.value = 'Senha: mínimo 6 caracteres.';
-            return;
-          }
-          final token = ref.read(authProvider).token;
-          if (token == null) return;
-          final messenger = ScaffoldMessenger.of(context);
-          errVN.value = null;
-          savingVN.value = true;
-          try {
-            await ref.read(publicApiProvider).panelUpsertWaiter(token, {
-              if (isEdit) 'id': edit.id,
-              'name': nm,
-              'user': lg,
-              if (pass.text.trim().isNotEmpty) 'password': pass.text.trim(),
-            });
-            if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-            // Invalida DEPOIS do pop (fora do frame de teardown do sheet).
-            Future.microtask(() => ref.invalidate(estabWaitersProvider));
-            messenger
-              ..clearSnackBars()
-              ..showSnackBar(_snack(isEdit ? 'Garçom atualizado' : 'Garçom criado'));
-          } catch (_) {
-            savingVN.value = false;
-            errVN.value = 'Não foi possível salvar (login pode já estar em uso).';
-          }
-        }
+      builder: (_) => _WaiterFormSheet(edit: edit),
+    );
+  }
+}
 
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.viewInsetsOf(sheetCtx).bottom),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(isEdit ? 'Editar garçom' : 'Novo garçom',
-                    style: AppText.display(size: 20, letterSpacing: -0.3)),
-                const SizedBox(height: 16),
-                _field(name, 'Nome'),
-                const SizedBox(height: 10),
-                _field(login, 'Login (usuário ou e-mail)', keyboard: TextInputType.emailAddress),
-                const SizedBox(height: 10),
-                _field(pass, isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
-                ValueListenableBuilder<String?>(
-                  valueListenable: errVN,
-                  builder: (_, e, _) => e == null
-                      ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: Text(e,
-                              style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.danger)),
-                        ),
-                ),
-                const SizedBox(height: 18),
-                ValueListenableBuilder<bool>(
-                  valueListenable: savingVN,
-                  builder: (_, saving, _) => SizedBox(
-                    width: double.infinity,
-                    child: Material(
-                      color: saving ? AppColors.coral.withValues(alpha: 0.6) : AppColors.coral,
-                      borderRadius: BorderRadius.circular(999),
-                      child: InkWell(
-                        onTap: saving ? null : save,
-                        borderRadius: BorderRadius.circular(999),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          child: Center(
-                            child: saving
-                                ? const SizedBox(
-                                    width: 20, height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                                : Text(isEdit ? 'Salvar' : 'Criar garçom',
-                                    style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
-                          ),
-                        ),
-                      ),
+SnackBar garconsSnack(String msg) => SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.ink,
+      content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
+    );
+
+/// Form (bottom sheet) de criar/editar garçom. É um StatefulWidget PRÓPRIO pra os
+/// TextEditingController serem descartados em `dispose()` — que só roda quando o
+/// sheet é desmontado (depois da animação de saída). Descartá-los antes (como num
+/// `_openForm` async) faz o TextField rebuildar sobre um controller disposto na
+/// animação de fechamento → crash "ChangeNotifier used after dispose".
+class _WaiterFormSheet extends ConsumerStatefulWidget {
+  final PanelWaiter? edit;
+  const _WaiterFormSheet({this.edit});
+
+  @override
+  ConsumerState<_WaiterFormSheet> createState() => _WaiterFormSheetState();
+}
+
+class _WaiterFormSheetState extends ConsumerState<_WaiterFormSheet> {
+  late final _name = TextEditingController(text: widget.edit?.name ?? '');
+  late final _login = TextEditingController(text: widget.edit?.user ?? '');
+  final _pass = TextEditingController();
+  String? _err;
+  bool _saving = false;
+
+  bool get _isEdit => widget.edit != null;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _login.dispose();
+    _pass.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final nm = _name.text.trim();
+    final lg = _login.text.trim();
+    if (nm.isEmpty || lg.isEmpty) {
+      setState(() => _err = 'Preencha nome e login.');
+      return;
+    }
+    if (!_isEdit && _pass.text.trim().length < 6) {
+      setState(() => _err = 'Senha: mínimo 6 caracteres.');
+      return;
+    }
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    setState(() {
+      _err = null;
+      _saving = true;
+    });
+    try {
+      await ref.read(publicApiProvider).panelUpsertWaiter(token, {
+        if (_isEdit) 'id': widget.edit!.id,
+        'name': nm,
+        'user': lg,
+        if (_pass.text.trim().isNotEmpty) 'password': _pass.text.trim(),
+      });
+      ref.invalidate(estabWaitersProvider);
+      if (mounted) nav.pop();
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(garconsSnack(_isEdit ? 'Garçom atualizado' : 'Garçom criado'));
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _err = 'Não foi possível salvar (login pode já estar em uso).';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(_isEdit ? 'Editar garçom' : 'Novo garçom',
+                style: AppText.display(size: 20, letterSpacing: -0.3)),
+            const SizedBox(height: 16),
+            _field(_name, 'Nome'),
+            const SizedBox(height: 10),
+            _field(_login, 'Login (usuário ou e-mail)', keyboard: TextInputType.emailAddress),
+            const SizedBox(height: 10),
+            _field(_pass, _isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
+            if (_err != null) ...[
+              const SizedBox(height: 10),
+              Text(_err!, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.danger)),
+            ],
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: Material(
+                color: _saving ? AppColors.coral.withValues(alpha: 0.6) : AppColors.coral,
+                borderRadius: BorderRadius.circular(999),
+                child: InkWell(
+                  onTap: _saving ? null : _save,
+                  borderRadius: BorderRadius.circular(999),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Center(
+                      child: _saving
+                          ? const SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                          : Text(_isEdit ? 'Salvar' : 'Criar garçom',
+                              style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
-
-    name.dispose();
-    login.dispose();
-    pass.dispose();
-    errVN.dispose();
-    savingVN.dispose();
   }
 
   Widget _field(TextEditingController c, String hint, {bool obscure = false, TextInputType? keyboard}) {
