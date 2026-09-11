@@ -36,7 +36,7 @@ import '../../features/shell/admin_scaffold.dart';
 import '../../features/shell/client_scaffold.dart';
 import '../../features/shell/estab_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
-import '../../features/waiter/presentation/waiter_deliver_screen.dart';
+import '../../features/waiter/presentation/waiter_order_screen.dart';
 import '../../features/waiter/presentation/waiter_ready_screen.dart';
 import '../data/client_profile.dart';
 
@@ -193,7 +193,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/scanner', builder: (context, state) => const ScannerScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/waiter', builder: (context, state) => const WaiterReadyScreen()),
-      GoRoute(path: '/waiter/deliver', builder: (context, state) => const WaiterDeliverScreen()),
+      GoRoute(path: '/waiter/order', builder: (context, state) => const WaiterOrderScreen()),
     ],
   );
 });

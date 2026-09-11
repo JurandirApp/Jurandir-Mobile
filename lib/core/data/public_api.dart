@@ -336,31 +336,30 @@ class PublicApi {
     return AdminSearches.fromJson(res.data!);
   }
 
-  /// Itens prontos para retirada pelo garçom (GET /waiter/ready).
-  Future<List<ReadyItem>> waiterReady(String token) async {
-    final res = await _dio.get<Map<String, dynamic>>('/waiter/ready',
-      options: Options(headers: {'Authorization': 'Bearer $token'}));
-    return ((res.data!['items'] as List?) ?? const []).cast<Map<String, dynamic>>().map(ReadyItem.fromJson).toList();
+  /// Fila do garçom agrupada por pedido (GET /waiter/orders).
+  Future<List<WaiterOrder>> waiterOrders(String token) async {
+    final res = await _dio.get<Map<String, dynamic>>('/waiter/orders',
+        options: Options(headers: {'Authorization': 'Bearer $token'}));
+    return ((res.data!['orders'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(WaiterOrder.fromJson)
+        .toList();
   }
 
-  /// Marca uma quantidade de um item como retirada (POST /waiter/order-items/:id/pick).
-  /// `taken` em 409 (outro garçom já pegou), `error` em falha de rede/servidor.
-  Future<PickResult> waiterPick(String token, String itemId, int qty) async {
+  /// Entrega em LOTE de um pedido (POST /waiter/orders/:orderId/deliver): vários
+  /// itens de uma vez, com um código só (os 4 últimos do telefone do cliente).
+  /// Retorna sucesso, erro específico (code/qty/notfound) e se o pedido fechou.
+  Future<({bool ok, String? error, bool orderDone})> waiterDeliverOrder(
+      String token, String orderId, List<({String orderItemId, int qty})> items, String code) async {
     try {
-      final res = await _dio.post<Map<String, dynamic>>('/waiter/order-items/$itemId/pick',
-        data: {'qty': qty}, options: Options(headers: {'Authorization': 'Bearer $token'}));
-      return ((res.data?['ok'] as bool?) ?? false) ? PickResult.ok : PickResult.taken;
-    } on DioException catch (e) {
-      return e.response?.statusCode == 409 ? PickResult.taken : PickResult.error;
-    }
-  }
-
-  /// Marca uma quantidade de um item como entregue (POST /waiter/order-items/:id/deliver).
-  /// Retorna estrutura com sucesso, erro específico (code/qty/notfound) e se o pedido foi concluído.
-  Future<({bool ok, String? error, bool orderDone})> waiterDeliver(String token, String itemId, int qty, String code) async {
-    try {
-      final res = await _dio.post<Map<String, dynamic>>('/waiter/order-items/$itemId/deliver',
-        data: {'qty': qty, 'code': code}, options: Options(headers: {'Authorization': 'Bearer $token'}));
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/waiter/orders/$orderId/deliver',
+        data: {
+          'code': code,
+          'items': items.map((i) => {'orderItemId': i.orderItemId, 'qty': i.qty}).toList(),
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
       final d = res.data!;
       return (ok: (d['ok'] as bool?) ?? false, error: null, orderDone: (d['orderDone'] as bool?) ?? false);
     } on DioException catch (e) {
