@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "br.app.jurandir"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -30,8 +30,8 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        // Play exige targetSdk >= 35 para novos apps/atualizações.
-        targetSdk = 35
+        // Play exige targetSdk >= 36 (Android 16) para novos apps/atualizações.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
