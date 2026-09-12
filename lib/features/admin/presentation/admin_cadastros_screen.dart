@@ -27,7 +27,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
           AdminSubHeader(
             title: 'Cadastros',
             trailing: GestureDetector(
-              onTap: () => _openForm(context, ref, null),
+              onTap: () => _openForm(context, null),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                 decoration: BoxDecoration(color: AppColors.coral, borderRadius: BorderRadius.circular(999)),
@@ -55,7 +55,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
                         style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                     const SizedBox(height: 12),
                     for (final e in ests) ...[
-                      GestureDetector(onTap: () => _openForm(context, ref, e), child: _card(e)),
+                      GestureDetector(onTap: () => _openForm(context, e), child: _card(e)),
                       const SizedBox(height: 10),
                     ],
                   ],
@@ -65,6 +65,20 @@ class AdminCadastrosScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// Abre o form de criar/editar. O conteúdo é um StatefulWidget próprio
+  /// (`_EstabFormSheet`) que dona e descarta os controllers no seu dispose() —
+  /// NÃO descartar aqui depois do await evita o crash "ChangeNotifier used after
+  /// dispose" (o sheet ainda anima a saída com os TextFields vivos).
+  void _openForm(BuildContext context, AdminEstablishment? edit) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.canvas,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => _EstabFormSheet(edit: edit),
     );
   }
 
@@ -182,215 +196,214 @@ class AdminCadastrosScreen extends ConsumerWidget {
           ],
         ),
       );
+}
 
-  // ---- Form criar/editar ----
-  Future<void> _openForm(BuildContext context, WidgetRef ref, AdminEstablishment? edit) async {
-    final isEdit = edit != null;
-    final name = TextEditingController(text: edit?.name ?? '');
-    final owner = TextEditingController(text: edit?.owner ?? '');
-    final type = TextEditingController(text: edit?.type ?? 'Bar');
-    final city = TextEditingController(text: edit?.city == '—' ? '' : (edit?.city ?? ''));
-    final plan = TextEditingController(text: edit?.plan ?? 'Básico');
-    final fee = TextEditingController(text: (edit?.feePct ?? 8).toString());
-    final loginEmail = TextEditingController(text: edit?.ownerEmail ?? '');
-    final pass = TextEditingController();
-    String? err;
-    bool saving = false;
-    // ValueNotifier: tocar no toggle rebuilda SÓ o switch (ValueListenableBuilder),
-    // não o sheet inteiro — evitar rebuildar os TextFields aqui é o que impede o
-    // crash "ChangeNotifier used after dispose" que o setSheet global disparava.
-    final waiterModuleVN = ValueNotifier<bool>(edit?.waiterModule ?? false);
+/// Form de criar/editar estabelecimento (conteúdo do bottom sheet). É um
+/// StatefulWidget próprio pra donar os TextEditingController e descartá-los no
+/// `dispose()` — que roda só quando o sheet sai da árvore de verdade (fim da
+/// animação), evitando o crash "ChangeNotifier used after dispose".
+class _EstabFormSheet extends ConsumerStatefulWidget {
+  const _EstabFormSheet({required this.edit});
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.canvas,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetCtx) => StatefulBuilder(
-        builder: (sheetCtx, setSheet) {
-          Future<void> save() async {
-            final nm = name.text.trim();
-            final ow = owner.text.trim();
-            final tp = type.text.trim();
-            final pl = plan.text.trim();
-            final login = loginEmail.text.trim().toLowerCase();
-            final feeInt = int.tryParse(fee.text.trim());
-            if (nm.isEmpty || ow.isEmpty || tp.isEmpty || pl.isEmpty || login.isEmpty || feeInt == null) {
-              setSheet(() => err = 'Preencha nome, responsável, tipo, plano, e-mail e fee.');
-              return;
-            }
-            if (!isEdit && pass.text.trim().length < 6) {
-              setSheet(() => err = 'Senha de acesso: mínimo 6 caracteres.');
-              return;
-            }
-            final token = ref.read(authProvider).token;
-            if (token == null) return;
-            final messenger = ScaffoldMessenger.of(context);
-            setSheet(() {
-              err = null;
-              saving = true;
-            });
-            try {
-              await ref.read(publicApiProvider).saveEstablishment(token, {
-                if (isEdit) 'id': edit.id,
-                'name': nm,
-                'owner': ow,
-                'type': tp,
-                'city': city.text.trim(),
-                'plan': pl,
-                'platformFeePct': feeInt,
-                'user': login,
-                if (pass.text.trim().isNotEmpty) 'password': pass.text.trim(),
-                'waiterModuleEnabled': waiterModuleVN.value,
-              });
-              ref.invalidate(adminOverviewProvider);
-              if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-              messenger
-                ..clearSnackBars()
-                ..showSnackBar(SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: AppColors.ink,
-                  content: Text(isEdit ? 'Estabelecimento atualizado' : 'Estabelecimento criado',
-                      style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
-                ));
-            } on DioException catch (e) {
-              final code = e.response?.statusCode;
-              setSheet(() {
-                saving = false;
-                err = code == 409
-                    ? 'Esse e-mail de login já está em uso.'
-                    : (code == 422 ? 'Dados inválidos (senha mín. 6).' : 'Não foi possível salvar.');
-              });
-            } catch (_) {
-              setSheet(() {
-                saving = false;
-                err = 'Não foi possível salvar.';
-              });
-            }
-          }
+  final AdminEstablishment? edit;
 
-          final bottom = MediaQuery.viewInsetsOf(sheetCtx).bottom;
-          return Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999)))),
-                  const SizedBox(height: 16),
-                  Text(isEdit ? 'Editar estabelecimento' : 'Novo estabelecimento',
-                      style: AppText.display(size: 20, letterSpacing: -0.3)),
-                  const SizedBox(height: 16),
-                  _field(name, 'Nome'),
-                  const SizedBox(height: 10),
-                  _field(owner, 'Responsável'),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    Expanded(child: _field(type, 'Tipo (ex: Bar)')),
+  @override
+  ConsumerState<_EstabFormSheet> createState() => _EstabFormSheetState();
+}
+
+class _EstabFormSheetState extends ConsumerState<_EstabFormSheet> {
+  late final bool _isEdit = widget.edit != null;
+  late final _name = TextEditingController(text: widget.edit?.name ?? '');
+  late final _owner = TextEditingController(text: widget.edit?.owner ?? '');
+  late final _type = TextEditingController(text: widget.edit?.type ?? 'Bar');
+  late final _city = TextEditingController(text: widget.edit?.city == '—' ? '' : (widget.edit?.city ?? ''));
+  late final _plan = TextEditingController(text: widget.edit?.plan ?? 'Básico');
+  late final _fee = TextEditingController(text: (widget.edit?.feePct ?? 8).toString());
+  late final _loginEmail = TextEditingController(text: widget.edit?.ownerEmail ?? '');
+  late final _pass = TextEditingController();
+  late bool _waiterModule = widget.edit?.waiterModule ?? false;
+  String? _err;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    for (final c in [_name, _owner, _type, _city, _plan, _fee, _loginEmail, _pass]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final nm = _name.text.trim();
+    final ow = _owner.text.trim();
+    final tp = _type.text.trim();
+    final pl = _plan.text.trim();
+    final login = _loginEmail.text.trim().toLowerCase();
+    final feeInt = int.tryParse(_fee.text.trim());
+    if (nm.isEmpty || ow.isEmpty || tp.isEmpty || pl.isEmpty || login.isEmpty || feeInt == null) {
+      setState(() => _err = 'Preencha nome, responsável, tipo, plano, e-mail e fee.');
+      return;
+    }
+    if (!_isEdit && _pass.text.trim().length < 6) {
+      setState(() => _err = 'Senha de acesso: mínimo 6 caracteres.');
+      return;
+    }
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _err = null;
+      _saving = true;
+    });
+    try {
+      await ref.read(publicApiProvider).saveEstablishment(token, {
+        if (_isEdit) 'id': widget.edit!.id,
+        'name': nm,
+        'owner': ow,
+        'type': tp,
+        'city': _city.text.trim(),
+        'plan': pl,
+        'platformFeePct': feeInt,
+        'user': login,
+        if (_pass.text.trim().isNotEmpty) 'password': _pass.text.trim(),
+        'waiterModuleEnabled': _waiterModule,
+      });
+      ref.invalidate(adminOverviewProvider);
+      if (mounted) Navigator.pop(context);
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.ink,
+          content: Text(_isEdit ? 'Estabelecimento atualizado' : 'Estabelecimento criado',
+              style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
+        ));
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _err = code == 409
+            ? 'Esse e-mail de login já está em uso.'
+            : (code == 422 ? 'Dados inválidos (senha mín. 6).' : 'Não foi possível salvar.');
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _err = 'Não foi possível salvar.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999)))),
+            const SizedBox(height: 16),
+            Text(_isEdit ? 'Editar estabelecimento' : 'Novo estabelecimento',
+                style: AppText.display(size: 20, letterSpacing: -0.3)),
+            const SizedBox(height: 16),
+            _field(_name, 'Nome'),
+            const SizedBox(height: 10),
+            _field(_owner, 'Responsável'),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: _field(_type, 'Tipo (ex: Bar)')),
+              const SizedBox(width: 10),
+              Expanded(child: _field(_plan, 'Plano')),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(flex: 2, child: _field(_city, 'Cidade')),
+              const SizedBox(width: 10),
+              Expanded(child: _field(_fee, 'Fee %', number: true)),
+            ]),
+            const SizedBox(height: 10),
+            _field(_loginEmail, 'E-mail de login', keyboard: TextInputType.emailAddress),
+            const SizedBox(height: 10),
+            _field(_pass, _isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
+            const SizedBox(height: 12),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _waiterModule = !_waiterModule),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.inkA(0.15), width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Symbols.room_service, size: 20, color: AppColors.coralDeep),
                     const SizedBox(width: 10),
-                    Expanded(child: _field(plan, 'Plano')),
-                  ]),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    Expanded(flex: 2, child: _field(city, 'Cidade')),
-                    const SizedBox(width: 10),
-                    Expanded(child: _field(fee, 'Fee %', number: true)),
-                  ]),
-                  const SizedBox(height: 10),
-                  _field(loginEmail, 'E-mail de login', keyboard: TextInputType.emailAddress),
-                  const SizedBox(height: 10),
-                  _field(pass, isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
-                  const SizedBox(height: 12),
-                  ValueListenableBuilder<bool>(
-                    valueListenable: waiterModuleVN,
-                    builder: (_, on, __) => GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => waiterModuleVN.value = !on,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.inkA(0.15), width: 1.5),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Symbols.room_service, size: 20, color: AppColors.coralDeep),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Módulo do Garçom', style: AppText.body(size: 14, weight: FontWeight.w700)),
-                                  const SizedBox(height: 1),
-                                  Text('Fila de prontos, entrega por garçom e código de 4 dígitos',
-                                      style: AppText.body(size: 11, weight: FontWeight.w500, color: AppColors.inkA(0.45))),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 46,
-                              height: 26,
-                              alignment: on ? Alignment.centerRight : Alignment.centerLeft,
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                color: on ? AppColors.coral : AppColors.inkA(0.2),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: const DecoratedBox(
-                                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                child: SizedBox(width: 20, height: 20),
-                              ),
-                            ),
-                          ],
-                        ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Módulo do Garçom', style: AppText.body(size: 14, weight: FontWeight.w700)),
+                          const SizedBox(height: 1),
+                          Text('Fila de prontos, entrega por garçom e código de 4 dígitos',
+                              style: AppText.body(size: 11, weight: FontWeight.w500, color: AppColors.inkA(0.45))),
+                        ],
                       ),
                     ),
-                  ),
-                  if (err != null) ...[
-                    const SizedBox(height: 10),
-                    Text(err!, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.rose)),
-                  ],
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Material(
-                      color: saving ? AppColors.coral.withValues(alpha: 0.6) : AppColors.coral,
-                      borderRadius: BorderRadius.circular(999),
-                      child: InkWell(
-                        onTap: saving ? null : save,
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 46,
+                      height: 26,
+                      alignment: _waiterModule ? Alignment.centerRight : Alignment.centerLeft,
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: _waiterModule ? AppColors.coral : AppColors.inkA(0.2),
                         borderRadius: BorderRadius.circular(999),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          child: Center(
-                            child: saving
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                                : Text(isEdit ? 'Salvar' : 'Criar estabelecimento',
-                                    style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
-                          ),
-                        ),
+                      ),
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: SizedBox(width: 20, height: 20),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          );
-        },
+            if (_err != null) ...[
+              const SizedBox(height: 10),
+              Text(_err!, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.rose)),
+            ],
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: Material(
+                color: _saving ? AppColors.coral.withValues(alpha: 0.6) : AppColors.coral,
+                borderRadius: BorderRadius.circular(999),
+                child: InkWell(
+                  onTap: _saving ? null : _save,
+                  borderRadius: BorderRadius.circular(999),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Center(
+                      child: _saving
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                          : Text(_isEdit ? 'Salvar' : 'Criar estabelecimento',
+                              style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-
-    name.dispose();
-    owner.dispose();
-    type.dispose();
-    city.dispose();
-    plan.dispose();
-    fee.dispose();
-    loginEmail.dispose();
-    pass.dispose();
-    waiterModuleVN.dispose();
   }
 
   Widget _field(TextEditingController c, String hint, {bool number = false, bool obscure = false, TextInputType? keyboard}) {
