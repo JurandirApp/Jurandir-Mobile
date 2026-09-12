@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
@@ -105,6 +106,8 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
                 const SizedBox(height: 14),
                 _gatewaysCard(),
                 const SizedBox(height: 14),
+                _advancedPaymentsCard(),
+                const SizedBox(height: 14),
                 _passwordCard(),
               ],
             ),
@@ -115,6 +118,39 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
   }
 
   Widget _h2(String text) => Text(text.toUpperCase(), style: AppText.display(size: 13));
+
+  /// Abre o painel web (onde o dono cadastra recebedor Pagar.me e conecta o MP —
+  /// setup único, mais confortável no navegador).
+  Future<void> _openPanel() async {
+    final ok = await launchUrl(Uri.parse('https://jurandir.app.br/pt/painel'),
+        mode: LaunchMode.externalApplication);
+    if (!ok && mounted) _toast('Não foi possível abrir o painel.');
+  }
+
+  /// Config avançada de recebimentos (recebedor Pagar.me + conexão MP) fica no
+  /// painel web — aqui só um atalho, pra não sumir e não confundir.
+  Widget _advancedPaymentsCard() {
+    return BrutalCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Symbols.account_balance, size: 18, color: AppColors.inkA(0.65)),
+            const SizedBox(width: 8),
+            _h2('Recebimentos'),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+            'O cadastro do recebedor Pagar.me (dados bancários e verificação) e a conexão com o Mercado Pago são feitos no painel web — leva pouco e só precisa fazer uma vez.',
+            style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.inkA(0.6)),
+          ),
+          const SizedBox(height: 12),
+          AppButton.ghost(label: 'Abrir painel web', onPressed: _openPanel),
+        ],
+      ),
+    );
+  }
 
   Widget _printerCard() {
     return BrutalCard(

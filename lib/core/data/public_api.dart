@@ -299,14 +299,15 @@ class PublicApi {
     }
   }
 
-  /// Perfil atual do estabelecimento logado (Estab · Perfil).
-  Future<Map<String, String>> establishmentProfile(String token) async {
+  /// Perfil atual do estabelecimento logado (Estab · Perfil). Inclui campos de
+  /// texto E o `weeklyHours` estruturado (List de 7 dias × janelas {o,c}), por
+  /// isso o retorno é dinâmico.
+  Future<Map<String, dynamic>> establishmentProfile(String token) async {
     final res = await _dio.get<Map<String, dynamic>>(
       '/establishment/profile',
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
-    final d = res.data!;
-    return {for (final e in d.entries) e.key: (e.value as String?) ?? ''};
+    return res.data ?? const {};
   }
 
   /// Salva o perfil do estabelecimento.
@@ -499,7 +500,7 @@ final adminSearchesProvider = FutureProvider<AdminSearches?>((ref) async {
 });
 
 /// Perfil do estabelecimento logado (Estab · Perfil).
-final establishmentProfileProvider = FutureProvider<Map<String, String>>((ref) async {
+final establishmentProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final token = ref.watch(authProvider).token;
   if (token == null) return const {};
   return ref.watch(publicApiProvider).establishmentProfile(token);
