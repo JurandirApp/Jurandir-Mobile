@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -168,9 +169,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return result;
   }
 
+  /// Garante um CPF válido pro pagador (o Pagar.me exige `customer.document`).
+  /// Usa o do perfil; se não houver, pede uma vez num sheet, valida e guarda.
+  /// Retorna false se o usuário cancelar.
+  Future<bool> _ensureCpf() async {
+    if (isValidCpf(ref.read(clientProfileProvider).documentDigits)) return true;
+    final cpf = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.canvas,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => const _CpfSheet(),
+    );
+    if (cpf == null || !mounted) return false;
+    await ref.read(clientProfileProvider.notifier).saveDocument(cpf);
+    return true;
+  }
+
   /// Cria o pedido Pix (cobrança real na Pagar.me) e abre a tela do QR.
   Future<void> _payPix() async {
     if (_submitting) return;
+    if (!await _ensureCpf() || !mounted) return;
     final payload = _orderPayload(method: 'PIX');
     if (payload == null) {
       // Sem estabelecimento real (demo) → mantém o fluxo antigo.
@@ -339,6 +358,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       'locationLabel': table.isEmpty ? 'Pedido pelo app' : table,
       if (name != null && name.isNotEmpty) 'customerName': name,
       if (phone.isNotEmpty) 'customerPhone': phone,
+      if (profile.documentDigits.isNotEmpty) 'customerDocument': profile.documentDigits,
       'clientId': profile.clientId,
       if (note.isNotEmpty) 'note': note,
       'items': [
@@ -861,6 +881,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Gera o pedido dividido (N cobranças Pix, uma por pessoa) e abre a tela de split.
   Future<void> _paySplit() async {
     if (_submitting) return;
+    if (!await _ensureCpf() || !mounted) return;
     final payload = _orderPayload(method: 'PIX');
     if (payload == null) {
       _finish(incomplete: false);
@@ -943,4 +964,111 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
     );
   }
+}
+
+/// Sheet pra coletar o CPF do pagador (1ª cobrança). StatefulWidget próprio pra
+/// descartar o controller no dispose() (evita o crash de controller disposto na
+/// animação de saída). Devolve o CPF (só dígitos) no pop, ou null se cancelar.
+class _CpfSheet extends StatefulWidget {
+  const _CpfSheet();
+
+  @override
+  State<_CpfSheet> createState() => _CpfSheetState();
+}
+
+class _CpfSheetState extends State<_CpfSheet> {
+  final _ctrl = TextEditingController();
+  String? _err;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    if (!isValidCpf(_ctrl.text)) {
+      setState(() => _err = 'CPF inválido — confira os números.');
+      return;
+    }
+    Navigator.pop(context, _ctrl.text.replaceAll(RegExp(r'\D'), ''));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
+          ),
+          const SizedBox(height: 16),
+          Text('CPF do pagador', style: AppText.display(size: 20, letterSpacing: -0.3)),
+          const SizedBox(height: 6),
+          Text('Obrigatório para o pagamento. Pedimos só uma vez — depois fica salvo.',
+              style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.55))),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 11,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: AppText.body(size: 18, weight: FontWeight.w700, letterSpacing: 1),
+            onChanged: (_) {
+              if (_err != null) setState(() => _err = null);
+            },
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: 'Somente números',
+              hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.35)),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: _err != null ? AppColors.danger : AppColors.inkA(0.15), width: 1.5)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: _err != null ? AppColors.danger : AppColors.ink, width: 2)),
+            ),
+          ),
+          if (_err != null) ...[
+            const SizedBox(height: 6),
+            Text(_err!, style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.danger)),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: Material(
+              color: AppColors.coral,
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                onTap: _confirm,
+                borderRadius: BorderRadius.circular(999),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 15),
+                  child: Center(child: _CpfContinueLabel()),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CpfContinueLabel extends StatelessWidget {
+  const _CpfContinueLabel();
+  @override
+  Widget build(BuildContext context) =>
+      Text('Continuar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white));
 }
