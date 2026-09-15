@@ -100,6 +100,36 @@ class PublicApi {
     );
   }
 
+  /// Cria o pedido e cobra o cartão via `card_token` (POST /orders/card). O app
+  /// já tokenizou com a chave pública; aqui vai só o token. Retorna sucesso,
+  /// status (paid|pending|failed) e o pedido.
+  Future<({bool ok, String status, String? detail, ClientOrder? order})> createCardOrder(
+    Map<String, dynamic> order,
+    String cardToken, {
+    int installments = 1,
+    required String method, // 'credit' | 'debit'
+  }) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
+        'order': order,
+        'cardToken': cardToken,
+        'installments': installments,
+        'method': method,
+      });
+      final d = res.data!;
+      return (
+        ok: (d['ok'] as bool?) ?? false,
+        status: (d['status'] as String?) ?? 'failed',
+        detail: d['detail'] as String?,
+        order: d['order'] == null ? null : ClientOrder.fromJson(d['order'] as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final err = (data is Map) ? data['error'] as String? : null;
+      return (ok: false, status: 'failed', detail: err, order: null);
+    }
+  }
+
   /// Login real (POST /login). Lança `DioException` (401) se as credenciais
   /// forem inválidas. Só existem usuários ESTABLISHMENT e ADMIN.
   Future<({String token, String role, String name, String email, String? establishmentId, bool waiterModule})> login(

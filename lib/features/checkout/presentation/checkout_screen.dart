@@ -6,12 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/client_profile.dart';
 import '../../../core/data/models.dart';
 import '../../../core/data/orders_controller.dart';
 import '../../../core/data/public_api.dart';
+import '../../../core/payments/card_tokenizer.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
@@ -19,7 +19,7 @@ import '../../auth/auth_controller.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 import '../../menu/presentation/item_sheet.dart';
-import 'card_wait_screen.dart';
+import 'card_sheet.dart';
 import 'wallet_buttons.dart';
 
 class _PayMethod {
@@ -88,9 +88,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _payPix();
       return;
     }
-    // Crédito/Débito (pagar tudo) → checkout hospedado da Pagar.me.
+    // Crédito/Débito (pagar tudo) → tela de cartão + tokenização Pagar.me.
     if (_selPay == 'credito' || _selPay == 'debito') {
-      _payCard();
+      _payCard(grand);
       return;
     }
     _finish(incomplete: false);
@@ -227,40 +227,41 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     context.go('/pix', extra: order);
   }
 
-  /// Crédito/Débito → cria o pedido e abre o checkout hospedado da Pagar.me
-  /// (cartão + 3DS acontecem na página segura). A confirmação vem pelo polling.
-  Future<void> _payCard() async {
+  /// Crédito/Débito → tela de cartão → tokeniza DIRETO no Pagar.me (o cartão cru
+  /// não passa pelo nosso backend) → cobra via `card_token`. Aprovado → /done.
+  Future<void> _payCard(double grand) async {
     if (_submitting) return;
+    if (!await _ensureCpf() || !mounted) return;
+    if (!pagarmeCardConfigured) {
+      _toast('Pagamento no cartão indisponível no momento.');
+      return;
+    }
+    final debit = _selPay == 'debito';
+    final token = await showCardSheet(context, amount: grand, debit: debit);
+    if (token == null || !mounted) return; // cancelou ou a tokenização falhou
     final payload = _orderPayload(method: _enumMethod(_selPay));
     if (payload == null) {
-      // Sem estabelecimento real (demo) → mantém o fluxo antigo.
       _finish(incomplete: false);
       return;
     }
     setState(() => _submitting = true);
     await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
-    ({bool ok, String? checkoutUrl, ClientOrder? order})? res;
-    try {
-      res = await ref.read(publicApiProvider).createCardCheckout(payload);
-    } catch (_) {
-      res = null;
-    }
+    final r = await ref
+        .read(publicApiProvider)
+        .createCardOrder(payload, token, method: debit ? 'debit' : 'credit');
     if (!mounted) return;
     setState(() => _submitting = false);
-    final url = res?.checkoutUrl;
-    final order = res?.order;
-    if (res == null || res.ok != true || url == null || url.isEmpty || order == null) {
-      _toast('Não foi possível abrir o pagamento no cartão. Tente novamente.');
+    final order = r.order;
+    if (order == null || r.status == 'failed') {
+      _toast('Cartão recusado. Confira os dados ou tente outro.');
       return;
     }
     final id = order.dbId;
     if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
-    final uri = Uri.tryParse(url);
-    if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!mounted) return;
-    // Mantém o carrinho (permite "Editar pedido" na tela de espera do cartão).
-    _markPending(id);
-    context.go('/pagamento', extra: CardWaitArgs(order: order, checkoutUrl: url));
+    _markPending(null);
+    ref.read(cartProvider.notifier).clear();
+    context.go('/done', extra: DoneArgs(incomplete: false, code: order.code));
   }
 
   /// Cria o pedido real (best-effort) e vai pra confirmação. Sem backend /
