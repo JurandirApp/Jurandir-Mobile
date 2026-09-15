@@ -265,19 +265,22 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          leading: Icon(Symbols.person, size: 20, color: AppColors.inkA(0.6)),
           title: Text(c.name.isEmpty ? 'Cliente' : c.name,
               maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.display(size: 16, letterSpacing: -0.2)),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 3),
-            child: Text(
-              [
-                if (c.phone.isNotEmpty) c.phone,
-                '${c.orderCount} ${c.orderCount == 1 ? 'pedido' : 'pedidos'} · ${_brl(c.total)}',
-              ].join('  ·  '),
+            // Telefone + nº de pedidos em preto; só o valor pago em verde.
+            child: Text.rich(
+              TextSpan(
+                style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.ink),
+                children: [
+                  if (c.phone.isNotEmpty) TextSpan(text: '${c.phone}  ·  '),
+                  TextSpan(text: '${c.orderCount} ${c.orderCount == 1 ? 'pedido' : 'pedidos'}  ·  '),
+                  TextSpan(text: _brl(c.total), style: const TextStyle(color: AppColors.successText)),
+                ],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.successText),
             ),
           ),
           children: [for (final o in c.orders) _orderRow(o)],
