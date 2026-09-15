@@ -53,11 +53,14 @@ jobs:
 
       - name: Cria/baixa certificado + perfil (App Store Connect)
         run: |
-          # A secret CERTIFICATE_PRIVATE_KEY é a chave PEM em base64 (uma linha só,
-          # à prova de copia-e-cola). Decodifica de volta pro PEM aqui.
+          # As duas chaves (CERTIFICATE_PRIVATE_KEY e APP_STORE_CONNECT_PRIVATE_KEY)
+          # são PEM/`.p8` em base64 numa linha só (à prova de copia-e-cola).
+          # Decodifica pras chaves originais.
           printf '%s' "$CERTIFICATE_PRIVATE_KEY" | openssl base64 -d -A > "$RUNNER_TEMP/cert_key.pem"
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" | openssl base64 -d -A > "$RUNNER_TEMP/asc_key.p8"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --private-key=@file:"$RUNNER_TEMP/asc_key.p8" \
             --certificate-key=@file:"$RUNNER_TEMP/cert_key.pem" \
             --create
 
@@ -84,6 +87,7 @@ jobs:
         run: |
           app-store-connect publish \
             --path "build/ios/ipa/*.ipa" \
+            --private-key=@file:"$RUNNER_TEMP/asc_key.p8" \
             --testflight
 
       - name: Guarda o .ipa como artefato (backup)
