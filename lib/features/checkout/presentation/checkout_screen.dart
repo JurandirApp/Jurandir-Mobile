@@ -11,7 +11,6 @@ import '../../../core/data/client_profile.dart';
 import '../../../core/data/models.dart';
 import '../../../core/data/orders_controller.dart';
 import '../../../core/data/public_api.dart';
-import '../../../core/payments/card_tokenizer.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
@@ -19,7 +18,6 @@ import '../../auth/auth_controller.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 import '../../menu/presentation/item_sheet.dart';
-import 'card_sheet.dart';
 import 'wallet_buttons.dart';
 
 class _PayMethod {
@@ -30,10 +28,10 @@ class _PayMethod {
   const _PayMethod(this.id, this.label, this.icon, this.color);
 }
 
+// Cartão = Apple Pay / Google Pay (carteira nativa). Aqui na grade fica só o Pix;
+// o cartão entra pelos botões de carteira (`_walletSection`).
 const _methods = [
   _PayMethod('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
-  _PayMethod('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
-  _PayMethod('debito', 'Débito', Symbols.account_balance_wallet, AppColors.debit),
 ];
 
 /// Checkout: resumo + observação + "Pagar tudo / Dividir conta" + métodos +
@@ -88,11 +86,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _payPix();
       return;
     }
-    // Crédito/Débito (pagar tudo) → tela de cartão + tokenização Pagar.me.
-    if (_selPay == 'credito' || _selPay == 'debito') {
-      _payCard(grand);
-      return;
-    }
+    // Cartão não passa por aqui: é pago pelos botões de Apple Pay / Google Pay
+    // (`_walletSection` → `_onWallet`). A grade só trata o Pix.
     _finish(incomplete: false);
   }
 
@@ -225,43 +220,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     // o pagamento cair.
     _markPending(id);
     context.go('/pix', extra: order);
-  }
-
-  /// Crédito/Débito → tela de cartão → tokeniza DIRETO no Pagar.me (o cartão cru
-  /// não passa pelo nosso backend) → cobra via `card_token`. Aprovado → /done.
-  Future<void> _payCard(double grand) async {
-    if (_submitting) return;
-    if (!await _ensureCpf() || !mounted) return;
-    if (!pagarmeCardConfigured) {
-      _toast('Pagamento no cartão indisponível no momento.');
-      return;
-    }
-    final debit = _selPay == 'debito';
-    final token = await showCardSheet(context, amount: grand, debit: debit);
-    if (token == null || !mounted) return; // cancelou ou a tokenização falhou
-    final payload = _orderPayload(method: _enumMethod(_selPay));
-    if (payload == null) {
-      _finish(incomplete: false);
-      return;
-    }
-    setState(() => _submitting = true);
-    await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
-    final r = await ref
-        .read(publicApiProvider)
-        .createCardOrder(payload, token, method: debit ? 'debit' : 'credit');
-    if (!mounted) return;
-    setState(() => _submitting = false);
-    final order = r.order;
-    if (order == null || r.status == 'failed') {
-      _toast('Cartão recusado. Confira os dados ou tente outro.');
-      return;
-    }
-    final id = order.dbId;
-    if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
-    if (!mounted) return;
-    _markPending(null);
-    ref.read(cartProvider.notifier).clear();
-    context.go('/done', extra: DoneArgs(incomplete: false, code: order.code));
   }
 
   /// Cria o pedido real (best-effort) e vai pra confirmação. Sem backend /
@@ -484,9 +442,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 _modeToggle(),
                 const SizedBox(height: 12),
                 if (!isSplit) ...[
-                  // Carteira nativa só quando o bar aceita (crédito via Pagar.me);
-                  // senão o token não teria como ser cobrado.
-                  if (est.walletPay) _walletSection(grand),
+                  // Cartão = Apple Pay / Google Pay (o combinado). Sempre visível.
+                  _walletSection(grand),
                   _payGrid(),
                 ] else
                   _splitCard(grand, share),
