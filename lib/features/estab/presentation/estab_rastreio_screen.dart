@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/data/public_api.dart';
@@ -10,9 +11,10 @@ import '../../auth/auth_controller.dart';
 import '../data/tracking_models.dart';
 import 'estab_sub_header.dart';
 
-/// Estab · Conta → Rastreio: backlog de pedidos por mesa, filtrado por dia.
-/// Mostra todas as mesas cadastradas (mesmo vazias) + labels avulsos, com nº de
-/// clientes, e por pedido: cliente, itens, horário do pedido e da entrega + garçom.
+/// Estab · Conta → Rastreio: grid de mesas do dia (resumo). Tocar numa mesa
+/// abre a tela dedicada dela (`/estab/conta/rastreio/mesa`), com os pedidos
+/// pagos agrupados por cliente — feito pra rolar centenas de pedidos num dia
+/// cheio sem estourar a tela.
 class EstabRastreioScreen extends ConsumerStatefulWidget {
   const EstabRastreioScreen({super.key});
 
@@ -86,11 +88,10 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
     _load();
   }
 
-  /// UTC (do backend) → horário BR "HH:MM".
-  String _hhmm(DateTime? d) {
-    if (d == null) return '—';
-    final br = d.toUtc().subtract(const Duration(hours: 3));
-    return '${br.hour.toString().padLeft(2, '0')}:${br.minute.toString().padLeft(2, '0')}';
+  void _openTable(TrackedTable t) {
+    context.push('/estab/conta/rastreio/mesa', extra: {'label': t.label, 'day': _dayApi(_day)}).then((_) {
+      if (mounted) _load(); // volta da mesa → atualiza os contadores
+    });
   }
 
   @override
@@ -193,93 +194,46 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
 
   Widget _tableCard(TrackedTable t) {
     final empty = t.orderCount == 0;
+    final sub = empty
+        ? 'Sem pedidos'
+        : '${t.customers} ${t.customers == 1 ? 'cliente' : 'clientes'} · ${t.orderCount} ${t.orderCount == 1 ? 'pedido' : 'pedidos'} · ${_brl(t.revenue)}';
     return BrutalCard(
-      padding: EdgeInsets.zero,
-      clip: true,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          title: Row(
-            children: [
-              Icon(t.registered ? Symbols.table_restaurant : Symbols.smartphone, size: 18, color: AppColors.inkA(0.6)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(t.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.display(size: 16, letterSpacing: -0.2))),
-            ],
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Text(
-              empty ? 'Sem pedidos' : '${t.customers} ${t.customers == 1 ? 'cliente' : 'clientes'} · ${t.orderCount} ${t.orderCount == 1 ? 'pedido' : 'pedidos'}',
-              style: AppText.body(size: 12.5, weight: FontWeight.w700, color: empty ? AppColors.inkA(0.4) : AppColors.successText),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      onTap: empty ? null : () => _openTable(t),
+      child: Row(
+        children: [
+          Icon(t.registered ? Symbols.table_restaurant : Symbols.smartphone, size: 18, color: AppColors.inkA(0.6)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.display(size: 16, letterSpacing: -0.2)),
+                const SizedBox(height: 3),
+                Text(sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body(size: 12.5, weight: FontWeight.w700, color: empty ? AppColors.inkA(0.4) : AppColors.successText)),
+              ],
             ),
           ),
-          // Sem pedidos → não expande (nada dentro).
-          trailing: empty ? const SizedBox(width: 1, height: 1) : null,
-          enabled: !empty,
-          children: [for (final o in t.orders) _orderRow(o)],
-        ),
-      ),
-    );
-  }
-
-  Widget _orderRow(TrackedOrder o) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.duneA(0.35), borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Symbols.person, size: 15, color: AppColors.inkA(0.55)),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  [o.customerName.isEmpty ? 'Cliente' : o.customerName, if (o.customerPhone.isNotEmpty) o.customerPhone].join('  ·  '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.body(size: 13, weight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            o.items.map((i) => '${i.qty}× ${i.name}').join(', '),
-            style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.inkA(0.7)),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _chip(Symbols.schedule, 'Pedido ${_hhmm(o.placedAt)}'),
-              const SizedBox(width: 6),
-              _chip(Symbols.check_circle, o.deliveredAt == null ? 'Não entregue' : 'Entregue ${_hhmm(o.deliveredAt)}'),
-              if (o.waiter != null && o.waiter!.isNotEmpty) ...[
-                const SizedBox(width: 6),
-                _chip(Symbols.room_service, o.waiter!),
-              ],
-            ],
-          ),
+          if (!empty) Icon(Symbols.chevron_right, size: 22, color: AppColors.inkA(0.4)),
         ],
       ),
     );
   }
+}
 
-  Widget _chip(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: AppColors.inkA(0.55)),
-          const SizedBox(width: 4),
-          Text(text, style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.65))),
-        ],
-      ),
-    );
+/// "R$ 1.234,50" (pt-BR simples, sem intl).
+String _brl(double v) {
+  final neg = v < 0;
+  final cents = (v.abs() * 100).round();
+  final reais = (cents ~/ 100).toString();
+  final dec = (cents % 100).toString().padLeft(2, '0');
+  final buf = StringBuffer();
+  for (var i = 0; i < reais.length; i++) {
+    if (i > 0 && (reais.length - i) % 3 == 0) buf.write('.');
+    buf.write(reais[i]);
   }
+  return '${neg ? '-' : ''}R\$ $buf,$dec';
 }

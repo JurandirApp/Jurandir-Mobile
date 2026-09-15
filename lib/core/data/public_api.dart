@@ -363,6 +363,17 @@ class PublicApi {
         .toList();
   }
 
+  /// Detalhe de UMA mesa de um dia — pedidos pagos agrupados por cliente
+  /// (GET /establishment/tracking/table?day=YYYY-MM-DD&label=...).
+  Future<TableDetail> establishmentTableDetail(String token, String day, String label) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/establishment/tracking/table',
+      queryParameters: {'day': day, 'label': label},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return TableDetail.fromJson(res.data ?? const {});
+  }
+
   /// Cria (sem id) ou edita (com id) um estabelecimento (Admin · Cadastros).
   Future<void> saveEstablishment(String token, Map<String, dynamic> payload) async {
     await _dio.post<Map<String, dynamic>>(

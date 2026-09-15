@@ -3,6 +3,7 @@
   "PAY_ENV": "PRODUCTION",
   "PAY_GATEWAY": "pagarme",
   "PAY_MERCHANT_ID": "acc_EyDVN88HkDCg0eGm",
+  "PAGARME_PUBLIC_KEY": "pk_bLlMRg5TEF6K3ykV",
   "GOOGLE_MERCHANT_ID": "",
   "APPLE_MERCHANT_ID": "merchant.br.app.jurandir"
 }

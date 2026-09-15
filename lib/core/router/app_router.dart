@@ -21,6 +21,7 @@ import '../../features/estab/presentation/estab_config_screen.dart';
 import '../../features/estab/presentation/estab_conta_screen.dart';
 import '../../features/estab/presentation/estab_garcons_screen.dart';
 import '../../features/estab/presentation/estab_rastreio_screen.dart';
+import '../../features/estab/presentation/estab_mesa_screen.dart';
 import '../../features/estab/presentation/estab_kpis_screen.dart';
 import '../../features/estab/presentation/estab_pedidos_screen.dart';
 import '../../features/estab/presentation/estab_perfil_screen.dart';
@@ -146,7 +147,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               builder: (context, state) => const EstabContaScreen(),
               routes: [
                 GoRoute(path: 'garcons', builder: (context, state) => const EstabGarconsScreen()),
-                GoRoute(path: 'rastreio', builder: (context, state) => const EstabRastreioScreen()),
+                GoRoute(
+                  path: 'rastreio',
+                  builder: (context, state) => const EstabRastreioScreen(),
+                  routes: [
+                    GoRoute(path: 'mesa', builder: (context, state) => const EstabMesaScreen()),
+                  ],
+                ),
                 GoRoute(path: 'auditoria', builder: (context, state) => const EstabAuditoriaScreen()),
                 GoRoute(path: 'perfil', builder: (context, state) => const EstabPerfilScreen()),
                 GoRoute(path: 'config', builder: (context, state) => const EstabConfigScreen()),
