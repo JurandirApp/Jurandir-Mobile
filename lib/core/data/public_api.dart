@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/auth_controller.dart';
+import '../../features/estab/data/tracking_models.dart';
 import '../../features/waiter/data/waiter_models.dart';
 import '../api/api_client.dart';
 import 'models.dart';
@@ -347,6 +348,19 @@ class PublicApi {
       data: payload,
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
+  }
+
+  /// Rastreio por mesa de um dia (GET /establishment/tracking?day=YYYY-MM-DD).
+  Future<List<TrackedTable>> establishmentTracking(String token, String day) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/establishment/tracking',
+      queryParameters: {'day': day},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return ((res.data!['tables'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(TrackedTable.fromJson)
+        .toList();
   }
 
   /// Cria (sem id) ou edita (com id) um estabelecimento (Admin · Cadastros).

@@ -18,6 +18,7 @@ class EstabContaScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final menu = [
       (Symbols.badge, 'Garções', '/estab/conta/garcons'),
+      (Symbols.receipt_long, 'Rastreio de mesas', '/estab/conta/rastreio'),
       (Symbols.shield, 'Auditoria', '/estab/conta/auditoria'),
       (Symbols.storefront, 'Perfil', '/estab/conta/perfil'),
       (Symbols.settings, 'Configurações', '/estab/conta/config'),
