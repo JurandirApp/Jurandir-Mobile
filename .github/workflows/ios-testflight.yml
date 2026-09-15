@@ -1,0 +1,92 @@
+# Builda o iOS (.ipa) num Mac do GitHub Actions (grátis) e publica no TestFlight.
+# Porta o mesmo fluxo do codemagic.yaml usando as ferramentas open-source do
+# Codemagic (codemagic-cli-tools, instaláveis via pip em qualquer macOS).
+#
+# Roda SÓ quando você aperta "Run workflow" (workflow_dispatch) — assim não gasta
+# minutos grátis a cada push. Runner macOS no plano Free: ~200 min/mês (~10 builds).
+#
+# SECRETS necessários (Repo > Settings > Secrets and variables > Actions > New):
+#   APP_STORE_CONNECT_KEY_IDENTIFIER  -> Key ID da API Key do App Store Connect
+#   APP_STORE_CONNECT_ISSUER_ID       -> Issuer ID (mesma tela da API Key)
+#   APP_STORE_CONNECT_PRIVATE_KEY     -> conteúdo do arquivo .p8 (a chave inteira)
+#   CERTIFICATE_PRIVATE_KEY           -> a chave PEM que já usamos no Codemagic
+#                                        (grupo ios_signing) — cria/reutiliza o
+#                                        certificado de distribuição.
+
+name: iOS - TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Build number (CFBundleVersion). Vazio = usa o nº do run."
+        required: false
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      BUNDLE_ID: br.app.jurandir
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Instala Codemagic CLI tools
+        run: pip3 install --break-system-packages codemagic-cli-tools
+
+      - name: Define o build number
+        run: echo "BUILD_NUMBER=${{ github.event.inputs.build_number || github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Inicializa keychain
+        run: keychain initialize
+
+      - name: Cria/baixa certificado + perfil (App Store Connect)
+        run: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+
+      - name: Instala o certificado no keychain
+        run: keychain add-certificates
+
+      - name: Aplica os perfis no projeto Xcode + gera export options
+        run: xcode-project use-profiles --export-options-plist "$HOME/export_options.plist"
+
+      - name: Flutter packages
+        run: flutter pub get
+
+      - name: CocoaPods
+        run: find . -name "Podfile" -execdir pod install \;
+
+      - name: Build IPA
+        run: |
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --dart-define-from-file=dart_defines.prod.json \
+            --export-options-plist="$HOME/export_options.plist"
+
+      - name: Publica no TestFlight
+        run: |
+          app-store-connect publish \
+            --path "build/ios/ipa/*.ipa" \
+            --testflight
+
+      - name: Guarda o .ipa como artefato (backup)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: ignore
