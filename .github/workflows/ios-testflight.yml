@@ -53,10 +53,9 @@ jobs:
 
       - name: Cria/baixa certificado + perfil (App Store Connect)
         run: |
-          # A secret pode vir com CRLF (colada do Notepad no Windows) -> o \r
-          # corrompe o PEM. Limpa o \r e passa por arquivo (mais robusto que @env
-          # pra chave multi-linha).
-          printf '%s\n' "$CERTIFICATE_PRIVATE_KEY" | tr -d '\r' > "$RUNNER_TEMP/cert_key.pem"
+          # A secret CERTIFICATE_PRIVATE_KEY é a chave PEM em base64 (uma linha só,
+          # à prova de copia-e-cola). Decodifica de volta pro PEM aqui.
+          printf '%s' "$CERTIFICATE_PRIVATE_KEY" | openssl base64 -d -A > "$RUNNER_TEMP/cert_key.pem"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --certificate-key=@file:"$RUNNER_TEMP/cert_key.pem" \
