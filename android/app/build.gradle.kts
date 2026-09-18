@@ -25,8 +25,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "br.app.jurandir"
+        // App ID do Google Play. `br.app.jurandir` (conta pessoal antiga) está preso
+        // naquela conta; a conta de organização usa este novo App ID. O `namespace`
+        // (br.app.jurandir) segue interno — não precisa casar com o applicationId.
+        applicationId = "br.app.jurandirgarcomdigital"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -67,4 +69,16 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // 16 KB page size (exigência do Google Play desde nov/2025). O mobile_scanner
+    // 5.2.3 trazia bibliotecas nativas de 4 KB — libbarhopper_v3.so (ML Kit barcode)
+    // e libimage_processing_util_jni.so (CameraX). Estas versões alinham os .so a
+    // 16 KB. Gradle resolve pelo maior, então sobrepõem as versões antigas do plugin.
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
 }
