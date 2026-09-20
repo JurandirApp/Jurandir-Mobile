@@ -16,6 +16,7 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../auth/auth_controller.dart';
+import 'estab_bulk_adjust_sheet.dart';
 
 /// Estab · Cardápio real: listar, pausar/ativar, criar, editar e excluir itens.
 class EstabCardapioScreen extends ConsumerStatefulWidget {
@@ -173,6 +174,28 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
             ),
           )
         else ...[
+          GestureDetector(
+            onTap: () => showBulkAdjustSheet(context, ref, all),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.ink, width: 2),
+              ),
+              child: Row(
+                children: [
+                  Icon(Symbols.percent, size: 18, color: AppColors.coralDeep),
+                  const SizedBox(width: 8),
+                  Text('Ajustar preços em massa',
+                      style: AppText.body(size: 13.5, weight: FontWeight.w800)),
+                  const Spacer(),
+                  Icon(Symbols.chevron_right, size: 20, color: AppColors.inkA(0.4)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           SizedBox(
             height: 38,
             child: SingleChildScrollView(

@@ -233,6 +233,18 @@ class PublicApi {
     );
   }
 
+  /// Ajuste de preço em massa. `dryRun:true` = preview (não grava). Devolve o
+  /// mapa cru `{ changes: [...], applied: bool }`.
+  Future<Map<String, dynamic>> bulkAdjustPrices(
+      String token, Map<String, dynamic> payload) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/establishment/menu/bulk-adjust',
+      data: payload,
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return res.data ?? const {};
+  }
+
   /// Envia a foto de um item pro Cloudinary e devolve a URL https.
   /// Fluxo seguro: pede a assinatura pro backend (o api_secret nunca vem pro
   /// app) e faz o upload do arquivo direto pra Cloudinary.
