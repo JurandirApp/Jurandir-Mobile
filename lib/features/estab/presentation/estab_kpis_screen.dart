@@ -12,6 +12,7 @@ import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/donut_chart.dart';
 import '../../../core/widgets/segmented_control.dart';
 import '../../auth/auth_controller.dart';
+import 'estab_kpis_logic.dart';
 
 const _payMeta = [
   ('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
@@ -86,42 +87,18 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
       1 => now.subtract(const Duration(days: 7)).millisecondsSinceEpoch,
       _ => now.subtract(const Duration(days: 30)).millisecondsSinceEpoch,
     };
-    final orders = all.where((o) => o.ts >= cutoffMs).toList();
-
-    final faturamento = orders.fold(0.0, (s, o) => s + o.total);
-    final pedidos = orders.length;
-    final ticket = pedidos == 0 ? 0.0 : faturamento / pedidos;
-    final emProducao = all.where((o) => o.status == 'producao').length;
-
-    // vendas por categoria (usa o cardápio p/ mapear nome → categoria).
-    // Usa os MESMOS pedidos do faturamento/método pra não dar divergência
-    // (ex.: método mostra Pix R$24 mas categoria zerada).
-    final catOf = {for (final m in menu) m.name: m.cat};
-    final byCat = <String, double>{};
-    for (final o in orders) {
-      for (final it in o.items) {
-        var c = catOf[it.name] ?? 'Outros';
-        if (c.isEmpty) c = 'Outros';
-        byCat[c] = (byCat[c] ?? 0) + it.qty * it.price;
-      }
-    }
-    final catTot = byCat.values.fold(0.0, (a, b) => a + b);
-    final sortedCats = byCat.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-
-    // vendas por método
-    final byPay = <String, double>{};
-    for (final o in orders) {
-      byPay[o.pay] = (byPay[o.pay] ?? 0) + o.total;
-    }
-
-    // mais vendidos (por quantidade) — mesmo conjunto de pedidos
-    final byItem = <String, int>{};
-    for (final o in orders) {
-      for (final it in o.items) {
-        byItem[it.name] = (byItem[it.name] ?? 0) + it.qty;
-      }
-    }
-    final topSellers = (byItem.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(3).toList();
+    // Cálculo centralizado e testado. Só pedidos PAGOS entram (producao +
+    // entregue) — "aguardando"/expirado NÃO conta como venda. Ver
+    // estab_kpis_logic.dart + test/estab_kpis_test.dart.
+    final kpis = computeEstabKpis(all: all, menu: menu, cutoffMs: cutoffMs);
+    final faturamento = kpis.faturamento;
+    final pedidos = kpis.pedidos;
+    final ticket = kpis.ticket;
+    final emProducao = kpis.emProducao;
+    final sortedCats = kpis.byCat;
+    final catTot = sortedCats.fold<double>(0.0, (a, e) => a + e.value);
+    final byPay = kpis.byPay;
+    final topSellers = kpis.topSellers;
 
     final stats = [
       ('Faturamento', money(faturamento), AppColors.coralDeep),
