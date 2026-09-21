@@ -41,6 +41,7 @@ dependencies:
   google_fonts: ^8.2.1
   material_symbols_icons: ^4.2960.0
   flutter_svg: ^2.3.0
+  cached_network_image: ^3.4.1
   pay: ^3.3.0
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.1

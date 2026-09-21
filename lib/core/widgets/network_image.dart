@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 /// Imagem de rede com carregamento agradável, no lugar do `Image.network` cru
@@ -30,28 +31,17 @@ class AppNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.network(
-      url,
+    // CachedNetworkImage guarda a imagem em DISCO (persiste entre aberturas) e
+    // em memória. Já veio do cache → aparece na hora; senão, shimmer + fade-in.
+    return CachedNetworkImage(
+      imageUrl: url,
       width: width,
       height: height,
       fit: fit,
-      // Evita piscar de volta pro placeholder num rebuild depois de já ter carregado.
-      gaplessPlayback: true,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        // Veio do cache → já está pronta, sem transição.
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 350),
-          switchInCurve: Curves.easeOut,
-          child: frame == null
-              ? const SizedBox.expand(
-                  key: ValueKey('img-shimmer'),
-                  child: _ImageShimmer(),
-                )
-              : KeyedSubtree(key: const ValueKey('img-ready'), child: child),
-        );
-      },
-      errorBuilder: (_, _, _) => errorWidget ?? const SizedBox.shrink(),
+      fadeInDuration: const Duration(milliseconds: 350),
+      fadeInCurve: Curves.easeOut,
+      placeholder: (_, _) => const SizedBox.expand(child: _ImageShimmer()),
+      errorWidget: (_, _, _) => errorWidget ?? const SizedBox.shrink(),
     );
   }
 }

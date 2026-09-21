@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -8,6 +9,7 @@ import '../../features/estab/data/tracking_models.dart';
 import '../../features/waiter/data/waiter_models.dart';
 import '../api/api_client.dart';
 import 'models.dart';
+import 'onboarding_controller.dart';
 
 /// Camada de API pública — dados reais do Neon via backend Next.js
 /// (`/api/public/...`).
@@ -15,11 +17,14 @@ class PublicApi {
   final Dio _dio;
   const PublicApi(this._dio);
 
-  Future<List<Establishment>> establishments() async {
+  /// JSON cru dos estabelecimentos (pro cache stale-while-revalidate).
+  Future<List<Map<String, dynamic>>> establishmentsRaw() async {
     final res = await _dio.get<Map<String, dynamic>>('/establishments');
-    final list = (res.data!['establishments'] as List).cast<Map<String, dynamic>>();
-    return list.map(Establishment.fromJson).toList();
+    return (res.data!['establishments'] as List).cast<Map<String, dynamic>>();
   }
+
+  Future<List<Establishment>> establishments() async =>
+      (await establishmentsRaw()).map(Establishment.fromJson).toList();
 
   Future<List<MenuItem>> menu(String slug) async {
     final res = await _dio.get<Map<String, dynamic>>('/$slug');
@@ -39,13 +44,14 @@ class PublicApi {
 
   /// Ofertas do dia — itens com desconto real de vários bares (cada um traz
   /// slug/nome do bar). Alimenta o carrossel da Home.
-  Future<List<Offer>> offers() async {
+  /// JSON cru das ofertas (pro cache stale-while-revalidate).
+  Future<List<Map<String, dynamic>>> offersRaw() async {
     final res = await _dio.get<Map<String, dynamic>>('/offers');
-    return ((res.data!['offers'] as List?) ?? const [])
-        .cast<Map<String, dynamic>>()
-        .map(Offer.fromJson)
-        .toList();
+    return ((res.data!['offers'] as List?) ?? const []).cast<Map<String, dynamic>>();
   }
+
+  Future<List<Offer>> offers() async =>
+      (await offersRaw()).map(Offer.fromJson).toList();
 
   /// Cria um pedido real (POST /orders). Devolve o pedido já no formato do app.
   Future<ClientOrder> createOrder(Map<String, dynamic> payload) async {
@@ -513,21 +519,85 @@ class SelectedSlug extends Notifier<String?> {
 
 final selectedSlugProvider = NotifierProvider<SelectedSlug, String?>(SelectedSlug.new);
 
-/// Estabelecimentos — dados reais da API. Erros propagam pra tela mostrar
-/// carregamento/estado de erro (nunca caímos em dados falsos).
-final establishmentsProvider = FutureProvider<List<Establishment>>((ref) async {
-  return ref.watch(publicApiProvider).establishments();
-});
+/// Estabelecimentos — cache stale-while-revalidate: ao reabrir, mostra o último
+/// resultado NA HORA (sem esqueleto) e revalida em segundo plano. 1ª vez (sem
+/// cache) mostra carregamento; erro na revalidação mantém o cache (stale).
+class _EstablishmentsCache extends AsyncNotifier<List<Establishment>> {
+  static const _key = 'cache_establishments_v1';
+
+  @override
+  Future<List<Establishment>> build() async {
+    final prefs = ref.read(sharedPrefsProvider);
+    final cached = prefs.getString(_key);
+    if (cached != null) {
+      Future.microtask(_revalidate); // atualiza em segundo plano
+      try {
+        return _parse(cached);
+      } catch (_) {/* cache corrompido → cai no fetch normal */}
+    }
+    return _fetch();
+  }
+
+  List<Establishment> _parse(String json) => (jsonDecode(json) as List)
+      .cast<Map<String, dynamic>>()
+      .map(Establishment.fromJson)
+      .toList();
+
+  Future<List<Establishment>> _fetch() async {
+    final raw = await ref.read(publicApiProvider).establishmentsRaw();
+    ref.read(sharedPrefsProvider).setString(_key, jsonEncode(raw));
+    return raw.map(Establishment.fromJson).toList();
+  }
+
+  Future<void> _revalidate() async {
+    try {
+      state = AsyncData(await _fetch());
+    } catch (_) {/* mantém o cache mostrado (stale) */}
+  }
+}
+
+final establishmentsProvider =
+    AsyncNotifierProvider<_EstablishmentsCache, List<Establishment>>(_EstablishmentsCache.new);
 
 /// Cardápio de um estabelecimento — dados reais da API. Erros propagam.
 final menuProvider = FutureProvider.family<List<MenuItem>, String>((ref, slug) async {
   return ref.watch(publicApiProvider).menu(slug);
 });
 
-/// Ofertas do dia — itens com desconto real de vários bares. Erros propagam.
-final offersProvider = FutureProvider<List<Offer>>((ref) async {
-  return ref.watch(publicApiProvider).offers();
-});
+/// Ofertas do dia — cache stale-while-revalidate (mesmo padrão dos estabelecimentos).
+class _OffersCache extends AsyncNotifier<List<Offer>> {
+  static const _key = 'cache_offers_v1';
+
+  @override
+  Future<List<Offer>> build() async {
+    final prefs = ref.read(sharedPrefsProvider);
+    final cached = prefs.getString(_key);
+    if (cached != null) {
+      Future.microtask(_revalidate);
+      try {
+        return _parse(cached);
+      } catch (_) {/* cache corrompido → fetch normal */}
+    }
+    return _fetch();
+  }
+
+  List<Offer> _parse(String json) =>
+      (jsonDecode(json) as List).cast<Map<String, dynamic>>().map(Offer.fromJson).toList();
+
+  Future<List<Offer>> _fetch() async {
+    final raw = await ref.read(publicApiProvider).offersRaw();
+    ref.read(sharedPrefsProvider).setString(_key, jsonEncode(raw));
+    return raw.map(Offer.fromJson).toList();
+  }
+
+  Future<void> _revalidate() async {
+    try {
+      state = AsyncData(await _fetch());
+    } catch (_) {/* mantém stale */}
+  }
+}
+
+final offersProvider = AsyncNotifierProvider<_OffersCache, List<Offer>>(_OffersCache.new);
 
 /// Pedidos reais do estabelecimento logado (usa o token do login). Sem token,
 /// lista vazia. Erros propagam para a tela mostrar estado de erro/retry.
