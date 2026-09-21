@@ -373,7 +373,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// não houver estabelecimento real ou o carrinho estiver vazio.
   Map<String, dynamic>? _orderPayload({required String method}) {
     final ests = ref.read(establishmentsProvider).asData?.value ?? const <Establishment>[];
-    final slug = ref.read(selectedSlugProvider);
+    // Estabelecimento do CARRINHO — garante que a cobrança vai pro recebedor
+    // certo mesmo que o cliente tenha navegado pra outro bar sem adicionar.
+    final slug = ref.read(cartEstablishmentProvider) ?? ref.read(selectedSlugProvider);
     Establishment? est;
     // 1) o estabelecimento que o cliente abriu (slug); 2) senão, o primeiro real.
     for (final e in ests) {
@@ -458,7 +460,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     ref.watch(cartProvider);
     final ctrl = ref.read(cartProvider.notifier);
     final ests = ref.watch(establishmentsProvider).asData?.value ?? const <Establishment>[];
-    final selSlug = ref.watch(selectedSlugProvider);
+    // Estabelecimento do CARRINHO (autoritativo — um pedido é de um bar só).
+    // Fallback pro slug aberto, só quando o carrinho ainda está vazio.
+    final selSlug = ref.watch(cartEstablishmentProvider) ?? ref.watch(selectedSlugProvider);
     final est = ests.firstWhere(
       (e) => e.slug == selSlug,
       orElse: () => ests.firstWhere(

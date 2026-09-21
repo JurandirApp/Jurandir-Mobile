@@ -102,7 +102,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                             separatorBuilder: (_, _) => const SizedBox(height: 10),
                             itemBuilder: (_, i) {
                               final m = items[i];
-                              return _itemRow(m, ctrl.qtyOfItem(m.id), ctrl);
+                              return _itemRow(m, ctrl.qtyOfItem(m.id), ctrl, slug);
                             },
                           ),
                   ),
@@ -179,10 +179,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     );
   }
 
-  Widget _itemRow(MenuItem m, int qty, CartController ctrl) {
+  Widget _itemRow(MenuItem m, int qty, CartController ctrl, String slug) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => showItemSheet(context, m),
+      onTap: () => showItemSheet(context, m, slug: slug),
       child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -248,7 +248,9 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
           const SizedBox(width: 12),
           if (qty == 0)
             _circleBtn(36, AppColors.coral, Symbols.add, Colors.white,
-                () => m.hasGroups ? showItemSheet(context, m) : ctrl.addSimple(m))
+                () => m.hasGroups
+                    ? showItemSheet(context, m, slug: slug)
+                    : addToCartGuarded(ref, context, slug, () => ctrl.addSimple(m)))
           else if (!m.hasGroups)
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -277,7 +279,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   child: Text('$qty', style: AppText.body(size: 13, weight: FontWeight.w800)),
                 ),
                 const SizedBox(width: 8),
-                _circleBtn(36, AppColors.coral, Symbols.add, Colors.white, () => showItemSheet(context, m)),
+                _circleBtn(36, AppColors.coral, Symbols.add, Colors.white, () => showItemSheet(context, m, slug: slug)),
               ],
             ),
         ],

@@ -17,6 +17,7 @@ Future<void> showItemSheet(
   BuildContext context,
   MenuItem item, {
   CartLine? editing,
+  String? slug,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -25,14 +26,16 @@ Future<void> showItemSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => _ItemSheet(item: item, editing: editing),
+    builder: (_) => _ItemSheet(item: item, editing: editing, slug: slug),
   );
 }
 
 class _ItemSheet extends ConsumerStatefulWidget {
   final MenuItem item;
   final CartLine? editing;
-  const _ItemSheet({required this.item, this.editing});
+  /// Slug do estabelecimento do item (pro guard de 1 bar por carrinho).
+  final String? slug;
+  const _ItemSheet({required this.item, this.editing, this.slug});
 
   @override
   ConsumerState<_ItemSheet> createState() => _ItemSheetState();
@@ -122,15 +125,23 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
     return out;
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
     final ctrl = ref.read(cartProvider.notifier);
     final opts = _buildSelection();
     if (_isEdit) {
+      // Editar não muda de estabelecimento — não precisa do guard.
       ctrl.updateLine(widget.editing!.lineId, _m, opts, _qty);
-    } else {
-      ctrl.addLine(_m, opts, qty: _qty);
+      if (mounted) Navigator.pop(context);
+      return;
     }
-    Navigator.pop(context);
+    // Adicionar: garante que o carrinho é de um único estabelecimento.
+    final added = await addToCartGuarded(
+      ref,
+      context,
+      widget.slug ?? '',
+      () => ctrl.addLine(_m, opts, qty: _qty),
+    );
+    if (added && mounted) Navigator.pop(context);
   }
 
   @override

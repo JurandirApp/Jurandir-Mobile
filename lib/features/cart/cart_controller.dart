@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/data/models.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_typography.dart';
 
 /// Uma opção escolhida de um adicional (snapshot pro carrinho e pro pedido).
 class SelectedOption {
@@ -124,7 +127,11 @@ class CartController extends Notifier<Map<String, CartLine>> {
   // Atalhos pra itens sem adicionais (stepper no cardápio).
   void decSimple(MenuItem m) => decLine(_simpleSig(m.id));
 
-  void clear() => state = {};
+  void clear() {
+    state = {};
+    // Zera também o estabelecimento do carrinho (um pedido = um bar).
+    ref.read(cartEstablishmentProvider.notifier).set(null);
+  }
 
   /// Quantidade total de um item somando todas as variações de opções.
   int qtyOfItem(int itemId) =>
@@ -140,6 +147,79 @@ final cartProvider =
 
 int cartCount(Map<String, CartLine> cart) =>
     cart.values.fold(0, (a, l) => a + l.qty);
+
+// ---------------------------------------------------------------------------
+// Estabelecimento do carrinho — um pedido é de UM bar só. Misturar itens de
+// bares diferentes atribuiria o pagamento ao recebedor errado.
+// ---------------------------------------------------------------------------
+
+/// Slug do estabelecimento a que o carrinho pertence (null = carrinho vazio).
+class CartEstablishment extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? slug) => state = slug;
+}
+
+final cartEstablishmentProvider =
+    NotifierProvider<CartEstablishment, String?>(CartEstablishment.new);
+
+/// Adicionar `newSlug` conflita com o carrinho atual? (carrinho cheio de OUTRO
+/// bar). Vazio ou mesmo bar → sem conflito. Pura, testável.
+bool cartConflictsWith(String? cartSlug, bool cartEmpty, String newSlug) {
+  if (cartEmpty || cartSlug == null) return false;
+  return cartSlug != newSlug;
+}
+
+/// Adiciona ao carrinho garantindo UM estabelecimento. Se o carrinho já tem
+/// itens de outro bar, pergunta se pode limpar antes (padrão iFood).
+/// Retorna `true` se o item foi adicionado; `false` se o usuário cancelou.
+Future<bool> addToCartGuarded(
+  WidgetRef ref,
+  BuildContext context,
+  String slug,
+  VoidCallback doAdd,
+) async {
+  final cartEmpty = ref.read(cartProvider).isEmpty;
+  final cartSlug = ref.read(cartEstablishmentProvider);
+  if (!cartConflictsWith(cartSlug, cartEmpty, slug)) {
+    ref.read(cartEstablishmentProvider.notifier).set(slug);
+    doAdd();
+    return true;
+  }
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.canvas,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text('Trocar de estabelecimento?',
+          style: AppText.display(size: 18, letterSpacing: -0.3)),
+      content: Text(
+        'Seu carrinho tem itens de outro estabelecimento. Um pedido é de um '
+        'lugar só. Quer limpar o carrinho e começar um novo pedido aqui?',
+        style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.inkA(0.7)),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('Cancelar',
+              style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text('Limpar e adicionar',
+              style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
+        ),
+      ],
+    ),
+  );
+  if (ok == true) {
+    ref.read(cartProvider.notifier).clear(); // zera itens + estabelecimento
+    ref.read(cartEstablishmentProvider.notifier).set(slug);
+    doAdd();
+    return true;
+  }
+  return false;
+}
 
 /// Id do pedido AWAITING_PAYMENT que o carrinho atual representa (Pix/cartão
 /// gerado mas ainda não pago). Editar = voltar ao carrinho, mudar, e pagar de
