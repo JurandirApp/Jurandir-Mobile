@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,11 +7,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 
+/// Resultado da tela de cartão: o `card_token` + o endereço de cobrança
+/// (billing) resolvido do CEP — o antifraude do Pagar.me exige o billing.
+typedef CardSheetResult = ({String token, Map<String, dynamic> billing});
+
 /// Abre a tela de cartão (bottom sheet). Coleta os dados, tokeniza DIRETO no
-/// Pagar.me (o cartão cru não passa pelo nosso backend) e devolve o `card_token`
-/// — ou null se o usuário cancelar / a tokenização falhar.
-Future<String?> showCardSheet(BuildContext context, {required double amount, required bool debit}) {
-  return showModalBottomSheet<String>(
+/// Pagar.me (o cartão cru não passa pelo nosso backend), resolve o CEP de
+/// cobrança e devolve {token, billing} — ou null se cancelar/falhar.
+Future<CardSheetResult?> showCardSheet(BuildContext context, {required double amount, required bool debit}) {
+  return showModalBottomSheet<CardSheetResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.canvas,
@@ -33,15 +38,29 @@ class _CardSheetState extends State<_CardSheet> {
   final _name = TextEditingController();
   final _exp = TextEditingController();
   final _cvv = TextEditingController();
+  final _cep = TextEditingController();
+  final _addrNum = TextEditingController();
   bool _busy = false;
   String? _err;
 
   @override
   void dispose() {
-    for (final c in [_number, _name, _exp, _cvv]) {
+    for (final c in [_number, _name, _exp, _cvv, _cep, _addrNum]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// Resolve o CEP no ViaCEP (grátis, sem chave). null se inválido/sem rede.
+  Future<Map<String, dynamic>?> _lookupCep(String cep) async {
+    try {
+      final res = await Dio().get<Map<String, dynamic>>('https://viacep.com.br/ws/$cep/json/');
+      final d = res.data;
+      if (d == null || d['erro'] == true) return null;
+      return d;
+    } on DioException {
+      return null;
+    }
   }
 
   Future<void> _pay() async {
@@ -50,6 +69,8 @@ class _CardSheetState extends State<_CardSheet> {
     final name = _name.text.trim();
     final exp = _exp.text.replaceAll(RegExp(r'\D'), '');
     final cvv = _cvv.text.trim();
+    final cep = _cep.text.replaceAll(RegExp(r'\D'), '');
+    final addrNum = _addrNum.text.trim();
 
     if (!_luhnOk(num)) return setState(() => _err = 'Número do cartão inválido.');
     if (name.isEmpty) return setState(() => _err = 'Informe o nome impresso no cartão.');
@@ -63,6 +84,8 @@ class _CardSheetState extends State<_CardSheet> {
       return setState(() => _err = 'Cartão vencido.');
     }
     if (cvv.length < 3) return setState(() => _err = 'CVV inválido.');
+    if (cep.length != 8) return setState(() => _err = 'CEP de cobrança inválido (8 dígitos).');
+    if (addrNum.isEmpty) return setState(() => _err = 'Informe o número do endereço de cobrança.');
 
     setState(() {
       _busy = true;
@@ -83,7 +106,27 @@ class _CardSheetState extends State<_CardSheet> {
       });
       return;
     }
-    Navigator.pop(context, token);
+    // Antifraude do Pagar.me exige o endereço de cobrança — resolve o CEP.
+    final via = await _lookupCep(cep);
+    if (!mounted) return;
+    if (via == null) {
+      setState(() {
+        _busy = false;
+        _err = 'Não encontramos esse CEP. Confira o endereço de cobrança.';
+      });
+      return;
+    }
+    final parts = [addrNum, via['logradouro'], via['bairro']]
+        .map((s) => (s ?? '').toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final billing = <String, dynamic>{
+      'line_1': parts.isEmpty ? cep : parts.join(', '),
+      'zip_code': cep,
+      'city': (via['localidade'] ?? '').toString(),
+      'state': (via['uf'] ?? '').toString(),
+    };
+    Navigator.pop(context, (token: token, billing: billing));
   }
 
   @override
@@ -147,6 +190,28 @@ class _CardSheetState extends State<_CardSheet> {
                 ],
               ),
             ),
+            const SizedBox(height: 14),
+            Text('Endereço de cobrança do cartão',
+                style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                flex: 2,
+                child: _field(_cep, 'CEP',
+                    keyboard: TextInputType.number,
+                    formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
+                    hint: '00000000',
+                    autofill: const [AutofillHints.postalCode]),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 1,
+                child: _field(_addrNum, 'Número',
+                    keyboard: TextInputType.number,
+                    formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                    hint: '123'),
+              ),
+            ]),
             if (_err != null) ...[
               const SizedBox(height: 10),
               Text(_err!, style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.danger)),

@@ -115,6 +115,7 @@ class PublicApi {
     String cardToken, {
     int installments = 1,
     required String method, // 'credit' | 'debit'
+    Map<String, dynamic>? billing, // endereço de cobrança (antifraude Pagar.me)
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
@@ -122,6 +123,7 @@ class PublicApi {
         'cardToken': cardToken,
         'installments': installments,
         'method': method,
+        'billing': ?billing,
       });
       final d = res.data!;
       return (

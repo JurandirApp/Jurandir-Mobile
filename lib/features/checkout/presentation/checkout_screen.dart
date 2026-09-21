@@ -144,8 +144,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// token cria o pedido + cobra via `/orders/card` (nunca dá 412).
   Future<void> _payCard(double grand, {required bool debit}) async {
     if (!await _ensureCpf() || !mounted) return;
-    final token = await showCardSheet(context, amount: grand, debit: debit);
-    if (token == null || !mounted) return; // cancelou ou falhou a tokenização
+    final card = await showCardSheet(context, amount: grand, debit: debit);
+    if (card == null || !mounted) return; // cancelou ou falhou a tokenização
     final payload = _orderPayload(method: debit ? 'DEBIT' : 'CREDIT');
     if (payload == null) {
       _finish(incomplete: false); // demo (sem estabelecimento real)
@@ -156,7 +156,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final r = await ref
           .read(publicApiProvider)
-          .createCardOrder(payload, token, method: debit ? 'debit' : 'credit');
+          .createCardOrder(payload, card.token, method: debit ? 'debit' : 'credit', billing: card.billing);
       if (!mounted) return;
       if (r.ok && r.status == 'paid') {
         final id = r.order?.dbId;
