@@ -109,25 +109,44 @@ class _CardSheetState extends State<_CardSheet> {
             Text('Seus dados vão criptografados direto pro Pagar.me.',
                 style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 16),
-            _field(_number, 'Número do cartão',
-                keyboard: TextInputType.number, formatters: [_CardNumFormatter()], hint: '0000 0000 0000 0000'),
-            const SizedBox(height: 10),
-            _field(_name, 'Nome impresso no cartão',
-                textCap: TextCapitalization.characters, hint: 'COMO ESTÁ NO CARTÃO'),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: _field(_exp, 'Validade',
-                    keyboard: TextInputType.number, formatters: [_ExpFormatter()], hint: 'MM/AA'),
+            // AutofillGroup + autofillHints: o iOS oferece o cartão salvo /
+            // "Escanear cartão" — número, nome e validade autopreenchem; o
+            // cliente só digita o CVV (o CVV nunca é salvo, por segurança).
+            AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _field(_number, 'Número do cartão',
+                      keyboard: TextInputType.number,
+                      formatters: [_CardNumFormatter()],
+                      hint: '0000 0000 0000 0000',
+                      autofill: const [AutofillHints.creditCardNumber]),
+                  const SizedBox(height: 10),
+                  _field(_name, 'Nome impresso no cartão',
+                      textCap: TextCapitalization.characters,
+                      hint: 'COMO ESTÁ NO CARTÃO',
+                      autofill: const [AutofillHints.creditCardName]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(
+                      child: _field(_exp, 'Validade',
+                          keyboard: TextInputType.number,
+                          formatters: [_ExpFormatter()],
+                          hint: 'MM/AA',
+                          autofill: const [AutofillHints.creditCardExpirationDate]),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _field(_cvv, 'CVV',
+                          keyboard: TextInputType.number,
+                          formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
+                          hint: '123',
+                          autofill: const [AutofillHints.creditCardSecurityCode]),
+                    ),
+                  ]),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _field(_cvv, 'CVV',
-                    keyboard: TextInputType.number,
-                    formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
-                    hint: '123'),
-              ),
-            ]),
+            ),
             if (_err != null) ...[
               const SizedBox(height: 10),
               Text(_err!, style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.danger)),
@@ -167,12 +186,14 @@ class _CardSheetState extends State<_CardSheet> {
     List<TextInputFormatter>? formatters,
     TextCapitalization textCap = TextCapitalization.none,
     String? hint,
+    Iterable<String>? autofill,
   }) {
     return TextField(
       controller: c,
       keyboardType: keyboard,
       inputFormatters: formatters,
       textCapitalization: textCap,
+      autofillHints: autofill,
       style: AppText.body(size: 15, weight: FontWeight.w700),
       onChanged: (_) {
         if (_err != null) setState(() => _err = null);

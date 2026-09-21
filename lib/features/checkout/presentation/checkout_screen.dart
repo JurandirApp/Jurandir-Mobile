@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:pay/pay.dart';
 
 import '../../../core/data/client_profile.dart';
 import '../../../core/data/models.dart';
@@ -18,7 +19,8 @@ import '../../auth/auth_controller.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 import '../../menu/presentation/item_sheet.dart';
-import 'wallet_buttons.dart';
+import '../../../core/payments/wallet_config.dart';
+import 'card_sheet.dart';
 
 class _PayMethod {
   final String id;
@@ -27,12 +29,6 @@ class _PayMethod {
   final Color color;
   const _PayMethod(this.id, this.label, this.icon, this.color);
 }
-
-// Cartão = Apple Pay / Google Pay (carteira nativa). Aqui na grade fica só o Pix;
-// o cartão entra pelos botões de carteira (`_walletSection`).
-const _methods = [
-  _PayMethod('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
-];
 
 /// Checkout: resumo + observação + "Pagar tudo / Dividir conta" + métodos +
 /// barra de pagar.
@@ -54,6 +50,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   void dispose() {
     _obsCtrl.dispose();
     super.dispose();
+  }
+
+  /// Métodos de pagamento, na ordem iFood. A carteira nativa aparece conforme a
+  /// plataforma (Apple Pay no iOS, Google Pay no Android); no web não há carteira.
+  /// Todas as opções ficam SEMPRE visíveis — nenhuma é ocultada.
+  List<_PayMethod> get _payMethods {
+    final iOS = defaultTargetPlatform == TargetPlatform.iOS;
+    return [
+      const _PayMethod('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
+      if (!kIsWeb)
+        iOS
+            ? const _PayMethod('apple_pay', 'Apple Pay', Symbols.contactless, AppColors.ink)
+            : const _PayMethod('google_pay', 'Google Pay', Symbols.contactless, AppColors.ink),
+      const _PayMethod('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
+      const _PayMethod('debito', 'Débito', Symbols.account_balance, AppColors.debit),
+    ];
   }
 
   void _setPeople(int n) {
@@ -81,14 +93,91 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (table == null || !mounted) return; // cancelou
       ref.read(selectedLocalProvider.notifier).set(table);
     }
-    // Pix (pagar tudo) → cobrança real: gera o QR e vai pra tela do Pix.
-    if (_selPay == 'pix') {
-      _payPix();
+    // Roteia por método. Cada um trata o próprio fluxo de cobrança.
+    switch (_selPay) {
+      case 'pix':
+        _payPix();
+        break;
+      case 'apple_pay':
+      case 'google_pay':
+        await _startWallet(grand);
+        break;
+      case 'credito':
+        await _payCard(grand, debit: false);
+        break;
+      case 'debito':
+        await _payCard(grand, debit: true);
+        break;
+      default:
+        _finish(incomplete: false);
+    }
+  }
+
+  /// Dispara a folha nativa (Apple Pay / Google Pay) programaticamente e, com o
+  /// token, cai no `_onWallet` (cria o pedido + cobra). Se a carteira não estiver
+  /// disponível (sem cartão no Wallet), avisa e o cliente usa outro método.
+  Future<void> _startWallet(double grand) async {
+    final iOS = defaultTargetPlatform == TargetPlatform.iOS;
+    final provider = iOS ? PayProvider.apple_pay : PayProvider.google_pay;
+    final config = iOS ? WalletConfig.applePay : WalletConfig.googlePay;
+    final client = Pay({provider: PaymentConfiguration.fromJsonString(config)});
+    try {
+      final result = await client.showPaymentSelector(provider, [
+        PaymentItem(
+          label: 'Total',
+          amount: grand.toStringAsFixed(2),
+          status: PaymentItemStatus.final_price,
+        ),
+      ]);
+      if (!mounted) return;
+      await _onWallet(result);
+    } catch (_) {
+      if (mounted) {
+        _toast(iOS
+            ? 'Apple Pay indisponível. Adicione um cartão no Apple Wallet ou use outro método.'
+            : 'Google Pay indisponível. Configure um cartão ou use outro método.');
+      }
+    }
+  }
+
+  /// Cartão manual: abre a tela de cartão (tokeniza direto na Pagar.me), e com o
+  /// token cria o pedido + cobra via `/orders/card` (nunca dá 412).
+  Future<void> _payCard(double grand, {required bool debit}) async {
+    if (!await _ensureCpf() || !mounted) return;
+    final token = await showCardSheet(context, amount: grand, debit: debit);
+    if (token == null || !mounted) return; // cancelou ou falhou a tokenização
+    final payload = _orderPayload(method: debit ? 'DEBIT' : 'CREDIT');
+    if (payload == null) {
+      _finish(incomplete: false); // demo (sem estabelecimento real)
       return;
     }
-    // Cartão não passa por aqui: é pago pelos botões de Apple Pay / Google Pay
-    // (`_walletSection` → `_onWallet`). A grade só trata o Pix.
-    _finish(incomplete: false);
+    setState(() => _submitting = true);
+    await _replacePending();
+    try {
+      final r = await ref
+          .read(publicApiProvider)
+          .createCardOrder(payload, token, method: debit ? 'debit' : 'credit');
+      if (!mounted) return;
+      if (r.ok && r.status == 'paid') {
+        final id = r.order?.dbId;
+        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+        if (!mounted) return;
+        _markPending(null);
+        ref.read(cartProvider.notifier).clear();
+        context.go('/done',
+            extra: DoneArgs(incomplete: false, code: r.order?.code ?? _genCode()));
+      } else {
+        setState(() => _submitting = false);
+        _toast(r.status == 'pending'
+            ? 'Pagamento em processamento — acompanhe em Pedidos.'
+            : 'Pagamento não aprovado. Confira os dados ou tente outro cartão.');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast('Não foi possível concluir o pagamento.');
+      }
+    }
   }
 
   /// Pergunta a mesa/guarda-sol quando o cliente entrou sem QR. Retorna o texto
@@ -441,11 +530,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 18),
                 _modeToggle(),
                 const SizedBox(height: 12),
-                if (!isSplit) ...[
-                  // Cartão = Apple Pay / Google Pay (o combinado). Sempre visível.
-                  _walletSection(grand),
-                  _payGrid(),
-                ] else
+                if (!isSplit)
+                  _payGrid()
+                else
                   _splitCard(grand, share),
               ],
             ),
@@ -708,39 +795,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  Widget _walletSection(double amount) {
-    if (kIsWeb) return const SizedBox.shrink();
+  Widget _payGrid() {
+    // Lista vertical estilo iFood: todos os métodos SEMPRE visíveis (Pix,
+    // carteira nativa, crédito e débito), com subtítulo e seleção por toque.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Pagar rápido'.toUpperCase(), style: AppText.display(size: 13, color: AppColors.inkA(0.6))),
+        Text('Como você quer pagar?'.toUpperCase(),
+            style: AppText.display(size: 13, color: AppColors.inkA(0.6))),
         const SizedBox(height: 10),
-        WalletButtons(amount: amount, onToken: _onWallet),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: Divider(color: AppColors.inkA(0.12))),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text('ou pague com',
-                  style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
-            ),
-            Expanded(child: Divider(color: AppColors.inkA(0.12))),
-          ],
-        ),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  Widget _payGrid() {
-    // Uma coluna por método (dinâmico) — evita índices fixos e não estoura
-    // quando a lista muda (ex.: USDC removido deixou 3 métodos).
-    return Row(
-      children: [
-        for (var i = 0; i < _methods.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
-          Expanded(child: _payOption(_methods[i])),
+        for (final pm in _payMethods) ...[
+          _payOption(pm),
+          const SizedBox(height: 8),
         ],
       ],
     );
@@ -757,17 +823,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: selected ? AppColors.ink : AppColors.inkA(0.12), width: 2),
         ),
-        child: Column(
+        child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: pm.color, shape: BoxShape.circle),
-              child: Icon(pm.icon, size: 18, color: Colors.white),
+              child: Icon(pm.icon, size: 20, color: Colors.white),
             ),
-            const SizedBox(height: 8),
-            Text(pm.label, textAlign: TextAlign.center, style: AppText.body(size: 13, weight: FontWeight.w700)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(pm.label, style: AppText.body(size: 14.5, weight: FontWeight.w800)),
+            ),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: selected ? AppColors.ink : AppColors.inkA(0.3), width: 2),
+                color: selected ? AppColors.ink : Colors.transparent,
+              ),
+              child: selected ? const Icon(Symbols.check, size: 14, color: Colors.white) : null,
+            ),
           ],
         ),
       ),
