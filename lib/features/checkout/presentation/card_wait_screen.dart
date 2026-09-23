@@ -16,15 +16,19 @@ import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 
 /// Argumentos passados pelo Checkout via `go('/pagamento', extra: ...)`.
+/// `checkoutUrl` vazio/nulo = pagamento **in-app** já submetido (cartão/carteira
+/// tokenizado, em análise do antifraude) → só esperamos a confirmação. Com URL =
+/// fluxo antigo de checkout hospedado (abre o navegador).
 class CardWaitArgs {
   final ClientOrder order;
-  final String checkoutUrl;
-  const CardWaitArgs({required this.order, required this.checkoutUrl});
+  final String? checkoutUrl;
+  const CardWaitArgs({required this.order, this.checkoutUrl});
 }
 
-/// Espera do pagamento de cartão (checkout hospedado da Pagar.me). O navegador
-/// abre a página de pagamento; esta tela faz polling do status e, quando o
-/// pagamento cai, vai pro /done. O cliente pode reabrir a página se fechou.
+/// Espera do pagamento de cartão / carteira. Faz polling do status do pedido e,
+/// quando cai, vai pro /done — assim o cliente NÃO fica travado na tela de
+/// pagamento (o antifraude do cartão é assíncrono e leva alguns segundos). Se
+/// demorar demais, avisa que o pedido aparece em Pedidos assim que confirmar.
 class CardWaitScreen extends ConsumerStatefulWidget {
   const CardWaitScreen({super.key});
 
@@ -33,9 +37,14 @@ class CardWaitScreen extends ConsumerStatefulWidget {
 }
 
 class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
+  static const _interval = Duration(seconds: 3);
+  static const _maxPolls = 30; // ~90s
+
   Timer? _poll;
   bool _checking = false;
   bool _done = false;
+  bool _timedOut = false;
+  int _polls = 0;
 
   @override
   void dispose() {
@@ -44,10 +53,15 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
   }
 
   void _startPolling(String id) {
-    _poll ??= Timer.periodic(
-      const Duration(seconds: 4),
-      (_) => _check(id, silent: true),
-    );
+    _poll ??= Timer.periodic(_interval, (_) {
+      _polls++;
+      _check(id, silent: true);
+      if (_polls >= _maxPolls && !_done && mounted) {
+        _poll?.cancel();
+        _poll = null;
+        setState(() => _timedOut = true);
+      }
+    });
   }
 
   Future<void> _check(String id, {bool silent = false}) async {
@@ -70,7 +84,7 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
     }
     if (!silent) {
       setState(() => _checking = false);
-      _snack('Ainda não identificamos o pagamento. Conclua no navegador e volte.');
+      if (!_timedOut) _snack('Ainda processando o pagamento…');
     }
   }
 
@@ -96,7 +110,8 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
     final args = GoRouterState.of(context).extra as CardWaitArgs?;
     final order = args?.order;
     final id = order?.dbId;
-    if (id != null) _startPolling(id);
+    final inApp = (args?.checkoutUrl ?? '').isEmpty;
+    if (id != null && !_timedOut) _startPolling(id);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -108,7 +123,8 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
           icon: const Icon(Symbols.arrow_back, color: AppColors.ink),
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: Text('Pagamento no cartão', style: AppText.display(size: 18)),
+        title: Text(inApp ? 'Processando pagamento' : 'Pagamento no cartão',
+            style: AppText.display(size: 18)),
         centerTitle: false,
       ),
       body: args == null
@@ -121,7 +137,7 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                   children: [
                     Column(
                       children: [
-                        Text('Valor a pagar', style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
+                        Text('Valor', style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
                         const SizedBox(height: 2),
                         Text(money(order!.grand), style: AppText.display(size: 30, letterSpacing: -0.5)),
                         const SizedBox(height: 2),
@@ -139,11 +155,15 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                       ),
                       child: Column(
                         children: [
-                          const Icon(Symbols.open_in_new, size: 40, color: AppColors.credit),
+                          Icon(_timedOut ? Symbols.schedule : (inApp ? Symbols.credit_card : Symbols.open_in_new),
+                              size: 40, color: AppColors.credit),
                           const SizedBox(height: 12),
                           Text(
-                            'Abrimos a página segura da Pagar.me pra você pagar com cartão. '
-                            'Conclua lá e volte — a confirmação chega aqui sozinha.',
+                            _timedOut
+                                ? 'Está demorando um pouco mais que o normal. Assim que o pagamento confirmar, seu pedido aparece em "Pedidos" — você não precisa pagar de novo.'
+                                : inApp
+                                    ? 'Estamos processando seu pagamento. Leva alguns segundos — a confirmação aparece aqui sozinha, não feche o app.'
+                                    : 'Abrimos a página segura da Pagar.me pra você pagar com cartão. Conclua lá e volte — a confirmação chega aqui sozinha.',
                             textAlign: TextAlign.center,
                             style: AppText.body(size: 13, color: AppColors.inkA(0.65)),
                           ),
@@ -151,26 +171,32 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _statusRow(),
+                    if (!_timedOut) _statusRow(),
                     const SizedBox(height: 20),
-                    AppButton.primary(
-                      label: 'Reabrir pagamento',
-                      icon: Symbols.open_in_new,
-                      onPressed: () => _openCheckout(args.checkoutUrl),
-                    ),
-                    const SizedBox(height: 10),
-                    AppButton.dark(
-                      label: _checking ? 'Verificando…' : 'Já paguei',
-                      icon: Symbols.check_circle,
-                      onPressed: (_checking || id == null) ? null : () => _check(id),
-                    ),
-                    if (ref.watch(pendingOrderProvider) != null) ...[
-                      const SizedBox(height: 4),
-                      TextButton.icon(
-                        onPressed: () => context.go('/checkout'),
-                        icon: Icon(Symbols.edit, size: 16, color: AppColors.inkA(0.6)),
-                        label: Text('Editar pedido',
-                            style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+                    if (_timedOut) ...[
+                      AppButton.primary(
+                        label: 'Ver meus pedidos',
+                        icon: Symbols.receipt_long,
+                        onPressed: () => context.go('/pedidos'),
+                      ),
+                      const SizedBox(height: 10),
+                      AppButton.dark(
+                        label: 'Voltar ao início',
+                        icon: Symbols.home,
+                        onPressed: () => context.go('/home'),
+                      ),
+                    ] else ...[
+                      if (!inApp)
+                        AppButton.primary(
+                          label: 'Reabrir pagamento',
+                          icon: Symbols.open_in_new,
+                          onPressed: () => _openCheckout(args.checkoutUrl ?? ''),
+                        ),
+                      if (!inApp) const SizedBox(height: 10),
+                      AppButton.dark(
+                        label: _checking ? 'Verificando…' : 'Verificar agora',
+                        icon: Symbols.check_circle,
+                        onPressed: (_checking || id == null) ? null : () => _check(id),
                       ),
                     ],
                   ],

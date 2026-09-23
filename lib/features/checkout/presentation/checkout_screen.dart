@@ -19,6 +19,7 @@ import '../../auth/auth_controller.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 import '../../menu/presentation/item_sheet.dart';
+import 'card_wait_screen.dart';
 import '../../../core/payments/wallet_config.dart';
 import 'card_sheet.dart';
 
@@ -166,11 +167,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ref.read(cartProvider.notifier).clear();
         context.go('/done',
             extra: DoneArgs(incomplete: false, code: r.order?.code ?? _genCode()));
+      } else if (r.ok && r.status == 'pending' && r.order != null) {
+        // Cartão em análise (antifraude assíncrono) — não trava o cliente na
+        // tela: vai pra tela de processamento que faz polling e confirma sozinha.
+        final id = r.order?.dbId;
+        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+        if (!mounted) return;
+        _markPending(id);
+        context.go('/pagamento', extra: CardWaitArgs(order: r.order!));
       } else {
         setState(() => _submitting = false);
-        _toast(r.status == 'pending'
-            ? 'Pagamento em processamento — acompanhe em Pedidos.'
-            : 'Pagamento não aprovado. Confira os dados ou tente outro cartão.');
+        _toast('Pagamento não aprovado. Confira os dados ou tente outro cartão.');
       }
     } catch (_) {
       if (mounted) {
@@ -785,11 +792,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ref.read(cartProvider.notifier).clear();
         context.go('/done',
             extra: DoneArgs(incomplete: false, code: r.order?.code ?? _genCode()));
+      } else if (r.ok && r.status == 'pending' && r.order != null) {
+        // Carteira em análise (antifraude assíncrono) — vai pra tela de
+        // processamento que faz polling e confirma sozinha quando cair.
+        final id = r.order?.dbId;
+        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
+        if (!mounted) return;
+        _markPending(id);
+        context.go('/pagamento', extra: CardWaitArgs(order: r.order!));
       } else {
         setState(() => _submitting = false);
-        _toast(r.status == 'pending'
-            ? 'Pagamento em processamento — acompanhe em Pedidos.'
-            : 'Pagamento não aprovado. Tente outro método.');
+        _toast('Pagamento não aprovado. Tente outro método.');
       }
     } catch (_) {
       if (mounted) {
