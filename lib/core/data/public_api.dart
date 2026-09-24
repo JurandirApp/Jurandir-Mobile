@@ -83,6 +83,10 @@ class PublicApi {
     final res = await _dio.post<Map<String, dynamic>>(
       '/orders/wallet',
       data: {'order': order, 'walletType': walletType, 'token': token},
+      // Pagamento é lento (antifraude do Pagar.me + cold start do Neon). Timeout
+      // curto (15s global) fazia o app desistir e mostrar falha com o pagamento
+      // JÁ FEITO no backend. 60s dá folga pra pegar o "paid".
+      options: Options(receiveTimeout: const Duration(seconds: 60)),
     );
     final d = res.data!;
     return (
@@ -124,7 +128,9 @@ class PublicApi {
         'installments': installments,
         'method': method,
         'billing': ?billing,
-      });
+      // Antifraude do Pagar.me + cold start do Neon deixam a cobrança lenta —
+      // 60s pro app não desistir aos 15s e mostrar falha com o pgto já feito.
+      }, options: Options(receiveTimeout: const Duration(seconds: 60)));
       final d = res.data!;
       return (
         ok: (d['ok'] as bool?) ?? false,

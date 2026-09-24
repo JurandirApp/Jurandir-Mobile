@@ -182,7 +182,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível concluir o pagamento.');
+        // Timeout/erro de rede: o pagamento PODE ter ido (o backend é lento no
+        // antifraude). Avisa pra conferir antes de repetir — evita pagar 2x.
+        _toast('Não conseguimos confirmar o pagamento. Confira em "Pedidos" antes de tentar de novo.');
       }
     }
   }
@@ -807,7 +809,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível concluir o pagamento.');
+        // Timeout/erro de rede: o pagamento PODE ter ido — avisa pra conferir.
+        _toast('Não conseguimos confirmar o pagamento. Confira em "Pedidos" antes de tentar de novo.');
       }
     }
   }
