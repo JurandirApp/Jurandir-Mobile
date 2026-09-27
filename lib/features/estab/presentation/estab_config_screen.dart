@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -108,6 +109,8 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
                 const SizedBox(height: 14),
                 _advancedPaymentsCard(),
                 const SizedBox(height: 14),
+                _fiscalCard(),
+                const SizedBox(height: 14),
                 _passwordCard(),
               ],
             ),
@@ -147,6 +150,42 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
           ),
           const SizedBox(height: 12),
           AppButton.ghost(label: 'Abrir painel web', onPressed: _openPanel),
+        ],
+      ),
+    );
+  }
+
+  /// Nota fiscal (NFC-e): as notas ficam no app (ver/emitir); a configuração
+  /// (certificado/CSC/provedor) fica no painel web — setup único.
+  Widget _fiscalCard() {
+    return BrutalCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Symbols.receipt_long, size: 18, color: AppColors.inkA(0.65)),
+            const SizedBox(width: 8),
+            _h2('Nota fiscal'),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+            'Veja e emita as notas (NFC-e) dos pedidos aqui no app. A configuração fiscal (certificado, CSC e provedor) é feita no painel web.',
+            style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.inkA(0.6)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: AppButton.dark(
+                  label: 'Ver notas',
+                  onPressed: () => context.push('/estab/conta/fiscal'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: AppButton.ghost(label: 'Configurar', onPressed: _openPanel)),
+            ],
+          ),
         ],
       ),
     );

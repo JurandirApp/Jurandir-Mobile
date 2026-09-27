@@ -39,16 +39,24 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
   final _fSub = TextEditingController();
   final _fDesc = TextEditingController();
   final _fPhoto = TextEditingController();
+  // Campos fiscais (NFC-e) — preenchidos pelo contador.
+  final _fNcm = TextEditingController();
+  final _fCfop = TextEditingController();
+  final _fOrigem = TextEditingController();
+  final _fUnid = TextEditingController();
+  final _fCst = TextEditingController();
+  final _fCsosn = TextEditingController();
+  final _fCest = TextEditingController();
+  final _fClass = TextEditingController();
 
   @override
   void dispose() {
-    _fName.dispose();
-    _fPrice.dispose();
-    _fOldPrice.dispose();
-    _fCat.dispose();
-    _fSub.dispose();
-    _fDesc.dispose();
-    _fPhoto.dispose();
+    for (final c in [
+      _fName, _fPrice, _fOldPrice, _fCat, _fSub, _fDesc, _fPhoto,
+      _fNcm, _fCfop, _fOrigem, _fUnid, _fCst, _fCsosn, _fCest, _fClass,
+    ]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -292,6 +300,14 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
     final sub = _fSub..text = item?.sub ?? '';
     final desc = _fDesc..text = item?.desc ?? '';
     final photo = _fPhoto..text = item?.photo ?? '';
+    final ncm = _fNcm..text = item?.fiscal.ncm ?? '';
+    final cfop = _fCfop..text = item?.fiscal.cfop ?? '';
+    final origem = _fOrigem..text = item?.fiscal.origem ?? '';
+    final unid = _fUnid..text = item?.fiscal.unidadeComercial ?? '';
+    final cst = _fCst..text = item?.fiscal.cstIcms ?? '';
+    final csosn = _fCsosn..text = item?.fiscal.csosnIcms ?? '';
+    final cest = _fCest..text = item?.fiscal.cest ?? '';
+    final classTrib = _fClass..text = item?.fiscal.cClassTrib ?? '';
     bool active = item?.active ?? true;
     String? err;
     bool saving = false;
@@ -357,6 +373,14 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                 'subcategory': sub.text.trim().isEmpty ? ct : sub.text.trim(),
                 if (desc.text.trim().isNotEmpty) 'description': desc.text.trim(),
                 if (photo.text.trim().isNotEmpty) 'photo': photo.text.trim(),
+                'ncm': ncm.text.trim().isEmpty ? null : ncm.text.trim(),
+                'cfop': cfop.text.trim().isEmpty ? null : cfop.text.trim(),
+                'origem': origem.text.trim().isEmpty ? null : origem.text.trim(),
+                'unidadeComercial': unid.text.trim().isEmpty ? null : unid.text.trim(),
+                'cstIcms': cst.text.trim().isEmpty ? null : cst.text.trim(),
+                'csosnIcms': csosn.text.trim().isEmpty ? null : csosn.text.trim(),
+                'cest': cest.text.trim().isEmpty ? null : cest.text.trim(),
+                'cClassTrib': classTrib.text.trim().isEmpty ? null : classTrib.text.trim(),
                 'active': active,
               });
               ref.invalidate(establishmentMenuProvider);
@@ -414,6 +438,35 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                       AppToggle(value: active, onChanged: (v) => setSheet(() => active = v)),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  Text('FISCAL (NFC-e)', style: AppText.display(size: 13)),
+                  const SizedBox(height: 4),
+                  Text('Preenchido pelo contador. Sem esses dados o item não entra na nota fiscal.',
+                      style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _sheetField(ncm, 'NCM')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _sheetField(cfop, 'CFOP')),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _sheetField(origem, 'Origem')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _sheetField(unid, 'Unidade')),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _sheetField(cst, 'CST (Normal)')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _sheetField(csosn, 'CSOSN (Simples)')),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _sheetField(cest, 'CEST')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _sheetField(classTrib, 'Cód. class. (IBS/CBS)')),
+                  ]),
                   if (err != null) ...[
                     const SizedBox(height: 10),
                     Text(err!, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.rose)),

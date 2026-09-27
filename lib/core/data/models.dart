@@ -429,6 +429,41 @@ class PanelOrder {
   }
 }
 
+/// Classificação fiscal de um item (preenchida pelo contador). Strings —
+/// vazio = não informado.
+class PanelFiscal {
+  final String ncm;
+  final String cest;
+  final String cfop;
+  final String origem;
+  final String cstIcms;
+  final String csosnIcms;
+  final String cClassTrib;
+  final String unidadeComercial;
+
+  const PanelFiscal({
+    this.ncm = '',
+    this.cest = '',
+    this.cfop = '',
+    this.origem = '',
+    this.cstIcms = '',
+    this.csosnIcms = '',
+    this.cClassTrib = '',
+    this.unidadeComercial = '',
+  });
+
+  factory PanelFiscal.fromJson(Map<String, dynamic> j) => PanelFiscal(
+        ncm: (j['ncm'] as String?) ?? '',
+        cest: (j['cest'] as String?) ?? '',
+        cfop: (j['cfop'] as String?) ?? '',
+        origem: (j['origem'] as String?) ?? '',
+        cstIcms: (j['cstIcms'] as String?) ?? '',
+        csosnIcms: (j['csosnIcms'] as String?) ?? '',
+        cClassTrib: (j['cClassTrib'] as String?) ?? '',
+        unidadeComercial: (j['unidadeComercial'] as String?) ?? '',
+      );
+}
+
 /// Item do cardápio no painel do estabelecimento (de `/establishment/menu`).
 class PanelMenuItem {
   final String dbId;
@@ -440,6 +475,7 @@ class PanelMenuItem {
   final String cat;
   final String sub;
   final bool active;
+  final PanelFiscal fiscal;
 
   const PanelMenuItem({
     required this.dbId,
@@ -451,6 +487,7 @@ class PanelMenuItem {
     required this.cat,
     required this.sub,
     required this.active,
+    this.fiscal = const PanelFiscal(),
   });
 
   factory PanelMenuItem.fromJson(Map<String, dynamic> j) => PanelMenuItem(
@@ -463,6 +500,58 @@ class PanelMenuItem {
         cat: (j['cat'] as String?) ?? '',
         sub: (j['sub'] as String?) ?? '',
         active: (j['active'] as bool?) ?? true,
+        fiscal: j['fiscal'] is Map<String, dynamic>
+            ? PanelFiscal.fromJson(j['fiscal'] as Map<String, dynamic>)
+            : const PanelFiscal(),
+      );
+}
+
+/// Uma nota fiscal (linha do painel de Notas). `status` null = pedido pago
+/// ainda sem nota.
+class FiscalNota {
+  final String orderId;
+  final String orderCode;
+  final double total;
+  final String? status; // QUEUED|PROCESSING|AUTHORIZED|REJECTED|ERROR
+  final int? numero;
+  final String? danfeUrl;
+  final String? rejeicao;
+
+  const FiscalNota({
+    required this.orderId,
+    required this.orderCode,
+    required this.total,
+    this.status,
+    this.numero,
+    this.danfeUrl,
+    this.rejeicao,
+  });
+
+  factory FiscalNota.fromJson(Map<String, dynamic> j) => FiscalNota(
+        orderId: (j['orderId'] as String?) ?? '',
+        orderCode: (j['orderCode'] as String?) ?? '',
+        total: (j['total'] as num?)?.toDouble() ?? 0,
+        status: j['status'] as String?,
+        numero: (j['numero'] as num?)?.toInt(),
+        danfeUrl: j['danfeUrl'] as String?,
+        rejeicao: j['rejeicao'] as String?,
+      );
+}
+
+/// Estado fiscal do estabelecimento pro app (de `/establishment/fiscal`).
+class FiscalData {
+  final String mode; // AUTO_ON_PRINT|MANUAL|OFF
+  final String env; // HOMOLOGACAO|PRODUCAO
+  final List<FiscalNota> rows;
+
+  const FiscalData({required this.mode, required this.env, required this.rows});
+
+  factory FiscalData.fromJson(Map<String, dynamic> j) => FiscalData(
+        mode: (j['mode'] as String?) ?? 'OFF',
+        env: (j['env'] as String?) ?? 'HOMOLOGACAO',
+        rows: ((j['rows'] as List?) ?? [])
+            .map((e) => FiscalNota.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }
 

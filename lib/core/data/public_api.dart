@@ -247,6 +247,35 @@ class PublicApi {
     );
   }
 
+  /// Estado fiscal (modo/ambiente + notas dos pedidos pagos). A CONFIG fica só
+  /// no painel web; aqui o app só vê/emite.
+  Future<FiscalData> fiscalData(String token) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/establishment/fiscal',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return FiscalData.fromJson(res.data ?? const {});
+  }
+
+  /// Emite/reemite a nota de um pedido manualmente. Erros de negócio (fiscal off,
+  /// campos faltando) voltam no corpo com `ok:false`.
+  Future<({bool ok, String? status, String? error})> emitFiscal(
+      String token, String orderId) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/establishment/fiscal',
+        data: {'orderId': orderId},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final d = res.data ?? const {};
+      return (ok: d['ok'] == true, status: d['status'] as String?, error: d['error'] as String?);
+    } on DioException catch (e) {
+      final d = e.response?.data;
+      final err = d is Map<String, dynamic> ? d['error'] as String? : null;
+      return (ok: false, status: null, error: err);
+    }
+  }
+
   /// Ajuste de preço em massa. `dryRun:true` = preview (não grava). Devolve o
   /// mapa cru `{ changes: [...], applied: bool }`.
   Future<Map<String, dynamic>> bulkAdjustPrices(
@@ -620,6 +649,13 @@ final establishmentMenuProvider = FutureProvider<List<PanelMenuItem>>((ref) asyn
   final token = ref.watch(authProvider).token;
   if (token == null) return const <PanelMenuItem>[];
   return ref.watch(publicApiProvider).establishmentMenu(token);
+});
+
+/// Estado fiscal do estabelecimento logado (modo/ambiente + notas). Vazio sem token.
+final fiscalDataProvider = FutureProvider<FiscalData>((ref) async {
+  final token = ref.watch(authProvider).token;
+  if (token == null) return const FiscalData(mode: 'OFF', env: 'HOMOLOGACAO', rows: []);
+  return ref.watch(publicApiProvider).fiscalData(token);
 });
 
 /// Pontos de QR (+ slug) do estabelecimento logado.

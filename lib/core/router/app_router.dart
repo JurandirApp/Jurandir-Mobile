@@ -18,6 +18,7 @@ import '../../features/done/presentation/done_screen.dart';
 import '../../features/estab/presentation/estab_auditoria_screen.dart';
 import '../../features/estab/presentation/estab_cardapio_screen.dart';
 import '../../features/estab/presentation/estab_config_screen.dart';
+import '../../features/estab/presentation/estab_fiscal_screen.dart';
 import '../../features/estab/presentation/estab_conta_screen.dart';
 import '../../features/estab/presentation/estab_garcons_screen.dart';
 import '../../features/estab/presentation/estab_rastreio_screen.dart';
@@ -157,6 +158,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 GoRoute(path: 'auditoria', builder: (context, state) => const EstabAuditoriaScreen()),
                 GoRoute(path: 'perfil', builder: (context, state) => const EstabPerfilScreen()),
                 GoRoute(path: 'config', builder: (context, state) => const EstabConfigScreen()),
+                GoRoute(path: 'fiscal', builder: (context, state) => const EstabFiscalScreen()),
               ],
             ),
           ]),
