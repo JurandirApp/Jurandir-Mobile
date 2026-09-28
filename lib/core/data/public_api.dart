@@ -75,14 +75,15 @@ class PublicApi {
 
   /// Cria o pedido + cobra na carteira nativa (Google/Apple Pay) via Pagar.me.
   /// `walletType` = 'google_pay' | 'apple_pay'; `token` = tokenizationData.token.
+  /// `orderId` = pedido JÁ criado pelo app (fluxo resiliente): aqui só cobramos.
   Future<({bool ok, String status, ClientOrder? order, String? detail})> createWalletOrder(
-    Map<String, dynamic> order,
+    String orderId,
     String walletType,
     String token,
   ) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/orders/wallet',
-      data: {'order': order, 'walletType': walletType, 'token': token},
+      data: {'orderId': orderId, 'walletType': walletType, 'token': token},
       // Pagamento é lento (antifraude do Pagar.me + cold start do Neon). Timeout
       // curto (15s global) fazia o app desistir e mostrar falha com o pagamento
       // JÁ FEITO no backend. 60s dá folga pra pegar o "paid".
@@ -111,38 +112,40 @@ class PublicApi {
     );
   }
 
-  /// Cria o pedido e cobra o cartão via `card_token` (POST /orders/card). O app
-  /// já tokenizou com a chave pública; aqui vai só o token. Retorna sucesso,
-  /// status (paid|pending|failed) e o pedido.
+  /// Cobra o cartão via `card_token` (POST /orders/card) de um pedido JÁ criado
+  /// (`orderId`). O app já tokenizou com a chave pública; aqui vai só o token.
+  /// Retorna status (paid|pending|failed) para o backend ter respondido.
+  ///
+  /// Importante: em TIMEOUT/rede (sem resposta) a exceção **propaga** de
+  /// propósito — a cobrança pode ter ido; quem chama manda pra tela de
+  /// processamento (nunca "não aprovado"). Só uma resposta 200 com ok:false é
+  /// recusa de fato.
   Future<({bool ok, String status, String? detail, ClientOrder? order})> createCardOrder(
-    Map<String, dynamic> order,
+    String orderId,
     String cardToken, {
     int installments = 1,
     required String method, // 'credit' | 'debit'
     Map<String, dynamic>? billing, // endereço de cobrança (antifraude Pagar.me)
+    String? customerDocument, // CPF do pagador (o pedido não guarda o doc)
   }) async {
-    try {
-      final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
-        'order': order,
-        'cardToken': cardToken,
-        'installments': installments,
-        'method': method,
-        'billing': ?billing,
+    final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
+      'orderId': orderId,
+      'cardToken': cardToken,
+      'installments': installments,
+      'method': method,
+      'billing': ?billing,
+      if (customerDocument != null && customerDocument.isNotEmpty)
+        'customerDocument': customerDocument,
       // Antifraude do Pagar.me + cold start do Neon deixam a cobrança lenta —
       // 60s pro app não desistir aos 15s e mostrar falha com o pgto já feito.
-      }, options: Options(receiveTimeout: const Duration(seconds: 60)));
-      final d = res.data!;
-      return (
-        ok: (d['ok'] as bool?) ?? false,
-        status: (d['status'] as String?) ?? 'failed',
-        detail: d['detail'] as String?,
-        order: d['order'] == null ? null : ClientOrder.fromJson(d['order'] as Map<String, dynamic>),
-      );
-    } on DioException catch (e) {
-      final data = e.response?.data;
-      final err = (data is Map) ? data['error'] as String? : null;
-      return (ok: false, status: 'failed', detail: err, order: null);
-    }
+    }, options: Options(receiveTimeout: const Duration(seconds: 60)));
+    final d = res.data!;
+    return (
+      ok: (d['ok'] as bool?) ?? false,
+      status: (d['status'] as String?) ?? 'failed',
+      detail: d['detail'] as String?,
+      order: d['order'] == null ? null : ClientOrder.fromJson(d['order'] as Map<String, dynamic>),
+    );
   }
 
   /// Login real (POST /login). Lança `DioException` (401) se as credenciais

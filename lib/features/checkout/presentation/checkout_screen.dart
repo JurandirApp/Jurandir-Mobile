@@ -154,38 +154,58 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
     setState(() => _submitting = true);
     await _replacePending();
+    // 1) Cria o pedido ANTES de cobrar — o app SEMPRE fica com o id (aparece em
+    //    "Pedidos") e NUNCA trava, mesmo se a cobrança demorar/der timeout.
+    final ClientOrder order;
     try {
-      final r = await ref
-          .read(publicApiProvider)
-          .createCardOrder(payload, card.token, method: debit ? 'debit' : 'credit', billing: card.billing);
+      order = await ref.read(publicApiProvider).createOrder(payload);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+      }
+      return;
+    }
+    final id = order.dbId;
+    if (id == null) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+      }
+      return;
+    }
+    await ref.read(myOrderIdsProvider.notifier).add(id);
+    _markPending(id);
+
+    // 2) Cobra o pedido. Em QUALQUER lentidão/timeout vai pra tela de
+    //    processamento (que confirma sozinha pelo polling) — nunca trava com o
+    //    dinheiro já cobrado.
+    final doc = ref.read(clientProfileProvider).documentDigits;
+    try {
+      final r = await ref.read(publicApiProvider).createCardOrder(
+            id,
+            card.token,
+            method: debit ? 'debit' : 'credit',
+            billing: card.billing,
+            customerDocument: doc,
+          );
       if (!mounted) return;
       if (r.ok && r.status == 'paid') {
-        final id = r.order?.dbId;
-        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
-        if (!mounted) return;
         _markPending(null);
         ref.read(cartProvider.notifier).clear();
-        context.go('/done',
-            extra: DoneArgs(incomplete: false, code: r.order?.code ?? _genCode()));
-      } else if (r.ok && r.status == 'pending' && r.order != null) {
-        // Cartão em análise (antifraude assíncrono) — não trava o cliente na
-        // tela: vai pra tela de processamento que faz polling e confirma sozinha.
-        final id = r.order?.dbId;
-        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
-        if (!mounted) return;
-        _markPending(id);
-        context.go('/pagamento', extra: CardWaitArgs(order: r.order!));
+        context.go('/done', extra: DoneArgs(incomplete: false, code: order.code));
+      } else if (r.ok && r.status == 'pending') {
+        // Em análise (antifraude assíncrono) — tela de processamento confirma sozinha.
+        context.go('/pagamento', extra: CardWaitArgs(order: r.order ?? order));
       } else {
+        // Recusa de fato (dados/antifraude) — deixa retentar com outro cartão.
         setState(() => _submitting = false);
         _toast('Pagamento não aprovado. Confira os dados ou tente outro cartão.');
       }
     } catch (_) {
-      if (mounted) {
-        setState(() => _submitting = false);
-        // Timeout/erro de rede: o pagamento PODE ter ido (o backend é lento no
-        // antifraude). Avisa pra conferir antes de repetir — evita pagar 2x.
-        _toast('Não conseguimos confirmar o pagamento. Confira em "Pedidos" antes de tentar de novo.');
-      }
+      // Timeout/rede: a cobrança PODE ter ido. NÃO trava — vai pra tela de
+      // processamento, que confirma sozinha (o pedido já está em "Pedidos").
+      if (mounted) context.go('/pagamento', extra: CardWaitArgs(order: order));
     }
   }
 
@@ -781,37 +801,48 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         defaultTargetPlatform == TargetPlatform.iOS ? 'apple_pay' : 'google_pay';
     setState(() => _submitting = true);
     await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
+    // 1) Cria o pedido ANTES de cobrar — o app fica com o id (aparece em
+    //    "Pedidos") e NUNCA trava, mesmo se a cobrança demorar/der timeout.
+    final ClientOrder order;
     try {
-      final r = await ref
-          .read(publicApiProvider)
-          .createWalletOrder(payload, walletType, token);
+      order = await ref.read(publicApiProvider).createOrder(payload);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+      }
+      return;
+    }
+    final id = order.dbId;
+    if (id == null) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+      }
+      return;
+    }
+    await ref.read(myOrderIdsProvider.notifier).add(id);
+    _markPending(id);
+
+    // 2) Cobra o pedido. Lentidão/timeout → tela de processamento (nunca trava
+    //    com o dinheiro já cobrado).
+    try {
+      final r = await ref.read(publicApiProvider).createWalletOrder(id, walletType, token);
       if (!mounted) return;
       if (r.ok && r.status == 'paid') {
-        final id = r.order?.dbId;
-        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
-        if (!mounted) return;
         _markPending(null);
         ref.read(cartProvider.notifier).clear();
-        context.go('/done',
-            extra: DoneArgs(incomplete: false, code: r.order?.code ?? _genCode()));
-      } else if (r.ok && r.status == 'pending' && r.order != null) {
-        // Carteira em análise (antifraude assíncrono) — vai pra tela de
-        // processamento que faz polling e confirma sozinha quando cair.
-        final id = r.order?.dbId;
-        if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
-        if (!mounted) return;
-        _markPending(id);
-        context.go('/pagamento', extra: CardWaitArgs(order: r.order!));
+        context.go('/done', extra: DoneArgs(incomplete: false, code: order.code));
+      } else if (r.ok && r.status == 'pending') {
+        context.go('/pagamento', extra: CardWaitArgs(order: r.order ?? order));
       } else {
         setState(() => _submitting = false);
         _toast('Pagamento não aprovado. Tente outro método.');
       }
     } catch (_) {
-      if (mounted) {
-        setState(() => _submitting = false);
-        // Timeout/erro de rede: o pagamento PODE ter ido — avisa pra conferir.
-        _toast('Não conseguimos confirmar o pagamento. Confira em "Pedidos" antes de tentar de novo.');
-      }
+      // Timeout/rede: a cobrança PODE ter ido. NÃO trava — tela de processamento
+      // confirma sozinha (o pedido já está em "Pedidos").
+      if (mounted) context.go('/pagamento', extra: CardWaitArgs(order: order));
     }
   }
 
