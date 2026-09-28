@@ -83,12 +83,17 @@ jobs:
             --dart-define-from-file=dart_defines.prod.json \
             --export-options-plist="$HOME/export_options.plist"
 
-      - name: Publica no TestFlight
+      - name: Sobe pra App Store Connect (upload)
+        # Só faz o UPLOAD — o build fica disponível pra App Store e pro TestFlight
+        # INTERNO (testers internos recebem na hora, sem review). NÃO auto-submete
+        # ao beta review EXTERNO: o train 1.0.x aceita só 1 build em review por vez,
+        # então o `--testflight` quebrava o CI ("Another build is in review") quando
+        # já havia outro build em review. A submissão ao TestFlight externo / App
+        # Store é manual no App Store Connect (você escolhe qual build vai).
         run: |
           app-store-connect publish \
             --path "build/ios/ipa/*.ipa" \
-            --private-key=@file:"$RUNNER_TEMP/asc_key.p8" \
-            --testflight
+            --private-key=@file:"$RUNNER_TEMP/asc_key.p8"
 
       - name: Guarda o .ipa como artefato (backup)
         if: always()
