@@ -73,6 +73,17 @@ class PublicApi {
     }
   }
 
+  /// Chave pública (RSA) de cartão do PagBank — o app criptografa o cartão com
+  /// ela antes de enviar. Null se indisponível.
+  Future<String?> pagbankPublicKey() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/pagbank/public-key');
+      return res.data?['publicKey'] as String?;
+    } on DioException {
+      return null;
+    }
+  }
+
   /// Cria o pedido + cobra na carteira nativa (Google/Apple Pay) via Pagar.me.
   /// `walletType` = 'google_pay' | 'apple_pay'; `token` = tokenizationData.token.
   /// `orderId` = pedido JÁ criado pelo app (fluxo resiliente): aqui só cobramos.

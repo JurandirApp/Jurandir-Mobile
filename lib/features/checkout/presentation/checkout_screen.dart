@@ -120,7 +120,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<void> _startWallet(double grand) async {
     final iOS = defaultTargetPlatform == TargetPlatform.iOS;
     final provider = iOS ? PayProvider.apple_pay : PayProvider.google_pay;
-    final config = iOS ? WalletConfig.applePay : WalletConfig.googlePay;
+    final config = iOS
+        ? WalletConfig.applePay
+        : WalletConfig.googlePayFor(_cartEst()?.gatewayFor('googlePay') ?? 'PAGARME');
     final client = Pay({provider: PaymentConfiguration.fromJsonString(config)});
     try {
       final result = await client.showPaymentSelector(provider, [
@@ -141,11 +143,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  /// Cartão manual: abre a tela de cartão (tokeniza direto na Pagar.me), e com o
-  /// token cria o pedido + cobra via `/orders/card` (nunca dá 412).
+  /// Cartão manual: abre a tela de cartão (tokeniza direto no gateway do método —
+  /// Pagar.me ou PagBank), e com o token cria o pedido + cobra via `/orders/card`.
   Future<void> _payCard(double grand, {required bool debit}) async {
     if (!await _ensureCpf() || !mounted) return;
-    final card = await showCardSheet(context, amount: grand, debit: debit);
+    // PagBank: o cartão é criptografado com a chave pública da conta (vem do backend).
+    String? pagbankKey;
+    if (_cartEst()?.gatewayFor(debit ? 'debit' : 'credit') == 'PAGBANK') {
+      pagbankKey = await ref.read(publicApiProvider).pagbankPublicKey();
+      if (!mounted) return;
+      if (pagbankKey == null) {
+        _toast('Pagamento com cartão indisponível agora. Tente outro método.');
+        return;
+      }
+    }
+    final card = await showCardSheet(context, amount: grand, debit: debit, pagbankKey: pagbankKey);
     if (card == null || !mounted) return; // cancelou ou falhou a tokenização
     final payload = _orderPayload(method: debit ? 'DEBIT' : 'CREDIT');
     if (payload == null) {
@@ -398,29 +410,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  /// Estabelecimento do CARRINHO — garante que a cobrança vai pro recebedor
+  /// certo mesmo que o cliente tenha navegado pra outro bar sem adicionar.
+  /// 1) o estabelecimento que o cliente abriu (slug); 2) senão, o primeiro real.
+  Establishment? _cartEst() {
+    final ests = ref.read(establishmentsProvider).asData?.value ?? const <Establishment>[];
+    final slug = ref.read(cartEstablishmentProvider) ?? ref.read(selectedSlugProvider);
+    for (final e in ests) {
+      if (slug != null && e.slug == slug) return e;
+    }
+    for (final e in ests) {
+      if (e.slug != null) return e;
+    }
+    return null;
+  }
+
   /// Monta o payload do pedido (estabelecimento escolhido + carrinho). Null se
   /// não houver estabelecimento real ou o carrinho estiver vazio.
   Map<String, dynamic>? _orderPayload({required String method}) {
-    final ests = ref.read(establishmentsProvider).asData?.value ?? const <Establishment>[];
-    // Estabelecimento do CARRINHO — garante que a cobrança vai pro recebedor
-    // certo mesmo que o cliente tenha navegado pra outro bar sem adicionar.
-    final slug = ref.read(cartEstablishmentProvider) ?? ref.read(selectedSlugProvider);
-    Establishment? est;
-    // 1) o estabelecimento que o cliente abriu (slug); 2) senão, o primeiro real.
-    for (final e in ests) {
-      if (slug != null && e.slug == slug) {
-        est = e;
-        break;
-      }
-    }
-    if (est == null) {
-      for (final e in ests) {
-        if (e.slug != null) {
-          est = e;
-          break;
-        }
-      }
-    }
+    final est = _cartEst();
     if (est == null) return null;
     final lines = ref.read(cartProvider.notifier).lines;
     if (lines.isEmpty) return null;

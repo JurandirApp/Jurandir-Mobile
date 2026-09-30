@@ -19,6 +19,8 @@ class Establishment {
   final String? logo; // imagem quadrada do bar
   final String? cover; // capa (paisagem)
   final bool walletPay; // aceita Apple/Google Pay (crédito via Pagar.me)
+  /// Gateway por método (pix/credit/debit/applePay/googlePay → "PAGARME", "PAGBANK"…).
+  final Map<String, String> gateways;
 
   const Establishment({
     required this.id,
@@ -36,7 +38,12 @@ class Establishment {
     this.logo,
     this.cover,
     this.walletPay = false,
+    this.gateways = const {},
   });
+
+  /// Gateway configurado pro método. Sem info do backend assume Pagar.me (o
+  /// comportamento antigo do app).
+  String gatewayFor(String method) => gateways[method] ?? 'PAGARME';
 
   /// Melhor imagem pro thumb do card: logo (quadrada) → capa → nada.
   String? get imageUrl {
@@ -61,6 +68,8 @@ class Establishment {
     logo: j['logo'] as String?,
     cover: j['cover'] as String?,
     walletPay: (j['walletPay'] as bool?) ?? false,
+    gateways: ((j['gateways'] as Map?) ?? const {})
+        .map((k, v) => MapEntry(k.toString(), v.toString())),
   );
 }
 

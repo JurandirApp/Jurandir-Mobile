@@ -9,6 +9,8 @@
 /// - GOOGLE_MERCHANT_ID: o merchant id do **Google Pay Business Console**
 ///   (`merchantInfo.merchantId`). Obrigatório em PRODUCTION.
 /// - APPLE_MERCHANT_ID: Merchant ID da Apple (`merchant.br.app.jurandir`).
+/// - PAGBANK_MERCHANT_ID: `ACCO_…` da conta PagBank da plataforma — usado quando o
+///   Google Pay do estabelecimento está no PagBank (`gateway: pagbank`).
 ///
 /// Produção Google Pay:
 /// `--dart-define=PAY_ENV=PRODUCTION --dart-define=PAY_GATEWAY=pagarme
@@ -27,13 +29,23 @@ abstract final class WalletConfig {
       ? '{"merchantName":"$merchantName"}'
       : '{"merchantId":"$googleMerchantId","merchantName":"$merchantName"}';
 
-  static String get googlePay =>
-      '{"provider":"google_pay","data":{"environment":"$env","apiVersion":2,"apiVersionMinor":0,'
-      '"allowedPaymentMethods":[{"type":"CARD","tokenizationSpecification":{"type":"PAYMENT_GATEWAY",'
-      '"parameters":{"gateway":"$gateway","gatewayMerchantId":"$merchantId"}},'
-      '"parameters":{"allowedCardNetworks":["VISA","MASTERCARD","ELO"],"allowedAuthMethods":["PAN_ONLY","CRYPTOGRAM_3DS"]}}],'
-      '"merchantInfo":$_merchantInfo,'
-      '"transactionInfo":{"countryCode":"BR","currencyCode":"BRL"}}}';
+  /// `gatewayMerchantId` do PagBank = o account id (`ACCO_…`) da conta da plataforma.
+  static const pagbankMerchantId = String.fromEnvironment('PAGBANK_MERCHANT_ID', defaultValue: '');
+
+  /// Config do Google Pay pro gateway escolhido pelo estabelecimento (nome do
+  /// enum do backend). PagBank usa `gateway: pagbank` + o `ACCO_…`; sem o
+  /// PAGBANK_MERCHANT_ID definido, cai na config padrão (PAY_GATEWAY).
+  static String googlePayFor(String backendGateway) {
+    final pagbank = backendGateway == 'PAGBANK' && pagbankMerchantId.isNotEmpty;
+    final gw = pagbank ? 'pagbank' : gateway;
+    final mid = pagbank ? pagbankMerchantId : merchantId;
+    return '{"provider":"google_pay","data":{"environment":"$env","apiVersion":2,"apiVersionMinor":0,'
+        '"allowedPaymentMethods":[{"type":"CARD","tokenizationSpecification":{"type":"PAYMENT_GATEWAY",'
+        '"parameters":{"gateway":"$gw","gatewayMerchantId":"$mid"}},'
+        '"parameters":{"allowedCardNetworks":["VISA","MASTERCARD","ELO"],"allowedAuthMethods":["PAN_ONLY","CRYPTOGRAM_3DS"]}}],'
+        '"merchantInfo":$_merchantInfo,'
+        '"transactionInfo":{"countryCode":"BR","currencyCode":"BRL"}}}';
+  }
 
   static String get applePay =>
       '{"provider":"apple_pay","data":{"merchantIdentifier":"$appleMerchantId","displayName":"$merchantName",'

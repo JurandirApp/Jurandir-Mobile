@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/payments/card_tokenizer.dart';
+import '../../../core/payments/pagbank_encrypt.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
@@ -12,22 +13,29 @@ import '../../../core/utils/money.dart';
 typedef CardSheetResult = ({String token, Map<String, dynamic> billing});
 
 /// Abre a tela de cartão (bottom sheet). Coleta os dados, tokeniza DIRETO no
-/// Pagar.me (o cartão cru não passa pelo nosso backend), resolve o CEP de
-/// cobrança e devolve {token, billing} — ou null se cancelar/falhar.
-Future<CardSheetResult?> showCardSheet(BuildContext context, {required double amount, required bool debit}) {
+/// Pagar.me — ou, com `pagbankKey`, criptografa com a chave pública do PagBank
+/// (o cartão cru não passa pelo nosso backend) —, resolve o CEP de cobrança e
+/// devolve {token, billing} — ou null se cancelar/falhar.
+Future<CardSheetResult?> showCardSheet(
+  BuildContext context, {
+  required double amount,
+  required bool debit,
+  String? pagbankKey,
+}) {
   return showModalBottomSheet<CardSheetResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.canvas,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-    builder: (_) => _CardSheet(amount: amount, debit: debit),
+    builder: (_) => _CardSheet(amount: amount, debit: debit, pagbankKey: pagbankKey),
   );
 }
 
 class _CardSheet extends StatefulWidget {
-  const _CardSheet({required this.amount, required this.debit});
+  const _CardSheet({required this.amount, required this.debit, this.pagbankKey});
   final double amount;
   final bool debit;
+  final String? pagbankKey;
 
   @override
   State<_CardSheet> createState() => _CardSheetState();
@@ -91,13 +99,16 @@ class _CardSheetState extends State<_CardSheet> {
       _busy = true;
       _err = null;
     });
-    final token = await tokenizeCard(
-      number: num,
-      holderName: name,
-      expMonth: mm,
-      expYear: year,
-      cvv: cvv,
-    );
+    final pagbankKey = widget.pagbankKey;
+    final token = pagbankKey != null
+        ? _pagbankEncrypt(pagbankKey, num, cvv, mm, year, name)
+        : await tokenizeCard(
+            number: num,
+            holderName: name,
+            expMonth: mm,
+            expYear: year,
+            cvv: cvv,
+          );
     if (!mounted) return;
     if (token == null) {
       setState(() {
@@ -277,6 +288,22 @@ class _CardSheetState extends State<_CardSheet> {
             borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.ink, width: 2)),
       ),
     );
+  }
+}
+
+/// Criptografa o cartão com a chave do PagBank. Null se a chave for inválida.
+String? _pagbankEncrypt(String key, String number, String cvv, int month, int year, String holder) {
+  try {
+    return pagbankEncryptCard(
+      publicKey: key,
+      number: number,
+      securityCode: cvv,
+      expMonth: month,
+      expYear: year,
+      holder: holder,
+    );
+  } on Object {
+    return null;
   }
 }
 
