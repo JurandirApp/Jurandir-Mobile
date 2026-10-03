@@ -57,6 +57,12 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
+            // R8 estava removendo classes que o MLKit/mobile_scanner carregam por
+            // reflexão → NullPointerException no start da câmera (scanner quebrado só
+            // no release). Sem regras de keep, desligar o shrink resolve. Correção de
+            // lançamento; depois dá pra religar com proguard-rules.pro adequado.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
