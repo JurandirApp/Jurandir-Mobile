@@ -884,17 +884,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: pm.color, shape: BoxShape.circle),
-              child: Icon(pm.icon, size: 20, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(pm.label, style: AppText.body(size: 14.5, weight: FontWeight.w800)),
-            ),
+            // Google Pay: marca OFICIAL (acceptance mark) no lugar de icone+texto
+            // custom — exigencia de marca do Google pra aprovar o Google Pay.
+            if (pm.id == 'google_pay')
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Image.asset('assets/images/google-pay-mark.png', height: 34),
+                ),
+              )
+            else ...[
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: pm.color, shape: BoxShape.circle),
+                child: Icon(pm.icon, size: 20, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(pm.label, style: AppText.body(size: 14.5, weight: FontWeight.w800)),
+              ),
+            ],
             Container(
               width: 22,
               height: 22,
