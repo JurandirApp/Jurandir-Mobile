@@ -464,6 +464,42 @@ class PublicApi {
     }
   }
 
+  /// Cliente chama o garçom até a mesa. Retorna true se o backend aceitou.
+  Future<bool> callWaiter({
+    required String establishmentId,
+    required String locationLabel,
+    String? clientId,
+    String? orderId,
+    String reason = 'PAYMENT',
+  }) async {
+    final res = await _dio.post<Map<String, dynamic>>('/waiter/call', data: {
+      'establishmentId': establishmentId,
+      'locationLabel': locationLabel,
+      'clientId': ?clientId,
+      'orderId': ?orderId,
+      'reason': reason,
+    });
+    return res.data?['ok'] == true;
+  }
+
+  /// Chamados PENDING do bar do garçom.
+  Future<List<HelpCall>> waiterCalls(String token) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/waiter/calls',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    final list = (res.data?['calls'] as List?) ?? const [];
+    return list.map((e) => HelpCall.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Garçom marca o chamado como atendido.
+  Future<void> handleWaiterCall(String token, String id) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/waiter/calls/$id/handle',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
   /// Garçons do estabelecimento (com stats de entrega). GET /panel/waiters.
   Future<List<PanelWaiter>> panelWaiters(String token) async {
     final res = await _dio.get<Map<String, dynamic>>('/panel/waiters',
@@ -485,6 +521,21 @@ class PublicApi {
     await _dio.delete<Map<String, dynamic>>('/panel/waiters',
         queryParameters: {'id': id}, options: Options(headers: {'Authorization': 'Bearer $token'}));
   }
+}
+
+/// Chamado de garçom (cliente pediu ajuda/pagamento na mesa).
+class HelpCall {
+  final String id;
+  final String locationLabel;
+  final String reason;
+  final String? orderId;
+  const HelpCall({required this.id, required this.locationLabel, required this.reason, this.orderId});
+  factory HelpCall.fromJson(Map<String, dynamic> j) => HelpCall(
+        id: j['id'] as String,
+        locationLabel: (j['locationLabel'] as String?) ?? '',
+        reason: (j['reason'] as String?) ?? 'PAYMENT',
+        orderId: j['orderId'] as String?,
+      );
 }
 
 final publicApiProvider = Provider((ref) => PublicApi(ref.watch(apiClientProvider)));
