@@ -4,8 +4,14 @@ import 'package:dio/dio.dart';
 /// `--dart-define=PAGARME_PUBLIC_KEY=pk_...`.
 const _publicKey = String.fromEnvironment('PAGARME_PUBLIC_KEY', defaultValue: '');
 
+/// Chave PÚBLICA da conta Pagar.me dedicada ao DÉBITO (`--dart-define=PAGARME_DEBIT_PUBLIC_KEY=pk_...`).
+const _debitPublicKey = String.fromEnvironment('PAGARME_DEBIT_PUBLIC_KEY', defaultValue: '');
+
 /// O cartão está pronto pra tokenizar? (a chave pública foi configurada).
 bool get pagarmeCardConfigured => _publicKey.isNotEmpty;
+
+/// O débito está pronto pra tokenizar? (a chave pública da conta de débito foi configurada).
+bool get pagarmeDebitConfigured => _debitPublicKey.isNotEmpty;
 
 /// Tokeniza o cartão DIRETO no Pagar.me usando a chave pública — o cartão cru
 /// (número/CVV/validade) **nunca** passa pelo nosso backend (exigência de PCI da
@@ -17,8 +23,10 @@ Future<String?> tokenizeCard({
   required int expMonth,
   required int expYear,
   required String cvv,
+  bool debit = false,
 }) async {
-  if (_publicKey.isEmpty) return null;
+  final pk = debit ? _debitPublicKey : _publicKey;
+  if (pk.isEmpty) return null;
   final dio = Dio(BaseOptions(
     baseUrl: 'https://api.pagar.me/core/v5',
     headers: {'Content-Type': 'application/json'},
@@ -26,7 +34,7 @@ Future<String?> tokenizeCard({
   try {
     final res = await dio.post<Map<String, dynamic>>(
       '/tokens',
-      queryParameters: {'appId': _publicKey},
+      queryParameters: {'appId': pk},
       data: {
         'type': 'card',
         'card': {

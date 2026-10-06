@@ -108,6 +108,7 @@ class _CardSheetState extends State<_CardSheet> {
             expMonth: mm,
             expYear: year,
             cvv: cvv,
+            debit: widget.debit,
           );
     if (!mounted) return;
     if (token == null) {
