@@ -9,5 +9,7 @@
 	<array>
 		<string>merchant.br.app.jurandir</string>
 	</array>
+	<key>aps-environment</key>
+	<string>production</string>
 </dict>
 </plist>

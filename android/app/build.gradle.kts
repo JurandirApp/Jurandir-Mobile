@@ -5,6 +5,8 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // FlutterFire: exige android/app/google-services.json (flutterfire configure).
+    id("com.google.gms.google-services")
 }
 
 // Assinatura de release lida de android/key.properties (fora do git — ver .gitignore).
