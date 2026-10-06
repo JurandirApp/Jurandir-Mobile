@@ -55,6 +55,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _selPay;
   bool _submitting = false;
   final _obsCtrl = TextEditingController();
+  bool _calling = false; // cooldown do "chamar garçom"
 
   @override
   void dispose() {
@@ -270,7 +271,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       } else {
         // Recusa de fato (dados/antifraude) — deixa retentar com outro cartão.
         setState(() => _submitting = false);
-        _toast('Pagamento não aprovado. Confira os dados ou tente outro cartão.');
+        _declineToast('Pagamento não aprovado. Confira os dados ou tente outro cartão.');
       }
     } catch (_) {
       // Timeout/rede: a cobrança PODE ter ido. NÃO trava — vai pra tela de
@@ -524,6 +525,64 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     };
   }
 
+  /// Chama o garçom até a mesa. Cooldown de 60s (o backend também deduplica).
+  Future<void> _callWaiter() async {
+    if (_calling) return;
+    final estId = _cartEst()?.id;
+    if (estId == null) {
+      _toast('Abra o cardápio de um bar pra chamar o garçom.');
+      return;
+    }
+    var mesa = ref.read(selectedLocalProvider) ?? '';
+    if (mesa.trim().isEmpty) {
+      final table = await _askTable();
+      if (table == null || !mounted) return; // cancelou
+      ref.read(selectedLocalProvider.notifier).set(table);
+      mesa = table;
+    }
+    setState(() => _calling = true);
+    try {
+      final ok = await ref.read(publicApiProvider).callWaiter(
+            establishmentId: estId,
+            locationLabel: mesa,
+            clientId: ref.read(clientProfileProvider).clientId,
+          );
+      if (!mounted) return;
+      _toast(ok
+          ? 'Avisamos o garçom, ele já vem até a sua mesa 👍'
+          : 'Não foi possível chamar agora. Tente de novo.');
+    } catch (_) {
+      if (mounted) _toast('Não foi possível chamar agora. Tente de novo.');
+    }
+    Future.delayed(const Duration(seconds: 60), () {
+      if (mounted) setState(() => _calling = false);
+    });
+  }
+
+  Widget _callWaiterLink() => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: TextButton.icon(
+          onPressed: _calling ? null : _callWaiter,
+          icon: Icon(Symbols.room_service, size: 18, color: _calling ? AppColors.inkA(0.35) : AppColors.ink),
+          label: Text(
+            _calling ? 'Garçom avisado ✓' : 'Precisa de ajuda? Chamar o garçom',
+            style: AppText.body(size: 13, weight: FontWeight.w700, color: _calling ? AppColors.inkA(0.4) : AppColors.ink),
+          ),
+        ),
+      );
+
+  /// Toast de recusa de pagamento com ação "Chamar garçom".
+  void _declineToast(String msg) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.ink,
+        content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
+        action: SnackBarAction(label: 'Chamar garçom', textColor: AppColors.coral, onPressed: _callWaiter),
+      ));
+  }
+
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -594,7 +653,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, topSafe + 20, 20, 120),
+            padding: EdgeInsets.fromLTRB(20, topSafe + 20, 20, 170),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -903,7 +962,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         context.go('/pagamento', extra: CardWaitArgs(order: r.order ?? order));
       } else {
         setState(() => _submitting = false);
-        _toast('Pagamento não aprovado. Tente outro método.');
+        _declineToast('Pagamento não aprovado. Tente outro método.');
       }
     } catch (_) {
       // Timeout/rede: a cobrança PODE ter ido. NÃO trava — tela de processamento
@@ -1106,25 +1165,34 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           stops: const [0.0, 0.6, 1.0],
         ),
       ),
-      child: Material(
-        color: _submitting ? AppColors.coral.withValues(alpha: 0.6) : bg,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          onTap: enabled ? () => _pay(grand) : null,
-          borderRadius: BorderRadius.circular(999),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            child: Center(
-              child: _submitting
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                    )
-                  : Text(label, style: AppText.body(size: 15, weight: FontWeight.w700, color: Colors.white)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _callWaiterLink(),
+          Material(
+            color: _submitting ? AppColors.coral.withValues(alpha: 0.6) : bg,
+            borderRadius: BorderRadius.circular(999),
+            child: InkWell(
+              onTap: enabled ? () => _pay(grand) : null,
+              borderRadius: BorderRadius.circular(999),
+              child: SizedBox(
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  child: Center(
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                          )
+                        : Text(label, style: AppText.body(size: 15, weight: FontWeight.w700, color: Colors.white)),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
