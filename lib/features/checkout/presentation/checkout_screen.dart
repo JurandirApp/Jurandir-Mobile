@@ -150,26 +150,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (!mounted) return;
       await _onWallet(result);
     } catch (e) {
-      // DIAGNOSTICO TEMPORARIO: dialogo persistente e copiavel com o erro real do
-      // Google/Apple Pay (o toast sumia rapido demais). Reverter depois da causa.
-      debugPrint('GPAY_ERR >>> $e');
-      if (mounted) {
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(iOS ? 'Apple Pay — erro' : 'Google Pay — erro'),
-            content: SingleChildScrollView(
-              child: SelectableText('$e', style: const TextStyle(fontSize: 13)),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Fechar'),
-              ),
-            ],
-          ),
-        );
-      }
+      debugPrint('WALLET_ERR >>> $e');
+      if (!mounted) return;
+      // Cancelamento pelo usuário (fechou a folha): sem aviso.
+      if (e.toString().toLowerCase().contains('cancel')) return;
+      _toast(iOS
+          ? 'Apple Pay indisponível agora. Adicione um cartão no Wallet ou use outro método.'
+          : 'Google Pay indisponível agora. Use outro método.');
     }
   }
 
@@ -196,7 +183,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       // Dispara a folha (retorno "{}" descartado; o resultado vem pelo stream).
       await client.showPaymentSelector(provider, items);
-      return await completer.future;
+      return await completer.future.timeout(const Duration(seconds: 120));
     } finally {
       await sub.cancel();
     }
@@ -548,15 +535,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             clientId: ref.read(clientProfileProvider).clientId,
           );
       if (!mounted) return;
-      _toast(ok
-          ? 'Avisamos o garçom, ele já vem até a sua mesa 👍'
-          : 'Não foi possível chamar agora. Tente de novo.');
+      if (ok) {
+        _toast('Avisamos o garçom, ele já vem até a sua mesa 👍');
+        // Sucesso: mantém desabilitado por 60s.
+        Future.delayed(const Duration(seconds: 60), () {
+          if (mounted) setState(() => _calling = false);
+        });
+      } else {
+        _toast('Não foi possível chamar agora. Tente de novo.');
+        setState(() => _calling = false);
+      }
     } catch (_) {
-      if (mounted) _toast('Não foi possível chamar agora. Tente de novo.');
+      if (!mounted) return;
+      _toast('Não foi possível chamar agora. Tente de novo.');
+      setState(() => _calling = false);
     }
-    Future.delayed(const Duration(seconds: 60), () {
-      if (mounted) setState(() => _calling = false);
-    });
   }
 
   Widget _callWaiterLink() => Padding(
