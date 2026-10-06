@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/alert/alert_service.dart';
 import '../../../core/data/public_api.dart';
+import '../../../core/push/push_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/brutal_card.dart';
@@ -38,6 +39,10 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
   void initState() {
     super.initState();
     AlertService.ensurePermission();
+    final fcmAuthToken = ref.read(authProvider).token;
+    if (fcmAuthToken != null) {
+      PushService.registerWaiter((fcm) => ref.read(publicApiProvider).registerDeviceWaiter(fcmAuthToken, fcm));
+    }
     _load();
     _poll = Timer.periodic(const Duration(seconds: 4), (_) => _load(silent: true));
   }

@@ -500,6 +500,15 @@ class PublicApi {
     );
   }
 
+  /// Registra o token FCM do garçom (bearer) pra receber push.
+  Future<void> registerDeviceWaiter(String token, String fcmToken) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/devices',
+      data: {'token': fcmToken},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
   /// Garçons do estabelecimento (com stats de entrega). GET /panel/waiters.
   Future<List<PanelWaiter>> panelWaiters(String token) async {
     final res = await _dio.get<Map<String, dynamic>>('/panel/waiters',
