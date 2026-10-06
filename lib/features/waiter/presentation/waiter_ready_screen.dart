@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/alert/alert_service.dart';
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -29,6 +30,9 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
   Timer? _poll;
   List<WaiterOrder>? _orders; // null = carregando (primeira vez)
   bool _error = false;
+  List<HelpCall> _calls = const [];
+  final Set<String> _seenCallIds = {};
+  bool _firstCallLoad = true;
 
   @override
   void initState() {
@@ -48,11 +52,19 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
     if (token == null) return;
     try {
       final orders = await ref.read(publicApiProvider).waiterOrders(token);
+      final calls = await ref.read(publicApiProvider).waiterCalls(token);
+      final novos = calls.where((c) => !_seenCallIds.contains(c.id)).toList();
+      for (final c in calls) { _seenCallIds.add(c.id); }
       if (!mounted) return;
       setState(() {
         _orders = orders;
+        _calls = calls;
         _error = false;
       });
+      if (!_firstCallLoad && novos.isNotEmpty) {
+        AlertService.ring(title: '🔔 Chamado na mesa', body: '${novos.first.locationLabel} precisa de ajuda com o pagamento');
+      }
+      _firstCallLoad = false;
     } catch (_) {
       if (!mounted) return;
       if (!silent || _orders == null) setState(() => _error = true);
@@ -83,6 +95,45 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
     if (mounted) context.go('/login');
   }
 
+  Future<void> _handleCall(HelpCall c) async {
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    setState(() => _calls = _calls.where((x) => x.id != c.id).toList());
+    _seenCallIds.add(c.id); // evita re-alertar se voltar no próximo poll antes de sumir
+    try { await ref.read(publicApiProvider).handleWaiterCall(token, c.id); } catch (_) {}
+  }
+
+  Widget _callsBanner() => Container(
+        width: double.infinity,
+        color: AppColors.danger,
+        padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+        child: Column(
+          children: _calls.map((c) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                const Icon(Symbols.notifications_active, size: 20, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('${c.locationLabel} — precisa de ajuda com o pagamento',
+                      style: AppText.body(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                ),
+                TextButton(
+                  onPressed: () => _handleCall(c),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text('Atendido', style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.danger)),
+                ),
+              ],
+            ),
+          )).toList(),
+        ),
+      );
+
   void _openOrder(WaiterOrder order) {
     context.push('/waiter/order', extra: order).then((_) {
       if (mounted) _load(silent: true);
@@ -110,6 +161,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
               ),
             ),
           ),
+          if (_calls.isNotEmpty) _callsBanner(),
           Expanded(child: _body()),
         ],
       ),
