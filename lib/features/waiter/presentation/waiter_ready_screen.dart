@@ -37,6 +37,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
   @override
   void initState() {
     super.initState();
+    AlertService.ensurePermission();
     _load();
     _poll = Timer.periodic(const Duration(seconds: 4), (_) => _load(silent: true));
   }
@@ -52,19 +53,23 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
     if (token == null) return;
     try {
       final orders = await ref.read(publicApiProvider).waiterOrders(token);
-      final calls = await ref.read(publicApiProvider).waiterCalls(token);
-      final novos = calls.where((c) => !_seenCallIds.contains(c.id)).toList();
-      for (final c in calls) { _seenCallIds.add(c.id); }
       if (!mounted) return;
       setState(() {
         _orders = orders;
-        _calls = calls;
         _error = false;
       });
-      if (!_firstCallLoad && novos.isNotEmpty) {
-        AlertService.ring(title: '🔔 Chamado na mesa', body: '${novos.first.locationLabel} precisa de ajuda com o pagamento');
-      }
-      _firstCallLoad = false;
+      // CALLS (isolado — nunca derruba a fila de pedidos)
+      try {
+        final calls = await ref.read(publicApiProvider).waiterCalls(token);
+        final novos = calls.where((c) => !_seenCallIds.contains(c.id)).toList();
+        for (final c in calls) { _seenCallIds.add(c.id); }
+        if (!mounted) return;
+        setState(() => _calls = calls);
+        if (!_firstCallLoad && novos.isNotEmpty) {
+          AlertService.ring(title: '🔔 Chamado na mesa', body: '${novos.first.locationLabel} precisa de ajuda com o pagamento');
+        }
+        _firstCallLoad = false; // só vira após um fetch de calls bem-sucedido
+      } catch (_) {}
     } catch (_) {
       if (!mounted) return;
       if (!silent || _orders == null) setState(() => _error = true);

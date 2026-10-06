@@ -16,12 +16,20 @@ class AlertService {
       await _plugin.initialize(settings: const InitializationSettings(android: android, iOS: ios));
       final androidImpl = _plugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      await androidImpl?.requestNotificationsPermission(); // Android 13+
       await androidImpl?.createNotificationChannel(const AndroidNotificationChannel(
         _channelId, 'Chamados',
         description: 'Chamados de clientes na mesa',
         importance: Importance.max, playSound: true, enableVibration: true,
       ));
+    } catch (_) {}
+  }
+
+  /// Pede a permissão de notificação (Android 13+). Só o garçom precisa.
+  static Future<void> ensurePermission() async {
+    try {
+      await _plugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
     } catch (_) {}
   }
 
