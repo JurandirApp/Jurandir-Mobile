@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
@@ -30,6 +32,13 @@ class _PayMethod {
   final Color color;
   const _PayMethod(this.id, this.label, this.icon, this.color);
 }
+
+/// EventChannel por onde o `pay_android` (3.2.0) devolve o resultado do Google
+/// Pay. Precisa estar ESCUTANDO antes de `showPaymentSelector`, senão o plugin
+/// lança `illegalEventChannelState` e a folha nem abre. É o mesmo canal que o
+/// widget `GooglePayButton` assina internamente.
+const EventChannel _gpayResultChannel =
+    EventChannel('plugins.flutter.io/pay/payment_result');
 
 /// Checkout: resumo + observação + "Pagar tudo / Dividir conta" + métodos +
 /// barra de pagar.
@@ -124,22 +133,71 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ? WalletConfig.applePay
         : WalletConfig.googlePayFor(_cartEst()?.gatewayFor('googlePay') ?? 'PAGARME');
     final client = Pay({provider: PaymentConfiguration.fromJsonString(config)});
+    final items = [
+      PaymentItem(
+        label: 'Total',
+        amount: grand.toStringAsFixed(2),
+        status: PaymentItemStatus.final_price,
+      ),
+    ];
     try {
-      final result = await client.showPaymentSelector(provider, [
-        PaymentItem(
-          label: 'Total',
-          amount: grand.toStringAsFixed(2),
-          status: PaymentItemStatus.final_price,
-        ),
-      ]);
+      // Android (Google Pay): o resultado volta pelo EventChannel, não pelo
+      // retorno do método (que devolve "{}"). iOS (Apple Pay) volta direto.
+      final result = iOS
+          ? await client.showPaymentSelector(provider, items)
+          : await _googlePaySelect(client, provider, items);
       if (!mounted) return;
       await _onWallet(result);
-    } catch (_) {
+    } catch (e) {
+      // DIAGNOSTICO TEMPORARIO: dialogo persistente e copiavel com o erro real do
+      // Google/Apple Pay (o toast sumia rapido demais). Reverter depois da causa.
+      debugPrint('GPAY_ERR >>> $e');
       if (mounted) {
-        _toast(iOS
-            ? 'Apple Pay indisponível. Adicione um cartão no Apple Wallet ou use outro método.'
-            : 'Google Pay indisponível. Configure um cartão ou use outro método.');
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(iOS ? 'Apple Pay — erro' : 'Google Pay — erro'),
+            content: SingleChildScrollView(
+              child: SelectableText('$e', style: const TextStyle(fontSize: 13)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Fechar'),
+              ),
+            ],
+          ),
+        );
       }
+    }
+  }
+
+  /// Google Pay (pay_android 3.2.0): assina o EventChannel do resultado ANTES de
+  /// abrir a folha (o `onListen` é o que ativa o canal no nativo) e aguarda o
+  /// primeiro resultado/erro por ele. `showPaymentSelector` retorna "{}" — o
+  /// pagamento de verdade chega pelo stream. Sem isso: `illegalEventChannelState`.
+  Future<Map<String, dynamic>> _googlePaySelect(
+      Pay client, PayProvider provider, List<PaymentItem> items) async {
+    final completer = Completer<Map<String, dynamic>>();
+    final sub = _gpayResultChannel.receiveBroadcastStream().listen(
+      (event) {
+        if (completer.isCompleted) return;
+        try {
+          completer.complete(jsonDecode(event as String) as Map<String, dynamic>);
+        } catch (e) {
+          completer.completeError(e);
+        }
+      },
+      onError: (Object e) {
+        if (!completer.isCompleted) completer.completeError(e);
+      },
+    );
+    try {
+      // Dispara a folha (retorno "{}" descartado; o resultado vem pelo stream).
+      await client.showPaymentSelector(provider, items);
+      return await completer.future;
+    } finally {
+      await sub.cancel();
     }
   }
 
