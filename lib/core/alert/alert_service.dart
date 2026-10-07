@@ -9,7 +9,7 @@ class AlertService {
 
   static Future<void> init() async {
     try {
-      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const android = AndroidInitializationSettings('@drawable/ic_notification');
       const ios = DarwinInitializationSettings(
         requestAlertPermission: true, requestSoundPermission: true, requestBadgePermission: false,
       );
@@ -44,6 +44,7 @@ class AlertService {
             _channelId, 'Chamados',
             importance: Importance.max, priority: Priority.high,
             playSound: true, enableVibration: true, category: AndroidNotificationCategory.call,
+            icon: 'ic_notification', color: Color(0xFFFFC24B),
           ),
           iOS: DarwinNotificationDetails(presentSound: true, presentAlert: true),
         ),
