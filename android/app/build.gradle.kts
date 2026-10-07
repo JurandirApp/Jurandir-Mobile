@@ -22,6 +22,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications (chamar-garçom) exige core library desugaring.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -80,6 +82,8 @@ flutter {
 }
 
 dependencies {
+    // Exigido pelo flutter_local_notifications (desugaring da lib padrão do Java 8+).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // 16 KB page size (exigência do Google Play desde nov/2025). O mobile_scanner
     // 5.2.3 trazia bibliotecas nativas de 4 KB — libbarhopper_v3.so (ML Kit barcode)
     // e libimage_processing_util_jni.so (CameraX). Estas versões alinham os .so a
