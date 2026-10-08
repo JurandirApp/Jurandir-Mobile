@@ -663,6 +663,35 @@ class AdminSearches {
   }
 }
 
+/// Repasse de débito (Pix) por bar — de `/api/public/admin/debit-payout`.
+/// `aRepassar` = total menos a taxa Jurandir (ou o split configurado no pagamento).
+class DebitPayoutRow {
+  final String establishmentId;
+  final String nome;
+  final int qtd;
+  final double bruto;
+  final double taxa;
+  final double aRepassar;
+
+  const DebitPayoutRow({
+    required this.establishmentId,
+    required this.nome,
+    required this.qtd,
+    required this.bruto,
+    required this.taxa,
+    required this.aRepassar,
+  });
+
+  factory DebitPayoutRow.fromJson(Map<String, dynamic> j) => DebitPayoutRow(
+        establishmentId: (j['establishmentId'] as String?) ?? '',
+        nome: (j['nome'] as String?) ?? '',
+        qtd: (j['qtd'] as num?)?.toInt() ?? 0,
+        bruto: (j['bruto'] as num?)?.toDouble() ?? 0,
+        taxa: (j['taxa'] as num?)?.toDouble() ?? 0,
+        aRepassar: (j['aRepassar'] as num?)?.toDouble() ?? 0,
+      );
+}
+
 /// Compra no backlog da plataforma (Admin).
 class BacklogPurchase {
   final String code;

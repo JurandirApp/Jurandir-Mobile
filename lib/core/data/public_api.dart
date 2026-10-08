@@ -32,6 +32,18 @@ class PublicApi {
     return list.map(MenuItem.fromJson).toList();
   }
 
+  /// Mesas/pontos de QR cadastrados do bar (só os labels), pela rota pública do
+  /// slug. Pro cliente ESCOLHER a mesa numa lista em vez de digitar — evita a
+  /// mesma mesa virar duas ("Mesa 02" vs "Mesa 2"). Lista vazia se indisponível.
+  Future<List<String>> barSpots(String slug) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/$slug');
+      return ((res.data?['spots'] as List?) ?? const []).cast<String>();
+    } on DioException {
+      return const [];
+    }
+  }
+
   /// "Bairro, Cidade" a partir das coordenadas do GPS (pro header "Você está
   /// em…"). Null se o backend não conseguir resolver.
   Future<String?> reverseGeocode(double lat, double lng) async {
@@ -432,6 +444,44 @@ class PublicApi {
     return AdminSearches.fromJson(res.data!);
   }
 
+  /// Repasse de débito (Pix) por bar, por período (Admin · Repasse Débito).
+  /// `period` = 'hoje' | '7d' | '30d' | 'tudo'.
+  Future<List<DebitPayoutRow>> adminDebitPayout(String token, String period) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/admin/debit-payout',
+      queryParameters: {'period': period},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return ((res.data!['rows'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(DebitPayoutRow.fromJson)
+        .toList();
+  }
+
+  /// Ambiente (TEST/PRODUCTION) de cada gateway (Admin · Pagamentos).
+  Future<({String pagbank, String pagarme})> adminPaymentModes(String token) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/admin/payment-mode',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    final d = res.data!;
+    return (
+      pagbank: (d['pagbankMode'] as String?) ?? 'TEST',
+      pagarme: (d['pagarmeMode'] as String?) ?? 'PRODUCTION',
+    );
+  }
+
+  /// Troca o ambiente de um gateway. `gateway` = 'pagbank' | 'pagarme';
+  /// `mode` = 'TEST' | 'PRODUCTION'. Devolve o modo efetivo salvo no servidor.
+  Future<String> setPaymentMode(String token, String gateway, String mode) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/admin/payment-mode',
+      data: {'gateway': gateway, 'mode': mode},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return (res.data?['mode'] as String?) ?? mode;
+  }
+
   /// Fila do garçom agrupada por pedido (GET /waiter/orders).
   Future<List<WaiterOrder>> waiterOrders(String token) async {
     final res = await _dio.get<Map<String, dynamic>>('/waiter/orders',
@@ -716,6 +766,22 @@ final adminSearchesProvider = FutureProvider<AdminSearches?>((ref) async {
   final token = ref.watch(authProvider).token;
   if (token == null) return null;
   return ref.watch(publicApiProvider).adminSearches(token);
+});
+
+/// Repasse de débito por período (Admin). family: 'hoje' | '7d' | '30d' | 'tudo'.
+final adminDebitPayoutProvider =
+    FutureProvider.family<List<DebitPayoutRow>, String>((ref, period) async {
+  final token = ref.watch(authProvider).token;
+  if (token == null) return const <DebitPayoutRow>[];
+  return ref.watch(publicApiProvider).adminDebitPayout(token, period);
+});
+
+/// Ambiente (TEST/PRODUCTION) de cada gateway (Admin · Pagamentos).
+final adminPaymentModesProvider =
+    FutureProvider<({String pagbank, String pagarme})>((ref) async {
+  final token = ref.watch(authProvider).token;
+  if (token == null) return (pagbank: 'TEST', pagarme: 'PRODUCTION');
+  return ref.watch(publicApiProvider).adminPaymentModes(token);
 });
 
 /// Perfil do estabelecimento logado (Estab · Perfil).

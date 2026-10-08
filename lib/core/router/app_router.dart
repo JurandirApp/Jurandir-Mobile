@@ -7,6 +7,8 @@ import '../../features/admin/presentation/admin_cadastros_screen.dart';
 import '../../features/admin/presentation/admin_conta_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_faturamento_screen.dart';
+import '../../features/admin/presentation/admin_pagamentos_screen.dart';
+import '../../features/admin/presentation/admin_repasse_debito_screen.dart';
 import '../../features/admin/presentation/admin_taxas_screen.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/buscar/presentation/buscar_screen.dart';
@@ -185,6 +187,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               routes: [
                 GoRoute(path: 'cadastros', builder: (context, state) => const AdminCadastrosScreen()),
                 GoRoute(path: 'taxas', builder: (context, state) => const AdminTaxasScreen()),
+                GoRoute(path: 'pagamentos', builder: (context, state) => const AdminPagamentosScreen()),
+                GoRoute(path: 'repasse-debito', builder: (context, state) => const AdminRepasseDebitoScreen()),
               ],
             ),
           ]),

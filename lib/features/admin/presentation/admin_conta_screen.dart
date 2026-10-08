@@ -19,6 +19,8 @@ class AdminContaScreen extends ConsumerWidget {
     final menu = [
       (Symbols.storefront, 'Cadastros de estabelecimentos', '/admin/conta/cadastros'),
       (Symbols.percent, 'Taxas por estabelecimento', '/admin/conta/taxas'),
+      (Symbols.credit_card, 'Pagamentos (gateways)', '/admin/conta/pagamentos'),
+      (Symbols.payments, 'Repasse de débito (Pix)', '/admin/conta/repasse-debito'),
     ];
 
     return Scaffold(
