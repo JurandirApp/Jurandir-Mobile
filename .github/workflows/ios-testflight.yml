@@ -102,3 +102,11 @@ jobs:
           name: ipa
           path: build/ios/ipa/*.ipa
           if-no-files-found: ignore
+
+      - name: Guarda os dSYMs (p/ symbolicar crash do build, se precisar)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsyms
+          path: build/ios/archive/Runner.xcarchive/dSYMs
+          if-no-files-found: ignore
