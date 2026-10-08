@@ -1,0 +1,92 @@
+# Diagnóstico: abre o app num SIMULADOR iOS no GitHub Actions e detecta crash de
+# abertura — SEM assinar nem enviar nada pra Apple. Serve pra achar o plugin
+# culpado do crash de abertura no iOS 27 (UIScene / "unrecognized selector
+# synchronize" do build 24). Roda manual (workflow_dispatch).
+#
+# COMO USAR: aba Actions > "iOS - Smoke test (crash de abertura)" > Run workflow.
+# Leia o passo "Abre no simulador e captura o crash": a exceção mostra o nome
+# REAL da classe culpada. O log completo também sai no artefato "smoke-logs".
+
+name: iOS - Smoke test (crash de abertura)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke-ios:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      BUNDLE_ID: br.app.jurandir
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Mostra Xcode + simuladores disponiveis
+        run: |
+          xcodebuild -version
+          echo "--- runtimes ---"
+          xcrun simctl list runtimes
+          echo "--- devices ---"
+          xcrun simctl list devices available
+
+      - name: Flutter packages
+        run: flutter pub get
+
+      - name: CocoaPods
+        run: find . -name "Podfile" -execdir pod install \;
+
+      - name: Build pro simulador (debug, sem assinatura)
+        run: |
+          flutter build ios --simulator --debug \
+            --dart-define-from-file=dart_defines.prod.json
+
+      - name: Abre no simulador e captura o crash
+        run: |
+          set -uo pipefail
+          APP=$(find build/ios/iphonesimulator -maxdepth 1 -name '*.app' | head -n1)
+          echo "App bundle: $APP"
+          # device mais novo disponivel (prefere iPad p/ espelhar a analise da Apple)
+          UDID=$(xcrun simctl list devices available | grep -i ipad | grep -Eo '[0-9A-F-]{36}' | head -n1)
+          [ -z "${UDID:-}" ] && UDID=$(xcrun simctl list devices available | grep -Eo '[0-9A-F-]{36}' | head -n1)
+          echo "Simulador UDID: $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b || true
+          xcrun simctl install "$UDID" "$APP"
+          rm -f ~/Library/Logs/DiagnosticReports/Runner-*.ips 2>/dev/null || true
+          # lanca em background capturando o console (a excecao ObjC sai aqui, com o nome REAL da classe)
+          ( xcrun simctl launch --console-pty "$UDID" "$BUNDLE_ID" > "$RUNNER_TEMP/launch.log" 2>&1 ) &
+          sleep 25
+          echo "===================== LOG DE ABERTURA ====================="
+          cat "$RUNNER_TEMP/launch.log" 2>/dev/null || echo "(sem log)"
+          echo "===================== CRASH REPORTS ======================="
+          for f in $(find ~/Library/Logs/DiagnosticReports -name 'Runner-*.ips' -mmin -5 2>/dev/null); do
+            echo "----- $f -----"; cat "$f"
+          done
+          echo "==========================================================="
+          if grep -qi "uncaught exception\|unrecognized selector\|Fatal error" "$RUNNER_TEMP/launch.log" 2>/dev/null; then
+            echo "CRASHOU NA ABERTURA -> veja a excecao acima (nome da classe culpada)"
+            exit 1
+          fi
+          echo "App abriu no simulador sem crashar."
+
+      - name: Junta os logs
+        if: always()
+        run: |
+          mkdir -p smoke-logs
+          cp "$RUNNER_TEMP/launch.log" smoke-logs/ 2>/dev/null || true
+          cp ~/Library/Logs/DiagnosticReports/Runner-*.ips smoke-logs/ 2>/dev/null || true
+
+      - name: Upload dos logs (artefato)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: smoke-logs/
+          if-no-files-found: ignore
