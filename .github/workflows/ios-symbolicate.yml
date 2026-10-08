@@ -1,0 +1,76 @@
+# Diagnóstico 2: traduz os endereços do crash REAL do build 24 (o .ips da Apple)
+# em nomes de função/plugin — sem precisar de iOS 27 nem de iPhone.
+#
+# Rebuilda o mesmo código do build 24 (o app não mudou desde então), gera o dSYM
+# e roda `atos` nos offsets do crash. O frame mais fundo (offset 10411380) é quem
+# mandou o `synchronize` → o plugin culpado.
+#
+# ⚠️ Best-effort: é um build novo, o layout pode diferir um tiquinho do build 24,
+# mas como o código é idêntico e o toolchain é o mesmo, deve bater e revelar o plugin.
+#
+# COMO USAR: Actions > "iOS - Symbolicate (acha o plugin do crash)" > Run workflow.
+# Me manda a saída do passo "Symbolica os frames do crash".
+
+name: iOS - Symbolicate (acha o plugin do crash)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  symbolicate:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter packages
+        run: flutter pub get
+
+      - name: CocoaPods
+        run: find . -name "Podfile" -execdir pod install \;
+
+      - name: Build release (sem assinatura) p/ gerar os simbolos
+        run: flutter build ios --release --no-codesign
+
+      - name: Acha o dSYM
+        id: find
+        run: |
+          echo "--- procurando dSYM ---"
+          find build -name '*.dSYM' -maxdepth 6 2>/dev/null || true
+          DWARF=$(find build -path '*Runner.app.dSYM*DWARF/Runner' 2>/dev/null | head -n1)
+          [ -z "$DWARF" ] && DWARF=$(find build -path '*.dSYM*DWARF/*' 2>/dev/null | head -n1)
+          BIN="build/ios/iphoneos/Runner.app/Runner"
+          echo "DWARF (dSYM): $DWARF"
+          echo "BIN  (app):   $BIN"
+          echo "dwarf=$DWARF" >> "$GITHUB_OUTPUT"
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+          echo "--- UUID do build atual ---"
+          [ -n "$DWARF" ] && dwarfdump --uuid "$DWARF" 2>/dev/null || true
+          dwarfdump --uuid "$BIN" 2>/dev/null || true
+
+      - name: Symbolica os frames do crash (build 24)
+        run: |
+          BASE=4364222464   # base do Runner no .ips do build 24
+          TARGET="${{ steps.find.outputs.dwarf }}"
+          [ -z "$TARGET" ] && TARGET="${{ steps.find.outputs.bin }}"
+          echo "Alvo da symbolicacao: $TARGET"
+          echo "(build NOVO; se os nomes vierem estranhos, o layout mudou um pouco)"
+          echo "=========================================================="
+          echo ">>> FRAME MAIS IMPORTANTE (quem mandou o 'synchronize'):"
+          atos -o "$TARGET" -arch arm64 -l $BASE $((BASE + 10411380)) 2>&1 || echo "(falhou)"
+          echo "----------------------------------------------------------"
+          echo ">>> Pilha do app (do mais fundo ate o AppDelegate):"
+          for off in 10411380 10411196 10404772 747340 745260 745424 11073048 11078372 11094816 16740 17388; do
+            printf 'offset %-10s -> ' "$off"
+            atos -o "$TARGET" -arch arm64 -l $BASE $((BASE + off)) 2>&1 || echo "(falhou)"
+          done
+          echo "=========================================================="
+          echo "Procure um nome de PLUGIN (ex.: FLTFirebaseMessaging, FlutterLocalNotifications,"
+          echo "SharedPreferences, FLTGoogleMobileAds, FLTPay, mobile_scanner, geolocator...)."
