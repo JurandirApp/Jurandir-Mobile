@@ -1,0 +1,11 @@
+{
+  "_comment": "Build de TESTE do PagBank (sandbox). Pareia com o backend em modo PagBank=Teste. PAY_ENV=TEST faz o Google Pay usar o ambiente de teste do Google. Sobe na faixa INTERNAL TESTING do Play (nao na producao). Para o lancamento real, use dart_defines.prod.json com PAGBANK_MERCHANT_ID de PRODUCAO + GOOGLE_MERCHANT_ID.",
+  "API_BASE_URL": "https://jurandir.app.br/api/public",
+  "PAY_ENV": "TEST",
+  "PAY_GATEWAY": "pagarme",
+  "PAY_MERCHANT_ID": "acc_EyDVN88HkDCg0eGm",
+  "PAGARME_PUBLIC_KEY": "pk_bLlMRg5TEF6K3ykV",
+  "PAGBANK_MERCHANT_ID": "ACCO_E6A90307-3744-4DAE-8F70-271CAA8BB10C",
+  "GOOGLE_MERCHANT_ID": "",
+  "APPLE_MERCHANT_ID": "merchant.br.app.jurandir"
+}
