@@ -267,77 +267,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  /// Pergunta a mesa/guarda-sol quando o cliente entrou sem QR. Retorna o texto
-  /// digitado, ou null se ele cancelar.
+  /// Pergunta a mesa quando o cliente entrou sem QR. Mostra as mesas CADASTRADAS
+  /// do bar pra ESCOLHER (evita duplicar "Mesa 02"/"Mesa 2") + opção de digitar.
+  /// Retorna o label escolhido/digitado, ou null se cancelar.
   Future<String?> _askTable() async {
-    final ctrl = TextEditingController();
-    final result = await showModalBottomSheet<String>(
+    final slug = _cartEst()?.slug;
+    List<String> spots = const [];
+    if (slug != null) {
+      spots = await ref.read(publicApiProvider).barSpots(slug); // best-effort (nunca lança)
+    }
+    if (!mounted) return null;
+    return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        final bottom = MediaQuery.viewInsetsOf(ctx).bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 18, 20, 18 + bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
-              ),
-              const SizedBox(height: 16),
-              Text('Qual a sua mesa?', style: AppText.display(size: 20, letterSpacing: -0.3)),
-              const SizedBox(height: 6),
-              Text('Diga onde você está pra o pedido chegar no lugar certo.',
-                  style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.55))),
-              const SizedBox(height: 14),
-              TextField(
-                controller: ctrl,
-                autofocus: true,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (v) {
-                  if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
-                },
-                style: AppText.body(size: 15, weight: FontWeight.w600),
-                decoration: InputDecoration(
-                  hintText: 'Ex: Mesa 5, Guarda-sol 12',
-                  hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.4)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.inkA(0.15), width: 1.5)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.ink, width: 2)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: Material(
-                  color: AppColors.coral,
-                  borderRadius: BorderRadius.circular(999),
-                  child: InkWell(
-                    onTap: () {
-                      final v = ctrl.text.trim();
-                      if (v.isNotEmpty) Navigator.pop(ctx, v);
-                    },
-                    borderRadius: BorderRadius.circular(999),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      child: Center(child: Text('Confirmar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white))),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => _TableSheet(spots: spots),
     );
-    ctrl.dispose();
-    return result;
   }
 
   /// Garante um CPF válido pro pagador (o Pagar.me exige `customer.document`).
@@ -1296,4 +1242,152 @@ class _CpfContinueLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text('Continuar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white));
+}
+
+/// Sheet pra escolher a mesa quando o cliente entrou sem QR: campo pra buscar/
+/// digitar + a LISTA das mesas cadastradas do bar (toque = escolhe). O campo
+/// filtra a lista ao digitar e também cria uma mesa nova ("Usar …"). Escolher da
+/// lista evita a mesma mesa virar duas ("Mesa 02" vs "Mesa 2").
+class _TableSheet extends StatefulWidget {
+  final List<String> spots;
+  const _TableSheet({required this.spots});
+
+  @override
+  State<_TableSheet> createState() => _TableSheetState();
+}
+
+class _TableSheetState extends State<_TableSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(() => setState(() {})); // filtra a lista ao digitar
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _confirmTyped() {
+    final v = _ctrl.text.trim();
+    if (v.isNotEmpty) Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final hasSpots = widget.spots.isNotEmpty;
+    final typed = _ctrl.text.trim();
+    final q = typed.toLowerCase();
+    final filtered = q.isEmpty ? widget.spots : widget.spots.where((s) => s.toLowerCase().contains(q)).toList();
+    final isExisting = widget.spots.any((s) => s.toLowerCase() == q);
+    final canConfirm = typed.isNotEmpty;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 18, 20, 18 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
+          ),
+          const SizedBox(height: 16),
+          Text('Qual a sua mesa?', style: AppText.display(size: 20, letterSpacing: -0.3)),
+          const SizedBox(height: 6),
+          Text(
+            hasSpots
+                ? 'Escolha a sua mesa na lista — ou digite a sua.'
+                : 'Diga onde você está pra o pedido chegar no lugar certo.',
+            style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.55)),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _confirmTyped(),
+            style: AppText.body(size: 15, weight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: hasSpots ? 'Buscar ou digitar a mesa' : 'Ex: Mesa 5, Guarda-sol 12',
+              hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.4)),
+              prefixIcon: Icon(hasSpots ? Symbols.search : Symbols.edit_location_alt, size: 20, color: AppColors.inkA(0.4)),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.inkA(0.15), width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.ink, width: 2)),
+            ),
+          ),
+          if (hasSpots) ...[
+            const SizedBox(height: 12),
+            Text('MESAS DO BAR', style: AppText.body(size: 10, weight: FontWeight.w800, letterSpacing: 0.4, color: AppColors.inkA(0.4))),
+            const SizedBox(height: 7),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.3),
+              child: filtered.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Text('Nenhuma mesa com esse nome — toque em "Usar" pra criar.',
+                          style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      itemBuilder: (_, i) => _spotRow(filtered[i]),
+                    ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: Material(
+              color: canConfirm ? AppColors.coral : AppColors.inkA(0.12),
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                onTap: canConfirm ? _confirmTyped : null,
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  child: Center(
+                    child: Text(
+                      canConfirm && hasSpots && !isExisting ? 'Usar "$typed"' : 'Confirmar',
+                      style: AppText.body(size: 15, weight: FontWeight.w800, color: canConfirm ? Colors.white : AppColors.inkA(0.4)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _spotRow(String s) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => Navigator.pop(context, s),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.inkA(0.12), width: 1.5),
+          ),
+          child: Row(
+            children: [
+              Icon(Symbols.table_restaurant, size: 18, color: AppColors.inkA(0.6)),
+              const SizedBox(width: 10),
+              Expanded(child: Text(s, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body(size: 14.5, weight: FontWeight.w700))),
+              Icon(Symbols.chevron_right, size: 18, color: AppColors.inkA(0.3)),
+            ],
+          ),
+        ),
+      );
 }

@@ -6,6 +6,7 @@ class TrackedTable {
   final int customers; // clientes distintos no dia
   final int orderCount;
   final double revenue; // faturamento do dia nessa mesa (R$)
+  final DateTime? lastOrderAt; // horário do último pedido no dia (null = sem pedidos)
 
   const TrackedTable({
     required this.label,
@@ -13,6 +14,7 @@ class TrackedTable {
     required this.customers,
     required this.orderCount,
     required this.revenue,
+    this.lastOrderAt,
   });
 
   factory TrackedTable.fromJson(Map<String, dynamic> j) => TrackedTable(
@@ -21,6 +23,7 @@ class TrackedTable {
         customers: (j['customers'] as num?)?.toInt() ?? 0,
         orderCount: (j['orderCount'] as num?)?.toInt() ?? 0,
         revenue: (j['revenue'] as num?)?.toDouble() ?? 0,
+        lastOrderAt: j['lastOrderAt'] == null ? null : DateTime.tryParse(j['lastOrderAt'] as String),
       );
 }
 

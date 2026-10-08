@@ -214,6 +214,13 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppText.body(size: 12.5, weight: FontWeight.w700, color: empty ? AppColors.inkA(0.4) : AppColors.successText)),
+                if (!empty && t.lastOrderAt != null) ...[
+                  const SizedBox(height: 2),
+                  Text('Último pedido ${_hhmm(t.lastOrderAt!)} · ${_ago(t.lastOrderAt!)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
+                ],
               ],
             ),
           ),
@@ -222,6 +229,23 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
       ),
     );
   }
+}
+
+/// Hora "HH:MM" no fuso do Brasil (UTC-3) a partir de um DateTime (vem em UTC).
+String _hhmm(DateTime d) {
+  final br = d.toUtc().subtract(const Duration(hours: 3));
+  return '${br.hour.toString().padLeft(2, '0')}:${br.minute.toString().padLeft(2, '0')}';
+}
+
+/// "há 12 min" / "há 2 h" / "há 3 dias" desde o último pedido.
+String _ago(DateTime d) {
+  final min = DateTime.now().toUtc().difference(d.toUtc()).inMinutes;
+  if (min < 1) return 'agora';
+  if (min < 60) return 'há $min min';
+  final h = min ~/ 60;
+  if (h < 24) return 'há $h h';
+  final days = h ~/ 24;
+  return 'há $days ${days == 1 ? 'dia' : 'dias'}';
 }
 
 /// "R$ 1.234,50" (pt-BR simples, sem intl).
