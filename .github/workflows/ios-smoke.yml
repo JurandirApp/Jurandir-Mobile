@@ -24,27 +24,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Seleciona o Xcode mais novo do runner
+      - name: Mostra os Xcodes do runner
         run: |
+          echo "--- Xcode padrao (usado pra COMPILAR, igual ao build da loja) ---"
+          xcodebuild -version
           echo "--- Xcodes instalados ---"
           ls -d /Applications/Xcode*.app 2>/dev/null || true
-          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n1)
-          if [ -n "$NEWEST" ]; then
-            echo "Selecionando: $NEWEST"
-            sudo xcode-select -s "$NEWEST/Contents/Developer"
-          fi
-          xcodebuild -version
-
-      - name: Garante runtime do iOS 27 (se o Xcode suportar)
-        run: |
-          if xcrun simctl list runtimes | grep -q "iOS 27"; then
-            echo "iOS 27 ja instalado."
-          else
-            echo "Sem iOS 27 instalado. Tentando baixar (so funciona se o Xcode for 27+)..."
-            xcodebuild -downloadPlatform iOS 2>&1 | tail -5 || true
-          fi
-          echo "--- runtimes ---"
-          xcrun simctl list runtimes
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -55,10 +40,30 @@ jobs:
       - name: Flutter packages
         run: flutter pub get
 
+      # Compila com o Xcode PADRAO (o mesmo cenario do build 25: compilado no
+      # Xcode 26.x e crashando no iOS 27). O Xcode mais novo quebra os Pods.
       - name: Build pro simulador (debug, sem assinatura)
         run: |
           flutter build ios --simulator --debug \
             --dart-define-from-file=dart_defines.prod.json
+
+      # SO AGORA troca pro Xcode mais novo — so pra ter o runtime/simulador iOS 27.
+      - name: Troca pro Xcode mais novo + garante runtime do iOS 27
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n1)
+          if [ -n "$NEWEST" ]; then
+            echo "Selecionando p/ RODAR: $NEWEST"
+            sudo xcode-select -s "$NEWEST/Contents/Developer"
+          fi
+          xcodebuild -version
+          if xcrun simctl list runtimes | grep -q "iOS 27"; then
+            echo "iOS 27 ja instalado."
+          else
+            echo "Sem iOS 27 instalado. Tentando baixar (so funciona se o Xcode for 27+)..."
+            xcodebuild -downloadPlatform iOS 2>&1 | tail -5 || true
+          fi
+          echo "--- runtimes ---"
+          xcrun simctl list runtimes
 
       - name: Abre no simulador e captura o crash
         run: |
