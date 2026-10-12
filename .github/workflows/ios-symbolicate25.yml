@@ -1,0 +1,65 @@
+# Symbolicação EXATA do crash do build 25: baixa o dSYM que o proprio build 25
+# arquivou (artefato "dsyms" do run do ios-testflight) e roda `atos` nos
+# enderecos exatos do .ips. UUID bate (c8758a27-...), entao o resultado e o nome
+# REAL da funcao/plugin que mandou o "synchronize" — sem rebuild, sem deslocamento.
+#
+# COMO USAR: Actions > "iOS - Symbolicate build 25 (dSYM exato)" > Run workflow.
+# (Deixe run_id vazio: ele pega o run do ios-testflight mais recente = o build 25.)
+# Me manda a saida do passo "atos nos frames do crash".
+
+name: iOS - Symbolicate build 25 (dSYM exato)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID do ios-testflight que gerou o build 25 (vazio = pega o mais recente com dSYM)"
+        required: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  symbolicate:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Baixa o dSYM do build 25 (artefato "dsyms")
+        run: |
+          set -e
+          RUN="${{ github.event.inputs.run_id }}"
+          if [ -z "$RUN" ]; then
+            RUN=$(gh run list --workflow="iOS - TestFlight" --json databaseId,conclusion --limit 30 \
+                  -q '[.[] | select(.conclusion=="success")][0].databaseId')
+          fi
+          echo "Usando run: $RUN"
+          mkdir -p dsyms
+          gh run download "$RUN" -n dsyms -D dsyms
+          echo "--- arquivos baixados ---"
+          find dsyms -name 'Runner' -path '*DWARF*' 2>/dev/null
+          find dsyms -maxdepth 2 -name '*.dSYM' 2>/dev/null
+
+      - name: atos nos frames do crash (build 25)
+        run: |
+          DWARF=$(find dsyms -path '*Runner.app.dSYM*DWARF/Runner' | head -n1)
+          echo "dSYM: $DWARF"
+          echo "--- UUID (tem que ser c8758a27-7554-3511-9de6-bd0fba428974) ---"
+          dwarfdump --uuid "$DWARF" 2>/dev/null || true
+          BASE=4328570880   # base do Runner no .ips do build 25
+          echo "=========================================================="
+          echo ">>> FRAME MAIS IMPORTANTE (quem mandou o 'synchronize'):"
+          atos -o "$DWARF" -arch arm64 -l $BASE $((BASE + 10411444)) 2>&1 || echo "(falhou)"
+          echo "----------------------------------------------------------"
+          echo ">>> Pilha do app (do mais fundo ate o AppDelegate):"
+          for off in 10411444 10411260 10404836 747404 745324 745488 11073112 11094880 11078436 16740 17436; do
+            printf 'offset %-10s -> ' "$off"
+            atos -o "$DWARF" -arch arm64 -l $BASE $((BASE + off)) 2>&1 || echo "(falhou)"
+          done
+          echo "=========================================================="
+          echo "O nome que aparecer no FRAME MAIS IMPORTANTE (e nos vizinhos) e o culpado."
