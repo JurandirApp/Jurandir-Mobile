@@ -31,10 +31,14 @@ jobs:
           echo "--- Xcodes instalados ---"
           ls -d /Applications/Xcode*.app 2>/dev/null || true
 
+      # Fixado na 3.47.6 (a que compilou o build 25 e o smoke de 8/10). O stable
+      # mais novo exige simulador arm64 e o MLKit (mobile_scanner) nao tem esse
+      # slice -> "Pods_Runner not found".
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.6
           cache: true
 
       - name: Flutter packages
