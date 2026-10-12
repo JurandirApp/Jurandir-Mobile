@@ -1,11 +1,13 @@
 # Diagnóstico: abre o app num SIMULADOR iOS no GitHub Actions e detecta crash de
-# abertura — SEM assinar nem enviar nada pra Apple. Serve pra achar o plugin
-# culpado do crash de abertura no iOS 27 (UIScene / "unrecognized selector
-# synchronize" do build 24). Roda manual (workflow_dispatch).
+# abertura — SEM assinar nem enviar nada pra Apple. Objetivo: reproduzir o crash
+# do iOS 27 ("unrecognized selector synchronize") e ler a EXCEÇÃO REAL no console
+# (nome da classe + motivo), que o .ips da Apple não traz.
 #
-# COMO USAR: aba Actions > "iOS - Smoke test (crash de abertura)" > Run workflow.
-# Leia o passo "Abre no simulador e captura o crash": a exceção mostra o nome
-# REAL da classe culpada. O log completo também sai no artefato "smoke-logs".
+# Usa o Xcode MAIS NOVO do runner e um iPad no iOS MAIS NOVO disponível (prefere
+# 27; tenta baixar o runtime se o Xcode suportar). Se não houver iOS 27, avisa.
+#
+# COMO USAR: Actions > "iOS - Smoke test (crash de abertura)" > Run workflow.
+# Leia o passo "Abre no simulador e captura o crash".
 
 name: iOS - Smoke test (crash de abertura)
 
@@ -15,12 +17,34 @@ on:
 jobs:
   smoke-ios:
     runs-on: macos-latest
-    timeout-minutes: 40
+    timeout-minutes: 75
     env:
       BUNDLE_ID: br.app.jurandir
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Seleciona o Xcode mais novo do runner
+        run: |
+          echo "--- Xcodes instalados ---"
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n1)
+          if [ -n "$NEWEST" ]; then
+            echo "Selecionando: $NEWEST"
+            sudo xcode-select -s "$NEWEST/Contents/Developer"
+          fi
+          xcodebuild -version
+
+      - name: Garante runtime do iOS 27 (se o Xcode suportar)
+        run: |
+          if xcrun simctl list runtimes | grep -q "iOS 27"; then
+            echo "iOS 27 ja instalado."
+          else
+            echo "Sem iOS 27 instalado. Tentando baixar (so funciona se o Xcode for 27+)..."
+            xcodebuild -downloadPlatform iOS 2>&1 | tail -5 || true
+          fi
+          echo "--- runtimes ---"
+          xcrun simctl list runtimes
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -28,19 +52,8 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Mostra Xcode + simuladores disponiveis
-        run: |
-          xcodebuild -version
-          echo "--- runtimes ---"
-          xcrun simctl list runtimes
-          echo "--- devices ---"
-          xcrun simctl list devices available
-
       - name: Flutter packages
         run: flutter pub get
-
-      - name: CocoaPods
-        run: find . -name "Podfile" -execdir pod install \;
 
       - name: Build pro simulador (debug, sem assinatura)
         run: |
@@ -52,26 +65,47 @@ jobs:
           set -uo pipefail
           APP=$(find build/ios/iphonesimulator -maxdepth 1 -name '*.app' | head -n1)
           echo "App bundle: $APP"
-          # device mais novo disponivel (prefere iPad p/ espelhar a analise da Apple)
-          UDID=$(xcrun simctl list devices available | grep -i ipad | grep -Eo '[0-9A-F-]{36}' | head -n1)
-          [ -z "${UDID:-}" ] && UDID=$(xcrun simctl list devices available | grep -Eo '[0-9A-F-]{36}' | head -n1)
-          echo "Simulador UDID: $UDID"
+          # iPad no iOS MAIS NOVO disponivel (prefere 27). Imprime qual escolheu.
+          PICK=$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys,re
+          d=json.load(sys.stdin)["devices"]
+          best=None
+          for rt,devs in d.items():
+              m=re.search(r"iOS-(\d+)-(\d+)",rt)
+              if not m: continue
+              ver=(int(m.group(1)),int(m.group(2)))
+              for x in devs:
+                  ipad="iPad" in x["name"]
+                  key=(ver,ipad)
+                  if best is None or key>best[0]:
+                      best=(key,x["udid"],x["name"],rt)
+          print(best[1]+"|"+best[2]+"|"+best[3] if best else "")
+          ')
+          UDID="${PICK%%|*}"
+          echo "Simulador escolhido: $PICK"
+          case "$PICK" in
+            *iOS-27*) echo ">>> Rodando em iOS 27 (o mesmo SO da Apple)";;
+            *) echo ">>> ATENCAO: NAO ha iOS 27 neste runner — o crash pode nao reproduzir (bug e so do 27).";;
+          esac
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b || true
           xcrun simctl install "$UDID" "$APP"
-          rm -f ~/Library/Logs/DiagnosticReports/Runner-*.ips 2>/dev/null || true
-          # lanca em background capturando o console (a excecao ObjC sai aqui, com o nome REAL da classe)
+          rm -f ~/Library/Logs/DiagnosticReports/Runner*.ips 2>/dev/null || true
+          # console do app: a excecao ObjC sai aqui com o nome REAL da classe
           ( xcrun simctl launch --console-pty "$UDID" "$BUNDLE_ID" > "$RUNNER_TEMP/launch.log" 2>&1 ) &
-          sleep 25
+          sleep 40
           echo "===================== LOG DE ABERTURA ====================="
           cat "$RUNNER_TEMP/launch.log" 2>/dev/null || echo "(sem log)"
+          echo "============ EXCECAO (linhas-chave do console) ============"
+          grep -iE "terminating app|uncaught exception|unrecognized selector|reason:|First throw call stack" -A 25 "$RUNNER_TEMP/launch.log" 2>/dev/null | head -80 || true
           echo "===================== CRASH REPORTS ======================="
-          for f in $(find ~/Library/Logs/DiagnosticReports -name 'Runner-*.ips' -mmin -5 2>/dev/null); do
-            echo "----- $f -----"; cat "$f"
+          for f in $(find ~/Library/Logs/DiagnosticReports -name 'Runner*.ips' -mmin -10 2>/dev/null); do
+            echo "----- $f -----"; head -c 12000 "$f"; echo
           done
           echo "==========================================================="
-          if grep -qi "uncaught exception\|unrecognized selector\|Fatal error" "$RUNNER_TEMP/launch.log" 2>/dev/null; then
-            echo "CRASHOU NA ABERTURA -> veja a excecao acima (nome da classe culpada)"
+          if grep -qi "uncaught exception\|unrecognized selector" "$RUNNER_TEMP/launch.log" 2>/dev/null \
+             || ls ~/Library/Logs/DiagnosticReports/Runner*.ips >/dev/null 2>&1; then
+            echo "CRASHOU NA ABERTURA -> veja a EXCECAO acima (nome da classe culpada)"
             exit 1
           fi
           echo "App abriu no simulador sem crashar."
@@ -81,7 +115,7 @@ jobs:
         run: |
           mkdir -p smoke-logs
           cp "$RUNNER_TEMP/launch.log" smoke-logs/ 2>/dev/null || true
-          cp ~/Library/Logs/DiagnosticReports/Runner-*.ips smoke-logs/ 2>/dev/null || true
+          cp ~/Library/Logs/DiagnosticReports/Runner*.ips smoke-logs/ 2>/dev/null || true
 
       - name: Upload dos logs (artefato)
         if: always()
