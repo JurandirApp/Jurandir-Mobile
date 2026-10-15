@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:pay/pay.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/client_profile.dart';
 import '../../../core/data/models.dart';
@@ -192,6 +193,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Cartão manual: abre a tela de cartão (tokeniza direto no gateway do método —
   /// Pagar.me ou PagBank), e com o token cria o pedido + cobra via `/orders/card`.
   Future<void> _payCard(double grand, {required bool debit}) async {
+    // InfinitePay: o crédito é pago na página hospedada (sem tokenização no app).
+    if (!debit && _cartEst()?.gatewayFor('credit') == 'INFINITEPAY') return _payHosted('CREDIT');
     if (!await _ensureCpf() || !mounted) return;
     // PagBank: o cartão é criptografado com a chave pública da conta (vem do backend).
     String? pagbankKey;
@@ -267,6 +270,48 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  /// Checkout HOSPEDADO (InfinitePay): o cliente paga Pix ou crédito na página do
+  /// gateway. Cria o pedido + o link (`/orders/checkout`), abre a página e vai pra
+  /// tela de espera, que confirma sozinha pelo polling. O pedido já fica em
+  /// "Pedidos" — se o cliente fechar a página, dá pra reabrir de lá.
+  Future<void> _payHosted(String method) async {
+    if (_submitting) return;
+    final payload = _orderPayload(method: method);
+    if (payload == null) {
+      _finish(incomplete: false); // demo (sem estabelecimento real)
+      return;
+    }
+    setState(() => _submitting = true);
+    await _replacePending();
+    ({bool ok, String? checkoutUrl, ClientOrder? order}) r;
+    try {
+      r = await ref.read(publicApiProvider).createCardCheckout(payload);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast('Não foi possível iniciar o pagamento. Tente de novo.');
+      }
+      return;
+    }
+    final order = r.order;
+    final id = order?.dbId;
+    if (id != null) {
+      await ref.read(myOrderIdsProvider.notifier).add(id);
+      _markPending(id); // se o link falhar, a próxima tentativa descarta este pedido
+    }
+    if (!mounted) return;
+    final url = r.checkoutUrl ?? '';
+    if (!r.ok || order == null || url.isEmpty) {
+      setState(() => _submitting = false);
+      _toast('Não foi possível abrir o pagamento agora. Tente de novo ou use outro método.');
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+    context.go('/pagamento', extra: CardWaitArgs(order: order, checkoutUrl: url));
+  }
+
   /// Pergunta a mesa quando o cliente entrou sem QR. Mostra as mesas CADASTRADAS
   /// do bar pra ESCOLHER (evita duplicar "Mesa 02"/"Mesa 2") + opção de digitar.
   /// Retorna o label escolhido/digitado, ou null se cancelar.
@@ -306,6 +351,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Cria o pedido Pix (cobrança real na Pagar.me) e abre a tela do QR.
   Future<void> _payPix() async {
     if (_submitting) return;
+    // InfinitePay: não há QR Pix por API — o Pix é pago na página hospedada.
+    if (_cartEst()?.gatewayFor('pix') == 'INFINITEPAY') return _payHosted('PIX');
     if (!await _ensureCpf() || !mounted) return;
     final payload = _orderPayload(method: 'PIX');
     if (payload == null) {

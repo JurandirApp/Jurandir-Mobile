@@ -123,7 +123,7 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
           icon: const Icon(Symbols.arrow_back, color: AppColors.ink),
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: Text(inApp ? 'Processando pagamento' : 'Pagamento no cartão',
+        title: Text(inApp ? 'Processando pagamento' : 'Pagamento',
             style: AppText.display(size: 18)),
         centerTitle: false,
       ),
@@ -163,7 +163,7 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                                 ? 'Está demorando um pouco mais que o normal. Assim que o pagamento confirmar, seu pedido aparece em "Pedidos" — você não precisa pagar de novo.'
                                 : inApp
                                     ? 'Estamos processando seu pagamento. Leva alguns segundos — a confirmação aparece aqui sozinha, não feche o app.'
-                                    : 'Abrimos a página segura da Pagar.me pra você pagar com cartão. Conclua lá e volte — a confirmação chega aqui sozinha.',
+                                    : 'Abrimos a página segura de pagamento. Conclua lá (Pix ou cartão) e volte pro app — a confirmação chega aqui sozinha.',
                             textAlign: TextAlign.center,
                             style: AppText.body(size: 13, color: AppColors.inkA(0.65)),
                           ),
