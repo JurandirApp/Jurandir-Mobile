@@ -1009,6 +1009,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 child: Text(pm.label, style: AppText.body(size: 14.5, weight: FontWeight.w800)),
               ),
             ],
+            // Carteiras (Apple/Google Pay) sao cobradas como credito pelos gateways.
+            if (pm.id == 'apple_pay' || pm.id == 'google_pay') ...[
+              Text(
+                'Somente crédito',
+                style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.55)),
+              ),
+              const SizedBox(width: 10),
+            ],
             Container(
               width: 22,
               height: 22,
