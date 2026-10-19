@@ -8,6 +8,8 @@ import '../../features/auth/auth_controller.dart';
 import '../../features/estab/data/tracking_models.dart';
 import '../../features/waiter/data/waiter_models.dart';
 import '../api/api_client.dart';
+import '../api/api_config.dart';
+import '../payments/threeds.dart';
 import 'models.dart';
 import 'onboarding_controller.dart';
 
@@ -96,6 +98,31 @@ class PublicApi {
     }
   }
 
+  /// Abre sessão 3DS do PagBank pro pedido (débito). Nunca lança: 403 →
+  /// 'debitDisabled'; qualquer outra falha → 'unavailable'.
+  Future<({ThreeDsSession? session, String? error})> pagbankThreeDsSession(String orderId) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/pagbank/3ds-session',
+        data: {'orderId': orderId},
+        options: Options(validateStatus: (_) => true),
+      );
+      if (res.statusCode == 200 && res.data != null) {
+        return (session: ThreeDsSession.fromJson(res.data!), error: null);
+      }
+      if (res.statusCode == 403) return (session: null, error: 'debitDisabled');
+      return (session: null, error: 'unavailable');
+    } catch (_) {
+      return (session: null, error: 'unavailable');
+    }
+  }
+
+  /// URL da página HTML do 3DS (mesma base do Dio, segue o ambiente).
+  String pagbankThreeDsPageUrl() {
+    final base = _dio.options.baseUrl.isEmpty ? ApiConfig.baseUrl : _dio.options.baseUrl;
+    return '${base.replaceFirst(RegExp(r'/+$'), '')}/pagbank/3ds';
+  }
+
   /// Cria o pedido + cobra na carteira nativa (Google/Apple Pay) via Pagar.me.
   /// `walletType` = 'google_pay' | 'apple_pay'; `token` = tokenizationData.token.
   /// `orderId` = pedido JÁ criado pelo app (fluxo resiliente): aqui só cobramos.
@@ -150,6 +177,7 @@ class PublicApi {
     required String method, // 'credit' | 'debit'
     Map<String, dynamic>? billing, // endereço de cobrança (antifraude Pagar.me)
     String? customerDocument, // CPF do pagador (o pedido não guarda o doc)
+    String? authenticationId, // id do 3DS do PagBank (débito)
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
       'orderId': orderId,
@@ -157,6 +185,7 @@ class PublicApi {
       'installments': installments,
       'method': method,
       'billing': ?billing,
+      'authenticationId': ?authenticationId,
       if (customerDocument != null && customerDocument.isNotEmpty)
         'customerDocument': customerDocument,
       // Antifraude do Pagar.me + cold start do Neon deixam a cobrança lenta —
