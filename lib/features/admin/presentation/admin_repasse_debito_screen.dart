@@ -11,8 +11,8 @@ import '../../../core/widgets/brutal_card.dart';
 import 'admin_faturamento_screen.dart' show statCell;
 import 'admin_sub_header.dart';
 
-/// Admin · Repasse Débito: débito Pagar.me pago a repassar (Pix) por bar, por
-/// período. Mesma lógica da web — valor a repassar = total menos a taxa Jurandir.
+/// Admin · Repasse Débito: débito (Pagar.me e PagBank) pago a repassar (Pix) por
+/// bar e gateway, por período. Mesma lógica da web — valor a repassar = total menos a taxa Jurandir.
 class AdminRepasseDebitoScreen extends ConsumerStatefulWidget {
   const AdminRepasseDebitoScreen({super.key});
 
@@ -41,7 +41,7 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
             child: Text(
-              'Débitos Pagar.me pagos no período. Valor a repassar por bar = total menos a taxa Jurandir.',
+              'Débitos pagos no período, por gateway. Valor a repassar por bar = total menos a taxa Jurandir.',
               style: AppText.body(size: 12, weight: FontWeight.w600, height: 1.4, color: AppColors.inkA(0.5)),
             ),
           ),
@@ -137,6 +137,12 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
     );
   }
 
+  static String _gatewayLabel(String g) => switch (g) {
+        'PAGARME' => 'Pagar.me',
+        'PAGBANK' => 'PagBank',
+        _ => g,
+      };
+
   Widget _card(DebitPayoutRow r) {
     return BrutalCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -149,6 +155,11 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
                     style: AppText.display(size: 14, weight: FontWeight.w700, letterSpacing: 0)),
               ),
               const SizedBox(width: 8),
+              if (r.gateway.isNotEmpty) ...[
+                Text(_gatewayLabel(r.gateway),
+                    style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.coralDeep)),
+                const SizedBox(width: 8),
+              ],
               Text('${r.qtd} déb.', style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
             ],
           ),

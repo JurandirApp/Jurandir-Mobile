@@ -663,7 +663,7 @@ class AdminSearches {
   }
 }
 
-/// Repasse de débito (Pix) por bar — de `/api/public/admin/debit-payout`.
+/// Repasse de débito (Pix) por bar e gateway — de `/api/public/admin/debit-payout`.
 /// `aRepassar` = total menos a taxa Jurandir (ou o split configurado no pagamento).
 class DebitPayoutRow {
   final String establishmentId;
@@ -673,6 +673,9 @@ class DebitPayoutRow {
   final double taxa;
   final double aRepassar;
 
+  /// "PAGARME" | "PAGBANK"; '' se o backend for antigo (sem o campo).
+  final String gateway;
+
   const DebitPayoutRow({
     required this.establishmentId,
     required this.nome,
@@ -680,6 +683,7 @@ class DebitPayoutRow {
     required this.bruto,
     required this.taxa,
     required this.aRepassar,
+    this.gateway = '',
   });
 
   factory DebitPayoutRow.fromJson(Map<String, dynamic> j) => DebitPayoutRow(
@@ -689,6 +693,7 @@ class DebitPayoutRow {
         bruto: (j['bruto'] as num?)?.toDouble() ?? 0,
         taxa: (j['taxa'] as num?)?.toDouble() ?? 0,
         aRepassar: (j['aRepassar'] as num?)?.toDouble() ?? 0,
+        gateway: (j['gateway'] as String?) ?? '',
       );
 }
 
