@@ -49,6 +49,6 @@ abstract final class WalletConfig {
 
   static String get applePay =>
       '{"provider":"apple_pay","data":{"merchantIdentifier":"$appleMerchantId","displayName":"$merchantName",'
-      '"merchantCapabilities":["3DS","debit","credit"],"supportedNetworks":["visa","masterCard","elo"],'
+      '"merchantCapabilities":["3DS","credit"],"supportedNetworks":["visa","masterCard","elo"],'
       '"countryCode":"BR","currencyCode":"BRL"}}';
 }
