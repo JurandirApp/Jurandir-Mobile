@@ -23,8 +23,10 @@ import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 import '../../menu/presentation/item_sheet.dart';
 import 'card_wait_screen.dart';
+import '../../../core/payments/threeds.dart';
 import '../../../core/payments/wallet_config.dart';
 import 'card_sheet.dart';
+import 'three_ds_screen.dart';
 
 class _PayMethod {
   final String id;
@@ -192,10 +194,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   /// Cartão manual: abre a tela de cartão (tokeniza direto no gateway do método —
   /// Pagar.me ou PagBank), e com o token cria o pedido + cobra via `/orders/card`.
+  /// Débito PagBank: entre criar o pedido e cobrar, o banco confirma a compra
+  /// (3DS) numa tela dentro do app; sem confirmação, não cobra.
   Future<void> _payCard(double grand, {required bool debit}) async {
     // InfinitePay: o crédito é pago na página hospedada (sem tokenização no app).
     if (!debit && _cartEst()?.gatewayFor('credit') == 'INFINITEPAY') return _payHosted('CREDIT');
     if (!await _ensureCpf() || !mounted) return;
+    final threeDs = debit && _cartEst()?.gatewayFor('debit') == 'PAGBANK';
+    // O 3DS do PagBank pede o celular do pagador (com DDD).
+    if (threeDs && (!await _ensurePhone() || !mounted)) return;
     // PagBank: o cartão é criptografado com a chave pública da conta (vem do backend).
     String? pagbankKey;
     if (_cartEst()?.gatewayFor(debit ? 'debit' : 'credit') == 'PAGBANK') {
@@ -206,7 +213,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         return;
       }
     }
-    final card = await showCardSheet(context, amount: grand, debit: debit, pagbankKey: pagbankKey);
+    final card = await showCardSheet(context, amount: grand, debit: debit, pagbankKey: pagbankKey, wantRaw: threeDs);
     if (card == null || !mounted) return; // cancelou ou falhou a tokenização
     final payload = _orderPayload(method: debit ? 'DEBIT' : 'CREDIT');
     if (payload == null) {
@@ -238,6 +245,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     await ref.read(myOrderIdsProvider.notifier).add(id);
     _markPending(id);
 
+    // 1b) Débito PagBank: o banco confirma (3DS) ANTES de cobrar. Sem a
+    //     confirmação não cobra — o pedido fica pendente (a próxima tentativa
+    //     descarta pelo `_replacePending`).
+    String? authenticationId;
+    if (threeDs) {
+      authenticationId = await _confirmWithBank(id, card);
+      if (authenticationId == null) return; // já avisou e liberou o botão
+    }
+
     // 2) Cobra o pedido. Em QUALQUER lentidão/timeout vai pra tela de
     //    processamento (que confirma sozinha pelo polling) — nunca trava com o
     //    dinheiro já cobrado.
@@ -249,6 +265,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             method: debit ? 'debit' : 'credit',
             billing: card.billing,
             customerDocument: doc,
+            authenticationId: authenticationId,
           );
       if (!mounted) return;
       if (r.ok && r.status == 'paid') {
@@ -268,6 +285,41 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       // processamento, que confirma sozinha (o pedido já está em "Pedidos").
       if (mounted) context.go('/pagamento', extra: CardWaitArgs(order: order));
     }
+  }
+
+  /// Débito PagBank: abre a sessão 3DS do pedido e a tela "Confirmação do banco".
+  /// Devolve o id da autenticação (`3DS_…`) ou null — nesse caso já avisou o
+  /// cliente, liberou o botão e NADA foi cobrado.
+  Future<String?> _confirmWithBank(String orderId, CardSheetResult card) async {
+    final api = ref.read(publicApiProvider);
+    final raw = card.raw;
+    final parts = card.billingParts;
+    final s = await api.pagbankThreeDsSession(orderId);
+    if (!mounted) return null;
+    final session = s.session;
+    if (session == null || raw == null || parts == null) {
+      setState(() => _submitting = false);
+      _toast(s.error == 'debitDisabled'
+          ? 'Débito indisponível no momento. Use crédito, Pix ou carteira.'
+          : 'Não foi possível iniciar o pagamento. Tente de novo.');
+      return null;
+    }
+    final outcome = await runThreeDs(
+      context,
+      pageUrl: api.pagbankThreeDsPageUrl(),
+      session: session,
+      data: buildThreeDsData(session: session, card: raw, billing: parts),
+    );
+    if (!mounted) return null;
+    if (outcome is ThreeDsAuthenticated) return outcome.id;
+    if (outcome is ThreeDsFailed) debugPrint('3DS_FAIL >>> ${outcome.code}'); // só o código
+    setState(() => _submitting = false);
+    _toast(switch (outcome) {
+      ThreeDsNotSupported() || ThreeDsDenied() =>
+        'Esse cartão de débito não pode ser usado aqui. Pague com crédito, Pix ou carteira.',
+      _ => 'Não foi possível confirmar com o seu banco. Tente de novo.',
+    });
+    return null;
   }
 
   /// Checkout HOSPEDADO (InfinitePay): o cliente paga Pix ou crédito na página do
@@ -345,6 +397,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
     if (cpf == null || !mounted) return false;
     await ref.read(clientProfileProvider.notifier).saveDocument(cpf);
+    return true;
+  }
+
+  /// Garante um celular com DDD pro pagador (o 3DS do PagBank exige o telefone).
+  /// Usa o do perfil; se tiver menos de 10 dígitos, pede uma vez num sheet,
+  /// valida e guarda no perfil (vai no pedido como `customerPhone`).
+  /// Retorna false se o usuário cancelar.
+  Future<bool> _ensurePhone() async {
+    final profile = ref.read(clientProfileProvider);
+    final current = (profile.phone ?? '').replaceAll(RegExp(r'\D'), '');
+    if (current.length >= 10) return true;
+    final phone = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.canvas,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => _PhoneSheet(initial: current),
+    );
+    if (phone == null || !mounted) return false;
+    final p = ref.read(clientProfileProvider);
+    await ref.read(clientProfileProvider.notifier).save(p.name ?? '', phone);
     return true;
   }
 
@@ -1297,6 +1370,109 @@ class _CpfContinueLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text('Continuar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white));
+}
+
+/// Sheet pra coletar o celular com DDD (débito PagBank: o banco pede no 3DS).
+/// Mesmo padrão do [_CpfSheet]. Devolve só dígitos no pop, ou null se cancelar.
+class _PhoneSheet extends StatefulWidget {
+  const _PhoneSheet({required this.initial});
+  final String initial;
+
+  @override
+  State<_PhoneSheet> createState() => _PhoneSheetState();
+}
+
+class _PhoneSheetState extends State<_PhoneSheet> {
+  late final _ctrl = TextEditingController(text: widget.initial);
+  String? _err;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final d = _ctrl.text.replaceAll(RegExp(r'\D'), '');
+    // DDD (2 dígitos, sem 0 na frente) + número de 8 ou 9 dígitos.
+    if (d.length < 10 || d.length > 11 || d.startsWith('0')) {
+      setState(() => _err = 'Celular inválido — informe o DDD e o número.');
+      return;
+    }
+    Navigator.pop(context, d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
+          ),
+          const SizedBox(height: 16),
+          Text('Celular com DDD', style: AppText.display(size: 20, letterSpacing: -0.3)),
+          const SizedBox(height: 6),
+          Text('O seu banco pede o celular pra confirmar o débito. Pedimos só uma vez — depois fica salvo.',
+              style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.55))),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.phone,
+            maxLength: 11,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            autofillHints: const [AutofillHints.telephoneNumberNational],
+            style: AppText.body(size: 18, weight: FontWeight.w700, letterSpacing: 1),
+            onChanged: (_) {
+              if (_err != null) setState(() => _err = null);
+            },
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: 'DDD + número, só números',
+              hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.35)),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: _err != null ? AppColors.danger : AppColors.inkA(0.15), width: 1.5)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: _err != null ? AppColors.danger : AppColors.ink, width: 2)),
+            ),
+          ),
+          if (_err != null) ...[
+            const SizedBox(height: 6),
+            Text(_err!, style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.danger)),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: Material(
+              color: AppColors.coral,
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                onTap: _confirm,
+                borderRadius: BorderRadius.circular(999),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 15),
+                  child: Center(child: _CpfContinueLabel()),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Sheet pra escolher a mesa quando o cliente entrou sem QR: campo pra buscar/

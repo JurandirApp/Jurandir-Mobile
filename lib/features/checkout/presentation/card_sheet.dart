@@ -4,38 +4,49 @@ import 'package:flutter/services.dart';
 
 import '../../../core/payments/card_tokenizer.dart';
 import '../../../core/payments/pagbank_encrypt.dart';
+import '../../../core/payments/threeds.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 
 /// Resultado da tela de cartão: o `card_token` + o endereço de cobrança
 /// (billing) resolvido do CEP — o antifraude do Pagar.me exige o billing.
-typedef CardSheetResult = ({String token, Map<String, dynamic> billing});
+/// Com `wantRaw` (débito PagBank, 3DS) vêm também o cartão cru e o endereço
+/// estruturado — SÓ em memória, pro SDK do banco; nunca logar/persistir.
+typedef CardSheetResult = ({
+  String token,
+  Map<String, dynamic> billing,
+  RawCard? raw,
+  BillingParts? billingParts,
+});
 
 /// Abre a tela de cartão (bottom sheet). Coleta os dados, tokeniza DIRETO no
 /// Pagar.me — ou, com `pagbankKey`, criptografa com a chave pública do PagBank
 /// (o cartão cru não passa pelo nosso backend) —, resolve o CEP de cobrança e
-/// devolve {token, billing} — ou null se cancelar/falhar.
+/// devolve {token, billing} — ou null se cancelar/falhar. `wantRaw` também
+/// devolve `raw`/`billingParts` (dados que a folha já coleta) pro 3DS.
 Future<CardSheetResult?> showCardSheet(
   BuildContext context, {
   required double amount,
   required bool debit,
   String? pagbankKey,
+  bool wantRaw = false,
 }) {
   return showModalBottomSheet<CardSheetResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.canvas,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-    builder: (_) => _CardSheet(amount: amount, debit: debit, pagbankKey: pagbankKey),
+    builder: (_) => _CardSheet(amount: amount, debit: debit, pagbankKey: pagbankKey, wantRaw: wantRaw),
   );
 }
 
 class _CardSheet extends StatefulWidget {
-  const _CardSheet({required this.amount, required this.debit, this.pagbankKey});
+  const _CardSheet({required this.amount, required this.debit, this.pagbankKey, this.wantRaw = false});
   final double amount;
   final bool debit;
   final String? pagbankKey;
+  final bool wantRaw;
 
   @override
   State<_CardSheet> createState() => _CardSheetState();
@@ -137,7 +148,24 @@ class _CardSheetState extends State<_CardSheet> {
       'city': (via['localidade'] ?? '').toString(),
       'state': (via['uf'] ?? '').toString(),
     };
-    Navigator.pop(context, (token: token, billing: billing));
+    String viaStr(String k) => (via[k] ?? '').toString().trim();
+    final wantRaw = widget.wantRaw;
+    final CardSheetResult result = (
+      token: token,
+      billing: billing,
+      raw: wantRaw ? RawCard(number: num, expMonth: mm, expYear: year, holder: name) : null,
+      billingParts: wantRaw
+          ? BillingParts(
+              street: viaStr('logradouro'),
+              number: addrNum,
+              complement: viaStr('bairro'),
+              city: viaStr('localidade'),
+              state: viaStr('uf'),
+              postalCode: cep,
+            )
+          : null,
+    );
+    Navigator.pop(context, result);
   }
 
   @override
@@ -160,7 +188,7 @@ class _CardSheetState extends State<_CardSheet> {
             Text(widget.debit ? 'Cartão de débito' : 'Cartão de crédito',
                 style: AppText.display(size: 20, letterSpacing: -0.3)),
             const SizedBox(height: 4),
-            Text('Seus dados vão criptografados direto pro Pagar.me.',
+            Text('Seus dados são criptografados no celular e enviados direto pro processador do pagamento.',
                 style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 16),
             // AutofillGroup + autofillHints: o iOS oferece o cartão salvo /
