@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -249,9 +249,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     //     confirmação não cobra — o pedido fica pendente (a próxima tentativa
     //     descarta pelo `_replacePending`).
     String? authenticationId;
+    var chargeToken = card.token;
     if (threeDs) {
       authenticationId = await _confirmWithBank(id, card);
       if (authenticationId == null) return; // já avisou e liberou o botão
+      // O blob do PagBank tem timestamp e o 3DS pode ter levado minutos:
+      // recriptografa agora (só em memória; nunca logar).
+      chargeToken = card.freshToken?.call() ?? card.token;
     }
 
     // 2) Cobra o pedido. Em QUALQUER lentidão/timeout vai pra tela de
@@ -261,7 +265,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final r = await ref.read(publicApiProvider).createCardOrder(
             id,
-            card.token,
+            chargeToken,
             method: debit ? 'debit' : 'credit',
             billing: card.billing,
             customerDocument: doc,
@@ -312,7 +316,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
     if (!mounted) return null;
     if (outcome is ThreeDsAuthenticated) return outcome.id;
-    if (outcome is ThreeDsFailed) debugPrint('3DS_FAIL >>> ${outcome.code}'); // só o código
+    if (kDebugMode && outcome is ThreeDsFailed) debugPrint('3DS_FAIL >>> ${outcome.code}'); // só o código
     setState(() => _submitting = false);
     _toast(switch (outcome) {
       ThreeDsNotSupported() || ThreeDsDenied() =>
@@ -407,13 +411,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<bool> _ensurePhone() async {
     final profile = ref.read(clientProfileProvider);
     final current = (profile.phone ?? '').replaceAll(RegExp(r'\D'), '');
-    if (current.length >= 10) return true;
+    if (_isValidPhone(current)) return true;
+    // Pré-preenche o que der (sem o DDI 55); o resto o cliente completa.
+    final initial = current.length > 11 && current.startsWith('55') ? current.substring(2) : current;
     final phone = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.canvas,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => _PhoneSheet(initial: current),
+      builder: (_) => _PhoneSheet(initial: initial.length > 11 ? '' : initial),
     );
     if (phone == null || !mounted) return false;
     final p = ref.read(clientProfileProvider);
@@ -1372,6 +1378,11 @@ class _CpfContinueLabel extends StatelessWidget {
       Text('Continuar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white));
 }
 
+/// Celular com DDD, só dígitos: DDD (2 dígitos, sem 0 na frente) + número de
+/// 8 ou 9 dígitos. Mesma regra pro perfil salvo e pro sheet.
+bool _isValidPhone(String digits) =>
+    digits.length >= 10 && digits.length <= 11 && !digits.startsWith('0');
+
 /// Sheet pra coletar o celular com DDD (débito PagBank: o banco pede no 3DS).
 /// Mesmo padrão do [_CpfSheet]. Devolve só dígitos no pop, ou null se cancelar.
 class _PhoneSheet extends StatefulWidget {
@@ -1394,8 +1405,7 @@ class _PhoneSheetState extends State<_PhoneSheet> {
 
   void _confirm() {
     final d = _ctrl.text.replaceAll(RegExp(r'\D'), '');
-    // DDD (2 dígitos, sem 0 na frente) + número de 8 ou 9 dígitos.
-    if (d.length < 10 || d.length > 11 || d.startsWith('0')) {
+    if (!_isValidPhone(d)) {
       setState(() => _err = 'Celular inválido — informe o DDD e o número.');
       return;
     }

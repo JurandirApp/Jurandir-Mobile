@@ -12,12 +12,15 @@ import '../../../core/utils/money.dart';
 /// Resultado da tela de cartão: o `card_token` + o endereço de cobrança
 /// (billing) resolvido do CEP — o antifraude do Pagar.me exige o billing.
 /// Com `wantRaw` (débito PagBank, 3DS) vêm também o cartão cru e o endereço
-/// estruturado — SÓ em memória, pro SDK do banco; nunca logar/persistir.
+/// estruturado — SÓ em memória, pro SDK do banco; nunca logar/persistir — e
+/// `freshToken`, que recriptografa o cartão (PagBank) na hora de cobrar: o
+/// blob tem timestamp e o 3DS pode levar minutos depois da folha fechar.
 typedef CardSheetResult = ({
   String token,
   Map<String, dynamic> billing,
   RawCard? raw,
   BillingParts? billingParts,
+  String Function()? freshToken,
 });
 
 /// Abre a tela de cartão (bottom sheet). Coleta os dados, tokeniza DIRETO no
@@ -163,6 +166,11 @@ class _CardSheetState extends State<_CardSheet> {
               state: viaStr('uf'),
               postalCode: cep,
             )
+          : null,
+      // Recriptografa com a mesma chave (e o CVV, só em memória) na hora da
+      // cobrança; se falhar, fica o token original.
+      freshToken: wantRaw && pagbankKey != null
+          ? () => _pagbankEncrypt(pagbankKey, num, cvv, mm, year, name) ?? token
           : null,
     );
     Navigator.pop(context, result);

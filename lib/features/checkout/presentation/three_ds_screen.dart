@@ -110,6 +110,8 @@ class _ThreeDsScreenState extends State<_ThreeDsScreen> {
         await AndroidWebViewCookieManager(const PlatformWebViewCookieManagerCreationParams())
             .setAcceptThirdPartyCookies(platform, true);
         await platform.setMediaPlaybackRequiresUserGesture(false);
+        // Engole o console da página/iframes de terceiros (não vai pro logcat).
+        await c.setOnConsoleMessage((_) {});
       }
 
       await c.loadRequest(Uri.parse(widget.pageUrl));
@@ -171,8 +173,7 @@ class _ThreeDsScreenState extends State<_ThreeDsScreen> {
     }
     switch (_messageType(raw)) {
       case 'ready':
-        _ready = true;
-        _start();
+        unawaited(_start());
       case 'result':
         // Resultado com status desconhecido/nulo: o SDK já terminou e nada mais
         // vai chegar — falha agora em vez de esperar o timeout.
@@ -191,17 +192,40 @@ class _ThreeDsScreenState extends State<_ThreeDsScreen> {
   }
 
   /// Injeta os dados na página (uma vez só). Nunca logar o script (tem o cartão).
-  void _start() {
+  ///
+  /// O canal `ThreeDS` fica visível pra qualquer frame/origem (iframes do
+  /// banco, ou o frame principal se navegar pra outro https). Por isso só
+  /// injeta se o frame principal AINDA estiver na nossa página — checado aqui
+  /// (sem consumir o start se falhar: um "ready" legítimo depois ainda vale) e
+  /// de novo dentro do script, atomicamente, antes de chamar o `start`.
+  Future<void> _start() async {
     if (_started || _done) return;
+    final String expected;
+    final Uri? current;
+    try {
+      final page = Uri.parse(widget.pageUrl);
+      expected = '${page.origin}${page.path}'.replaceAll(RegExp(r'/+$'), '');
+      current = Uri.tryParse(await _controller.currentUrl() ?? '');
+    } catch (_) {
+      return; // não deu pra conferir → não injeta
+    }
+    if (_started || _done || current == null || !_samePage(current)) return;
     _started = true;
+    _ready = true;
     final params = jsonEncode({
       'session': widget.session.session,
       'env': widget.session.env,
       'data': widget.data,
     });
-    _controller.runJavaScript('window.jurandir3ds.start($params)').catchError((Object _) {
+    final script = '(function(){'
+        "var here=(window.location.origin+window.location.pathname).replace(/\\/+\$/,'');"
+        'if(here===${jsonEncode(expected)}&&window.jurandir3ds){window.jurandir3ds.start($params);}'
+        '})()';
+    try {
+      await _controller.runJavaScript(script);
+    } catch (_) {
       _finish(const ThreeDsFailed('JS_START'));
-    });
+    }
   }
 
   Future<bool> _onConfirm(JavaScriptConfirmDialogRequest request) async {
@@ -254,6 +278,10 @@ class _ThreeDsScreenState extends State<_ThreeDsScreen> {
     _done = true;
     _timeout?.cancel();
     if (!mounted) return;
+    // Descarta a página (e a memória JS dela, que tinha o cartão).
+    try {
+      unawaited(_controller.loadRequest(Uri.parse('about:blank')).catchError((Object _) {}));
+    } catch (_) {}
     final nav = Navigator.of(context);
     final route = ModalRoute.of(context);
     if (route != null && !route.isCurrent) nav.popUntil((r) => r == route);
