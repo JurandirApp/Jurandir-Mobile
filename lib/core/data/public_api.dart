@@ -117,6 +117,35 @@ class PublicApi {
     }
   }
 
+  /// Abre a sessão de tokenização da Tuna pro pedido de cartão JÁ criado (a
+  /// sessão é presa ao código do pedido). Nunca lança: 404 → 'orderNotFound',
+  /// 409 → 'notChargeable', 403 → 'cardsDisabled'; qualquer outra falha →
+  /// 'unavailable'. O `sessionId` nunca é logado.
+  Future<({({String sessionId, String tokenUrl})? session, String? error})> tunaSession(String orderId) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/tuna/session',
+        data: {'orderId': orderId},
+        options: Options(validateStatus: (_) => true),
+      );
+      final d = res.data;
+      final sessionId = d?['sessionId'];
+      final tokenUrl = d?['tokenUrl'];
+      if (res.statusCode == 200 && sessionId is String && sessionId.isNotEmpty && tokenUrl is String) {
+        return (session: (sessionId: sessionId, tokenUrl: tokenUrl), error: null);
+      }
+      final error = switch (res.statusCode) {
+        404 => 'orderNotFound',
+        409 => 'notChargeable',
+        403 => 'cardsDisabled',
+        _ => 'unavailable',
+      };
+      return (session: null, error: error);
+    } catch (_) {
+      return (session: null, error: 'unavailable');
+    }
+  }
+
   /// URL da página HTML do 3DS (mesma base do Dio, segue o ambiente).
   String pagbankThreeDsPageUrl() {
     final base = _dio.options.baseUrl.isEmpty ? ApiConfig.baseUrl : _dio.options.baseUrl;
@@ -178,6 +207,7 @@ class PublicApi {
     Map<String, dynamic>? billing, // endereço de cobrança (antifraude Pagar.me)
     String? customerDocument, // CPF do pagador (o pedido não guarda o doc)
     String? authenticationId, // id do 3DS do PagBank (débito)
+    Map<String, dynamic>? tuna, // Tuna: { sessionId, brand } da tokenização
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
       'orderId': orderId,
@@ -186,6 +216,7 @@ class PublicApi {
       'method': method,
       'billing': ?billing,
       'authenticationId': ?authenticationId,
+      'tuna': ?tuna,
       if (customerDocument != null && customerDocument.isNotEmpty)
         'customerDocument': customerDocument,
       // Antifraude do Pagar.me + cold start do Neon deixam a cobrança lenta —
