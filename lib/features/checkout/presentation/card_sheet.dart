@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../../core/payments/card_tokenizer.dart';
 import '../../../core/payments/pagbank_encrypt.dart';
 import '../../../core/payments/threeds.dart';
+import '../../../core/payments/tuna_tokenizer.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
@@ -15,41 +16,55 @@ import '../../../core/utils/money.dart';
 /// estruturado — SÓ em memória, pro SDK do banco; nunca logar/persistir — e
 /// `freshToken`, que recriptografa o cartão (PagBank) na hora de cobrar: o
 /// blob tem timestamp e o 3DS pode levar minutos depois da folha fechar.
+/// Com `tuna` a folha NÃO tokeniza (`token` vazio, sem billing): a sessão da
+/// Tuna é presa ao pedido, que só existe depois — `tunaTokenize` manda o cartão
+/// (guardado só em memória, dentro da função) direto pra Tuna com a sessão.
 typedef CardSheetResult = ({
   String token,
   Map<String, dynamic> billing,
   RawCard? raw,
   BillingParts? billingParts,
   String Function()? freshToken,
+  Future<TunaToken?> Function(String tokenUrl, String sessionId)? tunaTokenize,
 });
 
 /// Abre a tela de cartão (bottom sheet). Coleta os dados, tokeniza DIRETO no
 /// Pagar.me — ou, com `pagbankKey`, criptografa com a chave pública do PagBank
 /// (o cartão cru não passa pelo nosso backend) —, resolve o CEP de cobrança e
 /// devolve {token, billing} — ou null se cancelar/falhar. `wantRaw` também
-/// devolve `raw`/`billingParts` (dados que a folha já coleta) pro 3DS.
+/// devolve `raw`/`billingParts` (dados que a folha já coleta) pro 3DS. `tuna`
+/// só valida e devolve `tunaTokenize` (nenhum outro gateway tokeniza; a Tuna
+/// não usa o endereço de cobrança, então a folha nem pede).
 Future<CardSheetResult?> showCardSheet(
   BuildContext context, {
   required double amount,
   required bool debit,
   String? pagbankKey,
   bool wantRaw = false,
+  bool tuna = false,
 }) {
   return showModalBottomSheet<CardSheetResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.canvas,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-    builder: (_) => _CardSheet(amount: amount, debit: debit, pagbankKey: pagbankKey, wantRaw: wantRaw),
+    builder: (_) => _CardSheet(amount: amount, debit: debit, pagbankKey: pagbankKey, wantRaw: wantRaw, tuna: tuna),
   );
 }
 
 class _CardSheet extends StatefulWidget {
-  const _CardSheet({required this.amount, required this.debit, this.pagbankKey, this.wantRaw = false});
+  const _CardSheet({
+    required this.amount,
+    required this.debit,
+    this.pagbankKey,
+    this.wantRaw = false,
+    this.tuna = false,
+  });
   final double amount;
   final bool debit;
   final String? pagbankKey;
   final bool wantRaw;
+  final bool tuna;
 
   @override
   State<_CardSheet> createState() => _CardSheetState();
@@ -106,6 +121,21 @@ class _CardSheetState extends State<_CardSheet> {
       return setState(() => _err = 'Cartão vencido.');
     }
     if (cvv.length < 3) return setState(() => _err = 'CVV inválido.');
+    if (widget.tuna) {
+      // Tuna: tokeniza depois, com a sessão do pedido. O cartão fica só dentro
+      // da função (memória); nunca logar/persistir.
+      final card = TunaCard(number: num, holder: name, expMonth: mm, expYear: year, cvv: cvv);
+      final CardSheetResult result = (
+        token: '',
+        billing: const <String, dynamic>{},
+        raw: null,
+        billingParts: null,
+        freshToken: null,
+        tunaTokenize: (tokenUrl, sessionId) => tunaGenerateToken(tokenUrl: tokenUrl, sessionId: sessionId, card: card),
+      );
+      Navigator.pop(context, result);
+      return;
+    }
     if (cep.length != 8) return setState(() => _err = 'CEP de cobrança inválido (8 dígitos).');
     if (addrNum.isEmpty) return setState(() => _err = 'Informe o número do endereço de cobrança.');
 
@@ -172,6 +202,7 @@ class _CardSheetState extends State<_CardSheet> {
       freshToken: wantRaw && pagbankKey != null
           ? () => _pagbankEncrypt(pagbankKey, num, cvv, mm, year, name) ?? token
           : null,
+      tunaTokenize: null,
     );
     Navigator.pop(context, result);
   }
@@ -237,28 +268,31 @@ class _CardSheetState extends State<_CardSheet> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-            Text('Endereço de cobrança do cartão',
-                style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(
-                flex: 2,
-                child: _field(_cep, 'CEP',
-                    keyboard: TextInputType.number,
-                    formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
-                    hint: '00000000',
-                    autofill: const [AutofillHints.postalCode]),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 1,
-                child: _field(_addrNum, 'Número',
-                    keyboard: TextInputType.number,
-                    formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                    hint: '123'),
-              ),
-            ]),
+            // A Tuna não usa o endereço de cobrança — não pede.
+            if (!widget.tuna) ...[
+              const SizedBox(height: 14),
+              Text('Endereço de cobrança do cartão',
+                  style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  flex: 2,
+                  child: _field(_cep, 'CEP',
+                      keyboard: TextInputType.number,
+                      formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
+                      hint: '00000000',
+                      autofill: const [AutofillHints.postalCode]),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 1,
+                  child: _field(_addrNum, 'Número',
+                      keyboard: TextInputType.number,
+                      formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                      hint: '123'),
+                ),
+              ]),
+            ],
             if (_err != null) ...[
               const SizedBox(height: 10),
               Text(_err!, style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.danger)),
