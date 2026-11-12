@@ -68,19 +68,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   /// Métodos de pagamento, na ordem iFood. A carteira nativa aparece conforme a
   /// plataforma (Apple Pay no iOS, Google Pay no Android); no web não há carteira.
-  /// Todas as opções ficam SEMPRE visíveis — nenhuma é ocultada.
+  /// Todas as opções ficam SEMPRE visíveis — exceto Apple Pay quando a carteira
+  /// do bar está na Tuna (Apple Pay via Tuna ainda não existe; o token não seria
+  /// cobrável).
   List<_PayMethod> get _payMethods {
     final iOS = defaultTargetPlatform == TargetPlatform.iOS;
     return [
       const _PayMethod('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
       if (!kIsWeb)
-        iOS
-            ? const _PayMethod('apple_pay', 'Apple Pay', Symbols.contactless, AppColors.ink)
-            : const _PayMethod('google_pay', 'Google Pay', Symbols.contactless, AppColors.ink),
+        if (!iOS)
+          const _PayMethod('google_pay', 'Google Pay', Symbols.contactless, AppColors.ink)
+        else if (!_applePayBlocked)
+          const _PayMethod('apple_pay', 'Apple Pay', Symbols.contactless, AppColors.ink),
       const _PayMethod('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
       const _PayMethod('debito', 'Débito', Symbols.account_balance, AppColors.debit),
     ];
   }
+
+  /// Apple Pay indisponível pro bar: a carteira dele está na Tuna (fora de escopo).
+  bool get _applePayBlocked => _cartEst()?.gatewayFor('applePay') == 'TUNA';
 
   void _setPeople(int n) {
     if (n < 2 || n > 8) return;
@@ -132,6 +138,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// disponível (sem cartão no Wallet), avisa e o cliente usa outro método.
   Future<void> _startWallet(double grand) async {
     final iOS = defaultTargetPlatform == TargetPlatform.iOS;
+    if (iOS && _applePayBlocked) {
+      // Defensivo (a opção nem aparece): nunca abre Apple Pay de bar na Tuna.
+      _toast('Apple Pay indisponível neste local. Use outro método.');
+      return;
+    }
     final provider = iOS ? PayProvider.apple_pay : PayProvider.google_pay;
     final config = iOS
         ? WalletConfig.applePay
