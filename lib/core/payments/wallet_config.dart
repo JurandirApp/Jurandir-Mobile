@@ -11,6 +11,12 @@
 /// - APPLE_MERCHANT_ID: Merchant ID da Apple (`merchant.br.app.jurandir`).
 /// - PAGBANK_MERCHANT_ID: `ACCO_…` da conta PagBank da plataforma — usado quando o
 ///   Google Pay do estabelecimento está no PagBank (`gateway: pagbank`).
+/// - TUNA_GPAY_GATEWAY_MERCHANT_ID: `gatewayMerchantId` da Tuna (`gateway: tuna`),
+///   usado quando o Google Pay do estabelecimento está na Tuna. Default = o id
+///   que a própria Tuna usa (tuna.js, igual em produção e sandbox).
+///
+/// O ambiente do Google (TEST/PRODUCTION) é SEMPRE o PAY_ENV, pra qualquer
+/// gateway. Homolog/staging da Tuna aceita token TEST do Google (PAY_ENV=TEST).
 ///
 /// Produção Google Pay:
 /// `--dart-define=PAY_ENV=PRODUCTION --dart-define=PAY_GATEWAY=pagarme
@@ -32,13 +38,19 @@ abstract final class WalletConfig {
   /// `gatewayMerchantId` do PagBank = o account id (`ACCO_…`) da conta da plataforma.
   static const pagbankMerchantId = String.fromEnvironment('PAGBANK_MERCHANT_ID', defaultValue: '');
 
+  /// `gatewayMerchantId` da Tuna (confirmado funcionando com a Tuna).
+  static const tunaMerchantId =
+      String.fromEnvironment('TUNA_GPAY_GATEWAY_MERCHANT_ID', defaultValue: '78c30483-2a55-422e-98f1-b68f77fcaa70');
+
   /// Config do Google Pay pro gateway escolhido pelo estabelecimento (nome do
   /// enum do backend). PagBank usa `gateway: pagbank` + o `ACCO_…`; sem o
-  /// PAGBANK_MERCHANT_ID definido, cai na config padrão (PAY_GATEWAY).
+  /// PAGBANK_MERCHANT_ID definido, cai na config padrão (PAY_GATEWAY). Tuna usa
+  /// `gateway: tuna` + o TUNA_GPAY_GATEWAY_MERCHANT_ID.
   static String googlePayFor(String backendGateway) {
     final pagbank = backendGateway == 'PAGBANK' && pagbankMerchantId.isNotEmpty;
-    final gw = pagbank ? 'pagbank' : gateway;
-    final mid = pagbank ? pagbankMerchantId : merchantId;
+    final tuna = backendGateway == 'TUNA' && tunaMerchantId.isNotEmpty;
+    final gw = tuna ? 'tuna' : (pagbank ? 'pagbank' : gateway);
+    final mid = tuna ? tunaMerchantId : (pagbank ? pagbankMerchantId : merchantId);
     return '{"provider":"google_pay","data":{"environment":"$env","apiVersion":2,"apiVersionMinor":0,'
         '"allowedPaymentMethods":[{"type":"CARD","tokenizationSpecification":{"type":"PAYMENT_GATEWAY",'
         '"parameters":{"gateway":"$gw","gatewayMerchantId":"$mid"}},'
