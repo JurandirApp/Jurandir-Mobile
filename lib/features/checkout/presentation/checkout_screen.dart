@@ -196,10 +196,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Pagar.me ou PagBank), e com o token cria o pedido + cobra via `/orders/card`.
   /// Débito PagBank: entre criar o pedido e cobrar, o banco confirma a compra
   /// (3DS) numa tela dentro do app; sem confirmação, não cobra.
+  /// Tuna: a folha só coleta o cartão; a sessão de tokenização é presa ao pedido,
+  /// então tokeniza DEPOIS de criar o pedido (débito Tuna é simples, sem 3DS).
   Future<void> _payCard(double grand, {required bool debit}) async {
     // InfinitePay: o crédito é pago na página hospedada (sem tokenização no app).
     if (!debit && _cartEst()?.gatewayFor('credit') == 'INFINITEPAY') return _payHosted('CREDIT');
     if (!await _ensureCpf() || !mounted) return;
+    final tuna = _cartEst()?.gatewayFor(debit ? 'debit' : 'credit') == 'TUNA';
     final threeDs = debit && _cartEst()?.gatewayFor('debit') == 'PAGBANK';
     // O 3DS do PagBank pede o celular do pagador (com DDD).
     if (threeDs && (!await _ensurePhone() || !mounted)) return;
@@ -213,7 +216,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         return;
       }
     }
-    final card = await showCardSheet(context, amount: grand, debit: debit, pagbankKey: pagbankKey, wantRaw: threeDs);
+    final card = await showCardSheet(context,
+        amount: grand, debit: debit, pagbankKey: pagbankKey, wantRaw: threeDs, tuna: tuna);
     if (card == null || !mounted) return; // cancelou ou falhou a tokenização
     final payload = _orderPayload(method: debit ? 'DEBIT' : 'CREDIT');
     if (payload == null) {
@@ -258,6 +262,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       chargeToken = card.freshToken?.call() ?? card.token;
     }
 
+    // 1c) Tuna: abre a sessão do pedido e manda o cartão direto pra Tuna. Falhou
+    //     → nada cobrado; o pedido fica pendente (a próxima tentativa descarta
+    //     pelo `_replacePending`).
+    Map<String, dynamic>? tunaInfo;
+    if (tuna) {
+      final t = await _tokenizeTuna(id, card);
+      if (t == null) return; // já avisou e liberou o botão
+      chargeToken = t.token;
+      tunaInfo = {'sessionId': t.sessionId, 'brand': ?t.brand};
+    }
+
     // 2) Cobra o pedido. Em QUALQUER lentidão/timeout vai pra tela de
     //    processamento (que confirma sozinha pelo polling) — nunca trava com o
     //    dinheiro já cobrado.
@@ -267,9 +282,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             id,
             chargeToken,
             method: debit ? 'debit' : 'credit',
-            billing: card.billing,
+            billing: tuna ? null : card.billing, // a Tuna não usa o billing
             customerDocument: doc,
             authenticationId: authenticationId,
+            tuna: tunaInfo,
           );
       if (!mounted) return;
       if (r.ok && r.status == 'paid') {
@@ -289,6 +305,32 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       // processamento, que confirma sozinha (o pedido já está em "Pedidos").
       if (mounted) context.go('/pagamento', extra: CardWaitArgs(order: order));
     }
+  }
+
+  /// Tuna: abre a sessão de tokenização do pedido (`/tuna/session`) e gera o
+  /// token de uso único direto na Tuna. Devolve token + bandeira + sessão, ou
+  /// null — nesse caso já avisou o cliente, liberou o botão e NADA foi cobrado.
+  /// Nunca logar o cartão, o token nem a sessão.
+  Future<({String token, String? brand, String sessionId})?> _tokenizeTuna(
+      String orderId, CardSheetResult card) async {
+    final tokenize = card.tunaTokenize;
+    final s = await ref.read(publicApiProvider).tunaSession(orderId);
+    if (!mounted) return null;
+    final session = s.session;
+    if (session == null || tokenize == null) {
+      // 404/409/403/502: tanto faz o motivo pro cliente — usa outro método.
+      setState(() => _submitting = false);
+      _toast('Pagamento com cartão indisponível agora. Tente outro método.');
+      return null;
+    }
+    final t = await tokenize(session.tokenUrl, session.sessionId);
+    if (!mounted) return null;
+    if (t == null) {
+      setState(() => _submitting = false);
+      _toast('Não foi possível validar o cartão. Confira os dados ou tente outro cartão.');
+      return null;
+    }
+    return (token: t.token, brand: t.brand, sessionId: session.sessionId);
   }
 
   /// Débito PagBank: abre a sessão 3DS do pedido e a tela "Confirmação do banco".
