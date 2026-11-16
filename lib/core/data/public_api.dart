@@ -10,6 +10,7 @@ import '../../features/waiter/data/waiter_models.dart';
 import '../api/api_client.dart';
 import '../api/api_config.dart';
 import '../payments/threeds.dart';
+import '../payments/tuna_fingerprint.dart';
 import 'models.dart';
 import 'onboarding_controller.dart';
 
@@ -146,6 +147,25 @@ class PublicApi {
     }
   }
 
+  /// Config do device fingerprint da Tuna (antifraude CyberSource). Timeout
+  /// curto e nunca lança: qualquer falha → desligado (o pagamento segue sem).
+  Future<TunaFingerprintConfig> tunaFingerprint() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/tuna/fingerprint',
+        options: Options(
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          validateStatus: (_) => true,
+        ),
+      ).timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return const TunaFingerprintConfig.disabled();
+      return TunaFingerprintConfig.fromJson(res.data);
+    } catch (_) {
+      return const TunaFingerprintConfig.disabled();
+    }
+  }
+
   /// URL da página HTML do 3DS (mesma base do Dio, segue o ambiente).
   String pagbankThreeDsPageUrl() {
     final base = _dio.options.baseUrl.isEmpty ? ApiConfig.baseUrl : _dio.options.baseUrl;
@@ -158,11 +178,17 @@ class PublicApi {
   Future<({bool ok, String status, ClientOrder? order, String? detail})> createWalletOrder(
     String orderId,
     String walletType,
-    String token,
-  ) async {
+    String token, {
+    String? deviceSessionId, // fingerprint da Tuna (só quando a carteira é Tuna)
+  }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/orders/wallet',
-      data: {'orderId': orderId, 'walletType': walletType, 'token': token},
+      data: {
+        'orderId': orderId,
+        'walletType': walletType,
+        'token': token,
+        'deviceSessionId': ?deviceSessionId,
+      },
       // Pagamento é lento (antifraude do Pagar.me + cold start do Neon). Timeout
       // curto (15s global) fazia o app desistir e mostrar falha com o pagamento
       // JÁ FEITO no backend. 60s dá folga pra pegar o "paid".
@@ -207,7 +233,7 @@ class PublicApi {
     Map<String, dynamic>? billing, // endereço de cobrança (antifraude Pagar.me)
     String? customerDocument, // CPF do pagador (o pedido não guarda o doc)
     String? authenticationId, // id do 3DS do PagBank (débito)
-    Map<String, dynamic>? tuna, // Tuna: { sessionId, brand } da tokenização
+    Map<String, dynamic>? tuna, // Tuna: { sessionId, brand, deviceSessionId? } da tokenização
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
       'orderId': orderId,

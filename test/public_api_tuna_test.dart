@@ -84,4 +84,71 @@ void main() {
       expect((t.fake.last?.data as Map).containsKey('tuna'), isFalse);
     });
   });
+
+  group('createCardOrder · deviceSessionId', () {
+    test('vai DENTRO do bloco tuna', () async {
+      final t = _api(200, {'ok': true, 'status': 'paid'});
+      await t.api.createCardOrder('ord_1', 'tok', method: 'credit',
+          tuna: {'sessionId': 'sess', 'brand': 'Visa', 'deviceSessionId': 'a' * 32});
+      final body = t.fake.last?.data as Map;
+      expect(body['tuna'], {'sessionId': 'sess', 'brand': 'Visa', 'deviceSessionId': 'a' * 32});
+      expect(body.containsKey('deviceSessionId'), isFalse);
+    });
+  });
+
+  group('createWalletOrder', () {
+    test('manda deviceSessionId no topo quando informado', () async {
+      final t = _api(200, {'ok': true, 'status': 'paid'});
+      final r = await t.api.createWalletOrder('ord_1', 'google_pay', 'gtok', deviceSessionId: 'b' * 32);
+      expect(r.ok, isTrue);
+      expect(t.fake.last?.path, '/orders/wallet');
+      expect(t.fake.last?.data,
+          {'orderId': 'ord_1', 'walletType': 'google_pay', 'token': 'gtok', 'deviceSessionId': 'b' * 32});
+    });
+
+    test('sem deviceSessionId o corpo fica como antes', () async {
+      final t = _api(200, {'ok': false, 'status': 'failed'});
+      await t.api.createWalletOrder('ord_1', 'google_pay', 'gtok');
+      expect(t.fake.last?.data, {'orderId': 'ord_1', 'walletType': 'google_pay', 'token': 'gtok'});
+    });
+  });
+
+  group('tunaFingerprint', () {
+    test('200 ligado → config usável', () async {
+      final t = _api(200, {'enabled': true, 'orgId': 'org', 'merchantId': 'm'});
+      final c = await t.api.tunaFingerprint();
+      expect(t.fake.last?.path, '/tuna/fingerprint');
+      expect(t.fake.last?.method, 'GET');
+      expect(c.usable, isTrue);
+      expect(c.orgId, 'org');
+      expect(c.merchantId, 'm');
+    });
+
+    test('200 desligado → não usável', () async {
+      final c = await _api(200, {'enabled': false}).api.tunaFingerprint();
+      expect(c.usable, isFalse);
+    });
+
+    test('500 → desligado (nunca lança)', () async {
+      final c = await _api(500, {'error': 'x'}).api.tunaFingerprint();
+      expect(c.usable, isFalse);
+    });
+
+    test('erro de rede → desligado (nunca lança)', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example/api/public'))
+        ..httpClientAdapter = _ThrowingAdapter();
+      final c = await PublicApi(dio).tunaFingerprint();
+      expect(c.usable, isFalse);
+    });
+  });
+}
+
+/// Adapter que sempre falha (simula rede/timeout).
+class _ThrowingAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) =>
+      throw DioException.connectionTimeout(timeout: const Duration(seconds: 8), requestOptions: options);
+
+  @override
+  void close({bool force = false}) {}
 }
