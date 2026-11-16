@@ -24,9 +24,11 @@ import '../../done/presentation/done_screen.dart';
 import '../../menu/presentation/item_sheet.dart';
 import 'card_wait_screen.dart';
 import '../../../core/payments/threeds.dart';
+import '../../../core/payments/tuna_fingerprint.dart';
 import '../../../core/payments/wallet_config.dart';
 import 'card_sheet.dart';
 import 'three_ds_screen.dart';
+import 'tuna_fingerprint_collector.dart';
 
 class _PayMethod {
   final String id;
@@ -59,6 +61,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _submitting = false;
   final _obsCtrl = TextEditingController();
   bool _calling = false; // cooldown do "chamar garçom"
+  // Device fingerprint da Tuna (antifraude): começa ao abrir o checkout (precisa
+  // de 5–10 s antes de cobrar). Id novo por abertura; nunca logar.
+  bool _fpStarted = false;
+  String? _deviceSessionId;
+  String? _fpTagUrl;
 
   @override
   void dispose() {
@@ -87,6 +94,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   /// Apple Pay indisponível pro bar: a carteira dele está na Tuna (fora de escopo).
   bool get _applePayBlocked => _cartEst()?.gatewayFor('applePay') == 'TUNA';
+
+  /// Inicia o fingerprint da Tuna uma vez por abertura do checkout, assim que
+  /// o bar do carrinho é conhecido e roteia crédito, débito ou Google Pay pra
+  /// Tuna. Config desligada/erro → pula em silêncio (o pagamento nunca depende).
+  Future<void> _maybeStartFingerprint() async {
+    if (_fpStarted) return;
+    final est = _cartEst();
+    if (est == null) return; // bares ainda carregando — tenta no próximo build
+    _fpStarted = true;
+    final usesTuna = ['credit', 'debit', 'googlePay'].any((m) => est.gatewayFor(m) == 'TUNA');
+    if (!usesTuna || kIsWeb) return;
+    final cfg = await ref.read(publicApiProvider).tunaFingerprint();
+    if (!mounted || !cfg.usable) return;
+    final id = generateDeviceSessionId();
+    setState(() {
+      _deviceSessionId = id;
+      _fpTagUrl = tunaFingerprintTagUrl(orgId: cfg.orgId!, merchantId: cfg.merchantId!, deviceSessionId: id);
+    });
+  }
 
   void _setPeople(int n) {
     if (n < 2 || n > 8) return;
@@ -281,7 +307,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final t = await _tokenizeTuna(id, card);
       if (t == null) return; // já avisou e liberou o botão
       chargeToken = t.token;
-      tunaInfo = {'sessionId': t.sessionId, 'brand': ?t.brand};
+      tunaInfo = {'sessionId': t.sessionId, 'brand': ?t.brand, 'deviceSessionId': ?_deviceSessionId};
     }
 
     // 2) Cobra o pedido. Em QUALQUER lentidão/timeout vai pra tela de
@@ -755,6 +781,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final share = _people == 0 ? 0.0 : grand / _people;
     final canPay = isSplit ? true : _selPay != null;
     final topSafe = MediaQuery.paddingOf(context).top;
+    unawaited(_maybeStartFingerprint()); // idempotente (só roda uma vez)
 
     final String payLabel;
     final Color payBg;
@@ -770,6 +797,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       backgroundColor: AppColors.canvas,
       body: Stack(
         children: [
+          // Fingerprint da Tuna: WebView 1×1 invisível, sem toque nem layout.
+          if (_fpTagUrl != null) TunaFingerprintCollector(tagUrl: _fpTagUrl!),
           SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(20, topSafe + 20, 20, 170),
             child: Column(
@@ -1070,7 +1099,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     // 2) Cobra o pedido. Lentidão/timeout → tela de processamento (nunca trava
     //    com o dinheiro já cobrado).
     try {
-      final r = await ref.read(publicApiProvider).createWalletOrder(id, walletType, token);
+      // Fingerprint só vai quando o Google Pay do bar é cobrado pela Tuna.
+      final tunaWallet =
+          walletType == 'google_pay' && _cartEst()?.gatewayFor('googlePay') == 'TUNA';
+      final r = await ref.read(publicApiProvider).createWalletOrder(id, walletType, token,
+          deviceSessionId: tunaWallet ? _deviceSessionId : null);
       if (!mounted) return;
       if (r.ok && r.status == 'paid') {
         _markPending(null);
