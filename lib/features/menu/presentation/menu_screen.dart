@@ -77,7 +77,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   ),
                   sliver: menuAsync.when(
                     loading: () => SliverList.separated(
-                      itemCount: 6,
+                      itemCount: 4,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (_, _) => _itemRowSkeleton(),
                     ),
@@ -290,11 +290,13 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   Widget _itemRowSkeleton() {
     return Container(
       padding: const EdgeInsets.all(12),
+      // Card "fantasma": mesmo formato do item real, mas com borda e sombra
+      // suaves (o contorno preto grosso só entra quando o conteúdo chega).
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.ink, width: 2),
-        boxShadow: const [BoxShadow(color: AppColors.ink, offset: Offset(4, 4))],
+        border: Border.all(color: AppColors.inkA(0.10), width: 1.5),
+        boxShadow: [BoxShadow(color: AppColors.duneA(0.6), offset: const Offset(3, 3))],
       ),
       child: Row(
         children: [

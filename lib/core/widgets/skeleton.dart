@@ -50,10 +50,12 @@ class _SkeletonBoxState extends State<SkeletonBox>
               gradient: LinearGradient(
                 begin: Alignment(dx - 1, 0),
                 end: Alignment(dx + 1, 0),
+                // Tons de areia da marca (antes cinza-tinta): o carregamento
+                // parece parte do app, não "tela quebrada".
                 colors: [
-                  AppColors.inkA(0.11),
-                  AppColors.inkA(0.035),
-                  AppColors.inkA(0.11),
+                  AppColors.duneA(0.55),
+                  AppColors.duneA(0.22),
+                  AppColors.duneA(0.55),
                 ],
                 stops: const [0.35, 0.5, 0.65],
               ),
