@@ -703,14 +703,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  Widget _callWaiterLink() => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: TextButton.icon(
-          onPressed: _calling ? null : _callWaiter,
-          icon: Icon(Symbols.room_service, size: 18, color: _calling ? AppColors.inkA(0.35) : AppColors.ink),
-          label: Text(
-            _calling ? 'Garçom avisado ✓' : 'Precisa de ajuda? Chamar o garçom',
-            style: AppText.body(size: 13, weight: FontWeight.w700, color: _calling ? AppColors.inkA(0.4) : AppColors.ink),
+  /// Botão compacto "Chamar garçom" no canto superior direito do checkout.
+  Widget _callWaiterButton() => Material(
+        color: _calling ? AppColors.inkA(0.06) : AppColors.ink,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: _calling ? null : _callWaiter,
+          borderRadius: BorderRadius.circular(999),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Symbols.room_service, size: 16, color: _calling ? AppColors.inkA(0.4) : AppColors.dune),
+                const SizedBox(width: 6),
+                Text(
+                  _calling ? 'Garçom avisado ✓' : 'Chamar garçom',
+                  style: AppText.body(
+                      size: 12, weight: FontWeight.w700, color: _calling ? AppColors.inkA(0.45) : AppColors.dune),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -804,17 +817,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
-                  onTap: () => context.go('/menu'),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Symbols.arrow_back, size: 16, color: AppColors.inkA(0.55)),
-                      const SizedBox(width: 6),
-                      Text('Voltar ao cardápio',
-                          style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => context.go('/menu'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Symbols.arrow_back, size: 16, color: AppColors.inkA(0.55)),
+                          const SizedBox(width: 6),
+                          Text('Voltar ao cardápio',
+                              style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    _callWaiterButton(),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Text('Confirmar pedido'.toUpperCase(), style: AppText.display(size: 22, letterSpacing: -0.5)),
@@ -1327,7 +1346,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _callWaiterLink(),
           Material(
             color: _submitting ? AppColors.coral.withValues(alpha: 0.6) : bg,
             borderRadius: BorderRadius.circular(999),
