@@ -63,8 +63,26 @@ abstract final class WalletConfig {
         '"transactionInfo":{"countryCode":"BR","currencyCode":"BRL"}}}';
   }
 
-  static String get applePay =>
-      '{"provider":"apple_pay","data":{"merchantIdentifier":"$appleMerchantId","displayName":"$merchantName",'
+  /// Merchant ID da Apple usado quando o Apple Pay do bar está na TUNA. É um ID
+  /// SEPARADO (o certificado de processamento é gerado pelo CSR da Tuna; o
+  /// `merchant.br.app.jurandir` segue com o Pagar.me). Vazio = Apple Pay da Tuna
+  /// desligado no app. Ao ligar, o ID também precisa estar no
+  /// `Runner.entitlements` e na capability Apple Pay do App ID.
+  static const appleMerchantIdTuna = String.fromEnvironment('APPLE_MERCHANT_ID_TUNA', defaultValue: '');
+
+  /// Apple Pay disponível no app pro gateway do bar? (Tuna só com o ID dela.)
+  static bool applePayAvailableFor(String backendGateway) =>
+      backendGateway != 'TUNA' || appleMerchantIdTuna.isNotEmpty;
+
+  /// Config do Apple Pay pro gateway do bar: Tuna usa o Merchant ID da Tuna;
+  /// os demais, o padrão.
+  static String applePayFor(String backendGateway) =>
+      _applePayWith(backendGateway == 'TUNA' && appleMerchantIdTuna.isNotEmpty ? appleMerchantIdTuna : appleMerchantId);
+
+  static String get applePay => _applePayWith(appleMerchantId);
+
+  static String _applePayWith(String merchantIdentifier) =>
+      '{"provider":"apple_pay","data":{"merchantIdentifier":"$merchantIdentifier","displayName":"$merchantName",'
       '"merchantCapabilities":["3DS","credit"],"supportedNetworks":["visa","masterCard","elo"],'
       '"countryCode":"BR","currencyCode":"BRL"}}';
 }

@@ -42,6 +42,17 @@ void main() {
     expect(((pm2['tokenizationSpecification'] as Map)['parameters'] as Map)['gatewayMerchantId'], WalletConfig.merchantId);
   });
 
+  test('Apple Pay: sem APPLE_MERCHANT_ID_TUNA a Tuna fica indisponível; outros gateways usam o ID padrão', () {
+    expect(WalletConfig.appleMerchantIdTuna, '');
+    expect(WalletConfig.applePayAvailableFor('TUNA'), isFalse);
+    expect(WalletConfig.applePayAvailableFor('PAGARME'), isTrue);
+    final j = jsonDecode(WalletConfig.applePayFor('PAGARME')) as Map<String, dynamic>;
+    expect((j['data'] as Map)['merchantIdentifier'], WalletConfig.appleMerchantId);
+    // Mesmo pedindo TUNA, sem o ID dela nunca usa outro merchant por engano.
+    final t = jsonDecode(WalletConfig.applePayFor('TUNA')) as Map<String, dynamic>;
+    expect((t['data'] as Map)['merchantIdentifier'], WalletConfig.appleMerchantId);
+  });
+
   test('PAGARME continua na config padrão (PAY_GATEWAY)', () {
     final p = _params('PAGARME');
     expect(p.gateway, WalletConfig.gateway);

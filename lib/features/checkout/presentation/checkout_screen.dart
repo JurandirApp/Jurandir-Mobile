@@ -93,7 +93,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   /// Apple Pay indisponível pro bar: a carteira dele está na Tuna (fora de escopo).
-  bool get _applePayBlocked => _cartEst()?.gatewayFor('applePay') == 'TUNA';
+  /// (Tuna só com o Merchant ID próprio dela no build — APPLE_MERCHANT_ID_TUNA.)
+  bool get _applePayBlocked => !WalletConfig.applePayAvailableFor(_cartEst()?.gatewayFor('applePay') ?? 'PAGARME');
 
   /// Inicia o fingerprint da Tuna uma vez por abertura do checkout, assim que
   /// o bar do carrinho é conhecido e roteia crédito, débito ou Google Pay pra
@@ -183,7 +184,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
     }
     final config = iOS
-        ? WalletConfig.applePay
+        ? WalletConfig.applePayFor(_cartEst()?.gatewayFor('applePay') ?? 'PAGARME')
         : WalletConfig.googlePayFor(gpGateway, tunaGatewayMerchantId: tunaMid);
     final client = Pay({provider: PaymentConfiguration.fromJsonString(config)});
     final items = [
