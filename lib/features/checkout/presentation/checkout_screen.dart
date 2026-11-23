@@ -170,9 +170,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
     final provider = iOS ? PayProvider.apple_pay : PayProvider.google_pay;
+    final gpGateway = _cartEst()?.gatewayFor('googlePay') ?? 'PAGARME';
+    // Google Pay na Tuna: o gatewayMerchantId vem do servidor (troca sem versão
+    // nova). Sem ele, não abre (um id errado só daria recusa na Tuna).
+    String? tunaMid;
+    if (!iOS && gpGateway == 'TUNA') {
+      tunaMid = await ref.read(publicApiProvider).tunaGooglePayGatewayMerchantId();
+      if (!mounted) return;
+      if (tunaMid == null) {
+        _toast('Google Pay indisponível agora. Tente de novo ou use outro método.');
+        return;
+      }
+    }
     final config = iOS
         ? WalletConfig.applePay
-        : WalletConfig.googlePayFor(_cartEst()?.gatewayFor('googlePay') ?? 'PAGARME');
+        : WalletConfig.googlePayFor(gpGateway, tunaGatewayMerchantId: tunaMid);
     final client = Pay({provider: PaymentConfiguration.fromJsonString(config)});
     final items = [
       PaymentItem(

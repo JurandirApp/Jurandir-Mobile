@@ -166,6 +166,29 @@ class PublicApi {
     }
   }
 
+  /// `gatewayMerchantId` do Google Pay da Tuna no modo atual
+  /// (GET /tuna/wallet-config). Null em qualquer erro/timeout ou se o servidor
+  /// não tiver a config — aí o Google Pay da Tuna não é oferecido.
+  Future<String?> tunaGooglePayGatewayMerchantId() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/tuna/wallet-config',
+        options: Options(
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          validateStatus: (_) => true,
+        ),
+      ).timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return null;
+      final gp = res.data?['googlePay'];
+      if (gp is! Map) return null;
+      final id = gp['gatewayMerchantId'];
+      return id is String && id.trim().isNotEmpty ? id.trim() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// URL da página HTML do 3DS (mesma base do Dio, segue o ambiente).
   String pagbankThreeDsPageUrl() {
     final base = _dio.options.baseUrl.isEmpty ? ApiConfig.baseUrl : _dio.options.baseUrl;

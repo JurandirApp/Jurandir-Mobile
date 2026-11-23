@@ -25,6 +25,23 @@ void main() {
     expect(p.env, WalletConfig.env);
   });
 
+  test('TUNA usa o gatewayMerchantId vindo do servidor quando informado', () {
+    final j = jsonDecode(WalletConfig.googlePayFor('TUNA', tunaGatewayMerchantId: ' prod-id ')) as Map<String, dynamic>;
+    final pm = ((j['data'] as Map)['allowedPaymentMethods'] as List).first as Map;
+    final p = (pm['tokenizationSpecification'] as Map)['parameters'] as Map;
+    expect(p['gateway'], 'tuna');
+    expect(p['gatewayMerchantId'], 'prod-id');
+  });
+
+  test('override vazio cai no id do build; outros gateways ignoram o override', () {
+    final j = jsonDecode(WalletConfig.googlePayFor('TUNA', tunaGatewayMerchantId: '  ')) as Map<String, dynamic>;
+    final pm = ((j['data'] as Map)['allowedPaymentMethods'] as List).first as Map;
+    expect(((pm['tokenizationSpecification'] as Map)['parameters'] as Map)['gatewayMerchantId'], WalletConfig.tunaMerchantId);
+    final pg = jsonDecode(WalletConfig.googlePayFor('PAGARME', tunaGatewayMerchantId: 'prod-id')) as Map<String, dynamic>;
+    final pm2 = ((pg['data'] as Map)['allowedPaymentMethods'] as List).first as Map;
+    expect(((pm2['tokenizationSpecification'] as Map)['parameters'] as Map)['gatewayMerchantId'], WalletConfig.merchantId);
+  });
+
   test('PAGARME continua na config padrão (PAY_GATEWAY)', () {
     final p = _params('PAGARME');
     expect(p.gateway, WalletConfig.gateway);

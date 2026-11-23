@@ -46,11 +46,15 @@ abstract final class WalletConfig {
   /// enum do backend). PagBank usa `gateway: pagbank` + o `ACCO_…`; sem o
   /// PAGBANK_MERCHANT_ID definido, cai na config padrão (PAY_GATEWAY). Tuna usa
   /// `gateway: tuna` + o TUNA_GPAY_GATEWAY_MERCHANT_ID.
-  static String googlePayFor(String backendGateway) {
+  ///
+  /// [tunaGatewayMerchantId]: o id vindo do servidor (GET /tuna/wallet-config);
+  /// tem prioridade sobre o fixo no build, pra trocar sem versão nova.
+  static String googlePayFor(String backendGateway, {String? tunaGatewayMerchantId}) {
+    final tunaMid = (tunaGatewayMerchantId?.trim().isNotEmpty ?? false) ? tunaGatewayMerchantId!.trim() : tunaMerchantId;
     final pagbank = backendGateway == 'PAGBANK' && pagbankMerchantId.isNotEmpty;
-    final tuna = backendGateway == 'TUNA' && tunaMerchantId.isNotEmpty;
+    final tuna = backendGateway == 'TUNA' && tunaMid.isNotEmpty;
     final gw = tuna ? 'tuna' : (pagbank ? 'pagbank' : gateway);
-    final mid = tuna ? tunaMerchantId : (pagbank ? pagbankMerchantId : merchantId);
+    final mid = tuna ? tunaMid : (pagbank ? pagbankMerchantId : merchantId);
     return '{"provider":"google_pay","data":{"environment":"$env","apiVersion":2,"apiVersionMinor":0,'
         '"allowedPaymentMethods":[{"type":"CARD","tokenizationSpecification":{"type":"PAYMENT_GATEWAY",'
         '"parameters":{"gateway":"$gw","gatewayMerchantId":"$mid"}},'
