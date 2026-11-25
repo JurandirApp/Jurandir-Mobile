@@ -2,12 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Apple Pay. O merchant precisa existir no Apple Developer (Merchant ID
-	     merchant.br.app.jurandir) e a capability "Apple Pay" habilitada no App ID
-	     br.app.jurandir, senão o perfil de assinatura não inclui o direito. -->
+	<!-- Apple Pay. Cada merchant precisa existir no Apple Developer e estar
+	     marcado na capability "Apple Pay" do App ID br.app.jurandir, senão o
+	     perfil de assinatura não inclui o direito (e a assinatura falha).
+	     merchant.br.app.jurandir      → Pagar.me
+	     merchant.br.app.jurandir.tuna → Tuna (cert gerado pelo CSR da Tuna) -->
 	<key>com.apple.developer.in-app-payments</key>
 	<array>
 		<string>merchant.br.app.jurandir</string>
+		<string>merchant.br.app.jurandir.tuna</string>
 	</array>
 	<key>aps-environment</key>
 	<string>production</string>
