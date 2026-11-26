@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/dark_header.dart';
+import '../resume_order.dart';
 
 /// Meus pedidos: status real (Neon) dos pedidos que este aparelho criou.
 /// Puxe pra baixo pra atualizar o status.
@@ -39,7 +40,7 @@ class PedidosScreen extends ConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                         itemCount: orders.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (_, i) => _orderCard(orders[i]),
+                        itemBuilder: (_, i) => _orderCard(context, ref, orders[i]),
                       ),
                     ),
             ),
@@ -73,8 +74,13 @@ class PedidosScreen extends ConsumerWidget {
     );
   }
 
-  Widget _orderCard(ClientOrder o) {
-    return Container(
+  Widget _orderCard(BuildContext context, WidgetRef ref, ClientOrder o) {
+    final resumable = canResumePayment(o);
+    // Aguardando pagamento: o card inteiro (e o botão) leva de volta ao
+    // pagamento — o cliente não precisa refazer a compra se saiu da tela.
+    return GestureDetector(
+      onTap: resumable ? () => resumeOrderPayment(context, ref, o) : null,
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -156,6 +162,14 @@ class PedidosScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (resumable) ...[
+            const SizedBox(height: 12),
+            AppButton.primary(
+              label: 'Continuar pagamento',
+              icon: Symbols.payments,
+              onPressed: () => resumeOrderPayment(context, ref, o),
+            ),
+          ],
           if (o.code4 != null) ...[
             const SizedBox(height: 10),
             Container(
@@ -172,6 +186,7 @@ class PedidosScreen extends ConsumerWidget {
             ),
           ],
         ],
+      ),
       ),
     );
   }

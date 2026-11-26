@@ -272,6 +272,9 @@ class ClientOrder {
   final String? pixQrImage; // PNG base64 (sem prefixo data:)
   final List<ClientShare>? splits; // partes da divisão (split real por Pix)
   final String? code4; // código de 4 dígitos pro garçom confirmar a entrega
+  final String? estSlug; // bar do pedido (retomar o pagamento pela aba Pedidos)
+  final String? payMethod; // pix | credito | debito | ... (método escolhido)
+  final bool expired; // Pix vencido (QR não serve mais)
 
   const ClientOrder({
     this.dbId,
@@ -287,6 +290,9 @@ class ClientOrder {
     this.pixQrImage,
     this.splits,
     this.code4,
+    this.estSlug,
+    this.payMethod,
+    this.expired = false,
   });
 
   factory ClientOrder.fromJson(Map<String, dynamic> j) => ClientOrder(
@@ -309,6 +315,9 @@ class ClientOrder {
         ?.cast<Map<String, dynamic>>()
         .map(ClientShare.fromJson)
         .toList(),
+    estSlug: (j['estSlug'] as String?)?.isNotEmpty == true ? j['estSlug'] as String : null,
+    payMethod: j['pay'] is Map ? (j['pay'] as Map)['id'] as String? : null,
+    expired: j['expired'] == true,
   );
 }
 
