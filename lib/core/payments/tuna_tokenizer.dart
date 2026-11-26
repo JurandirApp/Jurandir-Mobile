@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import 'tuna_threeds.dart';
+
 /// Cartão cru pro Token/Generate da Tuna — SÓ em memória, nunca logar/persistir.
 class TunaCard {
   final String number; // só dígitos
@@ -16,12 +18,15 @@ class TunaCard {
   });
 }
 
-/// Token de uso único da Tuna + a bandeira (vai no `tuna.brand` da cobrança).
-typedef TunaToken = ({String token, String? brand});
+/// Token de uso único da Tuna + a bandeira (vai no `tuna.brand` da cobrança) +
+/// os dados 3DS (`auth`) quando o Generate/Bind foi chamado com o código 3DS
+/// (débito) e a Tuna devolveu `authenticationInformation`.
+typedef TunaToken = ({String token, String? brand, TunaAuthInfo? auth});
 
 /// Corpo do `POST <tokenUrl>/api/Token/Generate`. `singleUse: false` SALVA o
 /// cartão no customer da sessão (só com a sessão do aparelho — cartões salvos).
-Map<String, dynamic> tunaGenerateBody(String sessionId, TunaCard card, {bool singleUse = true}) => {
+/// `authCode` (débito, 3DS): pede à Tuna os dados do Cardinal pra autenticação.
+Map<String, dynamic> tunaGenerateBody(String sessionId, TunaCard card, {bool singleUse = true, String? authCode}) => {
       'sessionId': sessionId,
       'card': {
         'cardNumber': card.number.replaceAll(RegExp(r'\D'), ''),
@@ -31,6 +36,7 @@ Map<String, dynamic> tunaGenerateBody(String sessionId, TunaCard card, {bool sin
         'cvv': card.cvv.trim(),
         'singleUse': singleUse,
       },
+      if (authCode != null && authCode.isNotEmpty) 'authenticationInformation': {'code': authCode},
     };
 
 /// URL do Generate a partir do `tokenUrl` da sessão. Só HTTPS — o cartão cru
@@ -54,7 +60,11 @@ TunaToken? parseTunaGenerate(Object? data) {
   final token = data['token'];
   if (token is! String || token.isEmpty) return null;
   final brand = data['brand'];
-  return (token: token, brand: brand is String && brand.isNotEmpty ? brand : null);
+  return (
+    token: token,
+    brand: brand is String && brand.isNotEmpty ? brand : null,
+    auth: parseTunaAuthInfo(data),
+  );
 }
 
 /// Tokeniza o cartão DIRETO na Tuna com a sessão do pedido (`/tuna/session`):
@@ -66,13 +76,14 @@ Future<TunaToken?> tunaGenerateToken({
   required String sessionId,
   required TunaCard card,
   bool singleUse = true,
+  String? authCode,
   Dio? dio,
 }) async {
   final url = tunaGenerateUrl(tokenUrl);
   if (url == null || sessionId.isEmpty) return null;
   try {
     final res = await (dio ?? _tunaDio())
-        .post<Object?>(url, data: tunaGenerateBody(sessionId, card, singleUse: singleUse));
+        .post<Object?>(url, data: tunaGenerateBody(sessionId, card, singleUse: singleUse, authCode: authCode));
     return parseTunaGenerate(res.data);
   } on DioException {
     return null;
@@ -154,8 +165,14 @@ List<TunaSavedCard>? parseTunaList(Object? data) {
 }
 
 /// Corpo do `Token/Bind` (vincula o CVV ao token salvo pra esta cobrança).
-Map<String, dynamic> tunaBindBody(String sessionId, String token, String cvv) =>
-    {'sessionId': sessionId, 'token': token, 'cvv': cvv.trim()};
+/// `authCode` (débito, 3DS): igual ao Generate — se a Tuna devolver
+/// `authenticationInformation`, o débito com cartão salvo também leva 3DS.
+Map<String, dynamic> tunaBindBody(String sessionId, String token, String cvv, {String? authCode}) => {
+      'sessionId': sessionId,
+      'token': token,
+      'cvv': cvv.trim(),
+      if (authCode != null && authCode.isNotEmpty) 'authenticationInformation': {'code': authCode},
+    };
 
 /// Corpo do `Token/Delete`.
 Map<String, dynamic> tunaDeleteBody(String sessionId, String token) => {'sessionId': sessionId, 'token': token};
@@ -186,14 +203,28 @@ Future<bool> tunaBindCvv({
   required String token,
   required String cvv,
   Dio? dio,
+}) async =>
+    (await tunaBind(tokenUrl: tokenUrl, sessionId: sessionId, token: token, cvv: cvv, dio: dio)).ok;
+
+/// Bind do CVV com o código 3DS opcional. `auth` = `authenticationInformation`
+/// da resposta (se a Tuna devolver). `ok: false` em qualquer falha (nunca lança).
+Future<({bool ok, TunaAuthInfo? auth})> tunaBind({
+  required String tokenUrl,
+  required String sessionId,
+  required String token,
+  required String cvv,
+  String? authCode,
+  Dio? dio,
 }) async {
   final url = tunaTokenApiUrl(tokenUrl, 'Bind');
-  if (url == null || sessionId.isEmpty || token.isEmpty) return false;
+  if (url == null || sessionId.isEmpty || token.isEmpty) return (ok: false, auth: null);
   try {
-    final res = await (dio ?? _tunaDio()).post<Object?>(url, data: tunaBindBody(sessionId, token, cvv));
-    return parseTunaOk(res.data);
+    final res = await (dio ?? _tunaDio())
+        .post<Object?>(url, data: tunaBindBody(sessionId, token, cvv, authCode: authCode));
+    final ok = parseTunaOk(res.data);
+    return (ok: ok, auth: ok ? parseTunaAuthInfo(res.data) : null);
   } on DioException {
-    return false;
+    return (ok: false, auth: null);
   }
 }
 

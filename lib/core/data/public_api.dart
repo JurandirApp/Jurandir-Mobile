@@ -11,6 +11,7 @@ import '../api/api_client.dart';
 import '../api/api_config.dart';
 import '../payments/threeds.dart';
 import '../payments/tuna_fingerprint.dart';
+import '../payments/tuna_threeds.dart';
 import 'models.dart';
 import 'onboarding_controller.dart';
 
@@ -275,7 +276,10 @@ class PublicApi {
   /// propósito — a cobrança pode ter ido; quem chama manda pra tela de
   /// processamento (nunca "não aprovado"). Só uma resposta 200 com ok:false é
   /// recusa de fato.
-  Future<({bool ok, String status, String? detail, ClientOrder? order})> createCardOrder(
+  /// Tuna débito (3DS): `tuna.threeDs` = `{ code, referenceId, transactionId }`
+  /// e `tuna.browser` (tela/idioma/fuso). Se o banco pedir desafio, a resposta
+  /// vem `pending` com `challenge` (ver [TunaChallenge]).
+  Future<({bool ok, String status, String? detail, ClientOrder? order, TunaChallenge? challenge})> createCardOrder(
     String orderId,
     String cardToken, {
     int installments = 1,
@@ -283,7 +287,7 @@ class PublicApi {
     Map<String, dynamic>? billing, // endereço de cobrança (antifraude Pagar.me)
     String? customerDocument, // CPF do pagador (o pedido não guarda o doc)
     String? authenticationId, // id do 3DS do PagBank (débito)
-    Map<String, dynamic>? tuna, // Tuna: { sessionId, brand, deviceSessionId?, deviceKey? } da tokenização
+    Map<String, dynamic>? tuna, // Tuna: { sessionId, brand, deviceSessionId?, deviceKey?, threeDs?, browser? }
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
       'orderId': orderId,
@@ -304,6 +308,7 @@ class PublicApi {
       status: (d['status'] as String?) ?? 'failed',
       detail: d['detail'] as String?,
       order: d['order'] == null ? null : ClientOrder.fromJson(d['order'] as Map<String, dynamic>),
+      challenge: parseTunaChallenge(d['challenge']),
     );
   }
 
