@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../core/utils/backoff_poller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +27,7 @@ class SplitScreen extends ConsumerStatefulWidget {
 }
 
 class _SplitScreenState extends ConsumerState<SplitScreen> {
-  Timer? _poll;
+  BackoffPoller? _poll;
   ClientOrder? _order;
   bool _done = false;
 
@@ -87,7 +88,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
     }
     _order ??= initial;
     final id = initial.dbId;
-    if (id != null) _poll ??= Timer.periodic(const Duration(seconds: 4), (_) => _refresh(id));
+    if (id != null) _poll ??= BackoffPoller(() => _refresh(id))..start();
 
     final order = _order!;
     final shares = order.splits ?? const <ClientShare>[];
