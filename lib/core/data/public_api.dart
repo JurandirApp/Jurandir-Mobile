@@ -147,6 +147,33 @@ class PublicApi {
     }
   }
 
+  /// Sessão da Tuna do APARELHO (cartões salvos): `/tuna/cards/session` com a
+  /// chave secreta do aparelho. Com ela o app lista/apaga/vincula CVV/salva
+  /// cartão direto na Tuna. Null em qualquer falha (nunca lança) — os cartões
+  /// salvos somem e o cartão novo segue normal. Nunca logar a chave nem a sessão.
+  Future<({String sessionId, String tokenUrl})?> tunaCardsSession(String deviceKey) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/tuna/cards/session',
+        data: {'deviceKey': deviceKey},
+        options: Options(
+          sendTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+          validateStatus: (_) => true,
+        ),
+      );
+      final d = res.data;
+      final sessionId = d?['sessionId'];
+      final tokenUrl = d?['tokenUrl'];
+      if (res.statusCode == 200 && sessionId is String && sessionId.isNotEmpty && tokenUrl is String) {
+        return (sessionId: sessionId, tokenUrl: tokenUrl);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Config do device fingerprint da Tuna (antifraude CyberSource). Timeout
   /// curto e nunca lança: qualquer falha → desligado (o pagamento segue sem).
   Future<TunaFingerprintConfig> tunaFingerprint() async {
@@ -256,7 +283,7 @@ class PublicApi {
     Map<String, dynamic>? billing, // endereço de cobrança (antifraude Pagar.me)
     String? customerDocument, // CPF do pagador (o pedido não guarda o doc)
     String? authenticationId, // id do 3DS do PagBank (débito)
-    Map<String, dynamic>? tuna, // Tuna: { sessionId, brand, deviceSessionId? } da tokenização
+    Map<String, dynamic>? tuna, // Tuna: { sessionId, brand, deviceSessionId?, deviceKey? } da tokenização
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/orders/card', data: {
       'orderId': orderId,
