@@ -334,6 +334,28 @@ class PublicApi {
     );
   }
 
+  /// Situação da cobrança de cartão Tuna do pedido (GET /tuna/card-status):
+  /// 'paid' | 'failed' | 'pending'. Null em erro/timeout (o polling tenta de novo).
+  Future<String?> tunaCardStatus(String orderId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/tuna/card-status',
+        queryParameters: {'orderId': orderId},
+        options: Options(
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          validateStatus: (_) => true,
+        ),
+      );
+      if (res.statusCode != 200) return null;
+      final data = res.data;
+      final s = data == null ? null : data['status'];
+      return s is String ? s : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Status dos pedidos guardados localmente (GET /orders?ids=...).
   Future<List<ClientOrder>> myOrders(List<String> ids) async {
     if (ids.isEmpty) return const [];

@@ -489,6 +489,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         final list = await api.myOrders([id]);
         return list.isEmpty ? null : list.first;
       },
+      // Recusa do banco aparece na hora (o pedido continua "aguardando").
+      fetchChargeStatus: () async => id == null ? null : api.tunaCardStatus(id),
     );
     if (!mounted) return;
     switch (outcome) {

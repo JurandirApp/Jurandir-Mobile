@@ -171,6 +171,7 @@ Future<TunaChallengeOutcome> runTunaChallenge(
   BuildContext context, {
   required TunaChallenge challenge,
   required Future<ClientOrder?> Function() fetchOrder,
+  Future<String?> Function()? fetchChargeStatus,
   Duration pollEvery = const Duration(seconds: 3),
   Duration maxWait = const Duration(minutes: 5),
   Duration graceAfterReturn = const Duration(seconds: 30),
@@ -181,6 +182,7 @@ Future<TunaChallengeOutcome> runTunaChallenge(
       builder: (_) => _TunaChallengeScreen(
         challenge: challenge,
         fetchOrder: fetchOrder,
+        fetchChargeStatus: fetchChargeStatus,
         pollEvery: pollEvery,
         maxWait: maxWait,
         graceAfterReturn: graceAfterReturn,
@@ -210,12 +212,17 @@ class _TunaChallengeScreen extends StatefulWidget {
   const _TunaChallengeScreen({
     required this.challenge,
     required this.fetchOrder,
+    this.fetchChargeStatus,
     required this.pollEvery,
     required this.maxWait,
     required this.graceAfterReturn,
   });
   final TunaChallenge challenge;
   final Future<ClientOrder?> Function() fetchOrder;
+  /// Situação da cobrança na Tuna (paid | failed | pending), via
+  /// GET /tuna/card-status — detecta a RECUSA na hora (o pedido continua
+  /// "aguardando" quando o banco recusa, então só o pedido não basta).
+  final Future<String?> Function()? fetchChargeStatus;
   final Duration pollEvery;
   final Duration maxWait;
   final Duration graceAfterReturn;
@@ -309,7 +316,9 @@ class _TunaChallengeScreenState extends State<_TunaChallengeScreen> {
     _checking = true;
     try {
       final o = await widget.fetchOrder();
-      if (_isPaid(o)) _finish(TunaChallengePaid(o!));
+      if (_isPaid(o)) return _finish(TunaChallengePaid(o!));
+      final st = await widget.fetchChargeStatus?.call();
+      if (st == 'failed') _finish(const TunaChallengeDeclined());
     } catch (_) {
       // rede: tenta de novo no próximo ciclo
     } finally {
