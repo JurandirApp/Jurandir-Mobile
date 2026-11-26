@@ -49,7 +49,11 @@ abstract final class WalletConfig {
   ///
   /// [tunaGatewayMerchantId]: o id vindo do servidor (GET /tuna/wallet-config);
   /// tem prioridade sobre o fixo no build, pra trocar sem versão nova.
-  static String googlePayFor(String backendGateway, {String? tunaGatewayMerchantId}) {
+  ///
+  /// [debit]: débito na carteira (só Tuna). Só cartão AUTENTICADO pelo aparelho
+  /// (criptograma) passa sem 3DS, então fica só CRYPTOGRAM_3DS.
+  static String googlePayFor(String backendGateway, {String? tunaGatewayMerchantId, bool debit = false}) {
+    final authMethods = debit ? '"CRYPTOGRAM_3DS"' : '"PAN_ONLY","CRYPTOGRAM_3DS"';
     final tunaMid = (tunaGatewayMerchantId?.trim().isNotEmpty ?? false) ? tunaGatewayMerchantId!.trim() : tunaMerchantId;
     final pagbank = backendGateway == 'PAGBANK' && pagbankMerchantId.isNotEmpty;
     final tuna = backendGateway == 'TUNA' && tunaMid.isNotEmpty;
@@ -58,7 +62,7 @@ abstract final class WalletConfig {
     return '{"provider":"google_pay","data":{"environment":"$env","apiVersion":2,"apiVersionMinor":0,'
         '"allowedPaymentMethods":[{"type":"CARD","tokenizationSpecification":{"type":"PAYMENT_GATEWAY",'
         '"parameters":{"gateway":"$gw","gatewayMerchantId":"$mid"}},'
-        '"parameters":{"allowedCardNetworks":["VISA","MASTERCARD","ELO"],"allowedAuthMethods":["PAN_ONLY","CRYPTOGRAM_3DS"]}}],'
+        '"parameters":{"allowedCardNetworks":["VISA","MASTERCARD","ELO"],"allowedAuthMethods":[$authMethods]}}],'
         '"merchantInfo":$_merchantInfo,'
         '"transactionInfo":{"countryCode":"BR","currencyCode":"BRL"}}}';
   }
@@ -76,13 +80,15 @@ abstract final class WalletConfig {
 
   /// Config do Apple Pay pro gateway do bar: Tuna usa o Merchant ID da Tuna;
   /// os demais, o padrão.
-  static String applePayFor(String backendGateway) =>
-      _applePayWith(backendGateway == 'TUNA' && appleMerchantIdTuna.isNotEmpty ? appleMerchantIdTuna : appleMerchantId);
+  /// [debit]: só cartões de débito na folha do Apple Pay (débito via Tuna).
+  static String applePayFor(String backendGateway, {bool debit = false}) => _applePayWith(
+      backendGateway == 'TUNA' && appleMerchantIdTuna.isNotEmpty ? appleMerchantIdTuna : appleMerchantId,
+      debit: debit);
 
   static String get applePay => _applePayWith(appleMerchantId);
 
-  static String _applePayWith(String merchantIdentifier) =>
+  static String _applePayWith(String merchantIdentifier, {bool debit = false}) =>
       '{"provider":"apple_pay","data":{"merchantIdentifier":"$merchantIdentifier","displayName":"$merchantName",'
-      '"merchantCapabilities":["3DS","credit"],"supportedNetworks":["visa","masterCard","elo"],'
+      '"merchantCapabilities":["3DS","${debit ? 'debit' : 'credit'}"],"supportedNetworks":["visa","masterCard","elo"],'
       '"countryCode":"BR","currencyCode":"BRL"}}';
 }

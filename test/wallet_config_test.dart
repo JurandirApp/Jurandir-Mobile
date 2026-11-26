@@ -53,6 +53,21 @@ void main() {
     expect((t['data'] as Map)['merchantIdentifier'], WalletConfig.appleMerchantId);
   });
 
+  test('débito na carteira: Google só CRYPTOGRAM_3DS; Apple só cartões de débito', () {
+    Map<String, dynamic> gpParams(bool debit) {
+      final j = jsonDecode(WalletConfig.googlePayFor('TUNA', debit: debit)) as Map<String, dynamic>;
+      final pm = ((j['data'] as Map)['allowedPaymentMethods'] as List).first as Map;
+      return (pm['parameters'] as Map).cast<String, dynamic>();
+    }
+
+    expect(gpParams(true)['allowedAuthMethods'], ['CRYPTOGRAM_3DS']);
+    expect(gpParams(false)['allowedAuthMethods'], ['PAN_ONLY', 'CRYPTOGRAM_3DS']);
+    final ap = jsonDecode(WalletConfig.applePayFor('PAGARME', debit: true)) as Map<String, dynamic>;
+    expect((ap['data'] as Map)['merchantCapabilities'], ['3DS', 'debit']);
+    final ac = jsonDecode(WalletConfig.applePayFor('PAGARME')) as Map<String, dynamic>;
+    expect((ac['data'] as Map)['merchantCapabilities'], ['3DS', 'credit']);
+  });
+
   test('PAGARME continua na config padrão (PAY_GATEWAY)', () {
     final p = _params('PAGARME');
     expect(p.gateway, WalletConfig.gateway);

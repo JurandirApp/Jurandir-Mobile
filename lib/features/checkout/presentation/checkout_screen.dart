@@ -61,6 +61,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _submitting = false;
   final _obsCtrl = TextEditingController();
   bool _calling = false; // cooldown do "chamar garçom"
+  // Carteira (Google/Apple Pay) no débito? Só oferecido quando a carteira do
+  // bar está na Tuna (os outros gateways cobram carteira só no crédito).
+  bool _walletDebit = false;
   // Device fingerprint da Tuna (antifraude): começa ao abrir o checkout (precisa
   // de 5–10 s antes de cobrar). Id novo por abertura; nunca logar.
   bool _fpStarted = false;
@@ -93,6 +96,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   /// Apple Pay indisponível pro bar: a carteira dele está na Tuna (fora de escopo).
+  /// A carteira ([walletId] = 'google_pay' | 'apple_pay') aceita débito? Só na Tuna.
+  bool _walletAllowsDebit(String walletId) =>
+      _cartEst()?.gatewayFor(walletId == 'apple_pay' ? 'applePay' : 'googlePay') == 'TUNA';
+
+  /// Débito efetivo da carteira desta plataforma (escolha + gateway que aceita).
+  bool get _walletDebitActive {
+    final id = defaultTargetPlatform == TargetPlatform.iOS ? 'apple_pay' : 'google_pay';
+    return _walletDebit && _walletAllowsDebit(id);
+  }
+
   /// (Tuna só com o Merchant ID próprio dela no build — APPLE_MERCHANT_ID_TUNA.)
   bool get _applePayBlocked => !WalletConfig.applePayAvailableFor(_cartEst()?.gatewayFor('applePay') ?? 'PAGARME');
 
@@ -184,8 +197,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
     }
     final config = iOS
-        ? WalletConfig.applePayFor(_cartEst()?.gatewayFor('applePay') ?? 'PAGARME')
-        : WalletConfig.googlePayFor(gpGateway, tunaGatewayMerchantId: tunaMid);
+        ? WalletConfig.applePayFor(_cartEst()?.gatewayFor('applePay') ?? 'PAGARME', debit: _walletDebitActive)
+        : WalletConfig.googlePayFor(gpGateway, tunaGatewayMerchantId: tunaMid, debit: _walletDebitActive);
     final client = Pay({provider: PaymentConfiguration.fromJsonString(config)});
     final items = [
       PaymentItem(
@@ -1095,7 +1108,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _toast('Não foi possível ler o pagamento da carteira.');
       return;
     }
-    final payload = _orderPayload(method: 'CREDIT');
+    // Débito na carteira (Tuna) → pedido DEBIT; o servidor cobra a carteira como débito.
+    final payload = _orderPayload(method: _walletDebitActive ? 'DEBIT' : 'CREDIT');
     if (payload == null) {
       // Sem estabelecimento real (demo) → mantém o comportamento antigo.
       _finish(incomplete: false);
@@ -1206,12 +1220,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 child: Text(pm.label, style: AppText.body(size: 14.5, weight: FontWeight.w800)),
               ),
             ],
-            // Carteiras (Apple/Google Pay) sao cobradas como credito pelos gateways.
+            // Carteiras: na Tuna o cliente escolhe crédito ou débito; nos outros
+            // gateways a carteira é cobrada só como crédito.
             if (pm.id == 'apple_pay' || pm.id == 'google_pay') ...[
-              Text(
-                'Somente crédito',
-                style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.55)),
-              ),
+              if (_walletAllowsDebit(pm.id))
+                _fundingToggle(onPick: () => setState(() => _selPay = pm.id))
+              else
+                Text(
+                  'Somente crédito',
+                  style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.55)),
+                ),
               const SizedBox(width: 10),
             ],
             Container(
@@ -1227,6 +1245,40 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Seletor compacto "Crédito | Débito" da carteira. Tocar também seleciona a
+  /// carteira ([onPick]), pra não precisar de dois toques.
+  Widget _fundingToggle({required VoidCallback onPick}) {
+    Widget seg(String label, bool debit) {
+      final on = _walletDebit == debit;
+      return GestureDetector(
+        onTap: () {
+          setState(() => _walletDebit = debit);
+          onPick();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: on ? AppColors.ink : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: AppText.body(size: 11, weight: FontWeight.w700, color: on ? AppColors.dune : AppColors.inkA(0.6)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: AppColors.inkA(0.06),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [seg('Crédito', false), seg('Débito', true)]),
     );
   }
 
