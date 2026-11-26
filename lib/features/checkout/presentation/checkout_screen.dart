@@ -795,15 +795,83 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
 
   /// Toast de recusa de pagamento com ação "Chamar garçom".
+  /// Aviso de pagamento recusado: cartão compacto (ícone + título + dica), com
+  /// "Chamar garçom" em pílula e X pra fechar. Some sozinho em 5 s.
   void _declineToast(String msg) {
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.ink,
-        content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
-        action: SnackBarAction(label: 'Chamar garçom', textColor: AppColors.coral, onPressed: _callWaiter),
-      ));
+    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
+    messenger.showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 5),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: EdgeInsets.zero,
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      content: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        decoration: BoxDecoration(
+          color: AppColors.ink,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 18, offset: const Offset(0, 6))],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: AppColors.coral.withValues(alpha: 0.18), shape: BoxShape.circle),
+              child: const Icon(Symbols.credit_card_off, size: 18, color: AppColors.coral),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Pagamento não aprovado',
+                      style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.dune)),
+                  const SizedBox(height: 2),
+                  Text(_declineHint(msg),
+                      style: AppText.body(size: 12.5, weight: FontWeight.w500, color: AppColors.duneA(0.75))),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () {
+                      messenger.hideCurrentSnackBar();
+                      _callWaiter();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(color: AppColors.coral, borderRadius: BorderRadius.circular(999)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Symbols.room_service, size: 15, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text('Chamar garçom',
+                              style: AppText.body(size: 12, weight: FontWeight.w800, color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: messenger.hideCurrentSnackBar,
+              icon: Icon(Symbols.close, size: 18, color: AppColors.duneA(0.7)),
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Fechar',
+            ),
+          ],
+        ),
+      ),
+    ));
+  }
+
+  /// Tira o "Pagamento não aprovado." do começo (já é o título) e deixa a dica.
+  String _declineHint(String msg) {
+    final hint = msg.replaceFirst(RegExp(r'^Pagamento não aprovado\.?\s*'), '').trim();
+    return hint.isEmpty ? 'Tente de novo ou escolha outro método.' : hint;
   }
 
   void _toast(String msg) {
