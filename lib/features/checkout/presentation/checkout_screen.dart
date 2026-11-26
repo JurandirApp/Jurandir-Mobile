@@ -279,8 +279,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         return;
       }
     }
+    // Tuna: a folha abre a sessão do APARELHO pra mostrar os cartões salvos.
+    final api = ref.read(publicApiProvider);
+    final cardKey = ref.read(clientProfileProvider).cardKey;
     final card = await showCardSheet(context,
-        amount: grand, debit: debit, pagbankKey: pagbankKey, wantRaw: threeDs, tuna: tuna);
+        amount: grand,
+        debit: debit,
+        pagbankKey: pagbankKey,
+        wantRaw: threeDs,
+        tuna: tuna,
+        tunaCardsSession: tuna ? () => api.tunaCardsSession(cardKey) : null);
     if (card == null || !mounted) return; // cancelou ou falhou a tokenização
     final payload = _orderPayload(method: debit ? 'DEBIT' : 'CREDIT');
     if (payload == null) {
@@ -333,7 +341,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final t = await _tokenizeTuna(id, card);
       if (t == null) return; // já avisou e liberou o botão
       chargeToken = t.token;
-      tunaInfo = {'sessionId': t.sessionId, 'brand': ?t.brand, 'deviceSessionId': ?_deviceSessionId};
+      tunaInfo = {
+        'sessionId': t.sessionId,
+        'brand': ?t.brand,
+        'deviceSessionId': ?_deviceSessionId,
+        'deviceKey': ?t.deviceKey, // só cartão salvo / cartão novo salvo agora
+      };
     }
 
     // 2) Cobra o pedido. Em QUALQUER lentidão/timeout vai pra tela de
@@ -374,9 +387,36 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// token de uso único direto na Tuna. Devolve token + bandeira + sessão, ou
   /// null — nesse caso já avisou o cliente, liberou o botão e NADA foi cobrado.
   /// Nunca logar o cartão, o token nem a sessão.
-  Future<({String token, String? brand, String sessionId})?> _tokenizeTuna(
+  /// Cartão salvo / cartão novo a salvar: usa uma sessão NOVA do aparelho
+  /// (`/tuna/cards/session`) — Bind do CVV ou Generate persistente — e devolve
+  /// `deviceKey` pra cobrança ir no customer do aparelho. Sem essa sessão, o
+  /// cartão salvo não paga (avisa); o cartão novo cai no fluxo de sempre, sem
+  /// salvar.
+  Future<({String token, String? brand, String sessionId, String? deviceKey})?> _tokenizeTuna(
       String orderId, CardSheetResult card) async {
     final tokenize = card.tunaTokenize;
+    if (tokenize != null && (card.tunaSavedCard || card.tunaSaveNew)) {
+      final key = ref.read(clientProfileProvider).cardKey;
+      final ds = await ref.read(publicApiProvider).tunaCardsSession(key);
+      if (!mounted) return null;
+      if (ds != null) {
+        final t = await tokenize(ds.tokenUrl, ds.sessionId, true);
+        if (!mounted) return null;
+        if (t == null) {
+          setState(() => _submitting = false);
+          _toast(card.tunaSavedCard
+              ? 'Não foi possível validar o cartão salvo. Confira o CVV ou use outro cartão.'
+              : 'Não foi possível validar o cartão. Confira os dados ou tente outro cartão.');
+          return null;
+        }
+        return (token: t.token, brand: t.brand, sessionId: ds.sessionId, deviceKey: key);
+      }
+      if (card.tunaSavedCard) {
+        setState(() => _submitting = false);
+        _toast('Pagamento com cartão indisponível agora. Tente outro método.');
+        return null;
+      }
+    }
     final s = await ref.read(publicApiProvider).tunaSession(orderId);
     if (!mounted) return null;
     final session = s.session;
@@ -386,14 +426,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _toast('Pagamento com cartão indisponível agora. Tente outro método.');
       return null;
     }
-    final t = await tokenize(session.tokenUrl, session.sessionId);
+    final t = await tokenize(session.tokenUrl, session.sessionId, false);
     if (!mounted) return null;
     if (t == null) {
       setState(() => _submitting = false);
       _toast('Não foi possível validar o cartão. Confira os dados ou tente outro cartão.');
       return null;
     }
-    return (token: t.token, brand: t.brand, sessionId: session.sessionId);
+    return (token: t.token, brand: t.brand, sessionId: session.sessionId, deviceKey: null);
   }
 
   /// Débito PagBank: abre a sessão 3DS do pedido e a tela "Confirmação do banco".

@@ -41,6 +41,125 @@ void main() {
     expect(c['singleUse'], true);
   });
 
+  test('Generate com singleUse: false (salvar cartão)', () {
+    final c = tunaGenerateBody('sess_dev', card, singleUse: false)['card'] as Map<String, dynamic>;
+    expect(c['singleUse'], false);
+  });
+
+  test('URL das operações de token só em HTTPS', () {
+    expect(tunaTokenApiUrl('https://token.tunagateway.com/', 'List'), 'https://token.tunagateway.com/api/Token/List');
+    expect(tunaTokenApiUrl('https://token.tunagateway.com', 'Bind'), 'https://token.tunagateway.com/api/Token/Bind');
+    expect(tunaTokenApiUrl('http://token.tunagateway.com', 'Delete'), isNull);
+  });
+
+  group('cartões salvos · corpos', () {
+    test('List / Bind / Delete', () {
+      expect(tunaListBody('sess'), {'sessionId': 'sess'});
+      expect(tunaBindBody('sess', 'tok', ' 123 '), {'sessionId': 'sess', 'token': 'tok', 'cvv': '123'});
+      expect(tunaDeleteBody('sess', 'tok'), {'sessionId': 'sess', 'token': 'tok'});
+    });
+  });
+
+  group('parseTunaList', () {
+    test('lê os cartões (formato do staging) e monta o rótulo', () {
+      final l = parseTunaList({
+        'code': 1,
+        'tokens': [
+          {
+            'token': 'tok_1',
+            'brand': 'Master',
+            'cardHolderName': 'FULANO',
+            'expirationMonth': 1,
+            'expirationYear': 2030,
+            'maskedNumber': '520000xxxxxx2235',
+            'singleUse': false,
+            'bin': '520000',
+          },
+          {'token': '', 'brand': 'Visa'}, // sem token → ignora
+          'lixo',
+        ],
+      });
+      expect(l, hasLength(1));
+      expect(l![0].token, 'tok_1');
+      expect(l[0].brand, 'Master');
+      expect(l[0].last4, '2235');
+      expect(l[0].label, 'Mastercard •••• 2235 · 01/30');
+    });
+    test('sem tokens → lista vazia; code < 0 / formato estranho → null', () {
+      expect(parseTunaList({'code': 1, 'tokens': []}), isEmpty);
+      expect(parseTunaList({'code': 1}), isEmpty);
+      expect(parseTunaList({'code': -1, 'message': 'Session has expired'}), isNull);
+      expect(parseTunaList({'tokens': []}), isNull);
+      expect(parseTunaList({'code': 1, 'tokens': 'x'}), isNull);
+      expect(parseTunaList(null), isNull);
+    });
+    test('rótulo sem bandeira nem validade', () {
+      const c = TunaSavedCard(token: 't', maskedNumber: '411111xxxxxx1111');
+      expect(c.label, 'Cartão •••• 1111');
+    });
+  });
+
+  test('parseTunaOk: Bind e Delete', () {
+    expect(parseTunaOk({'code': 1, 'message': 'Bind succeded', 'validFor': 1200}), isTrue);
+    expect(parseTunaOk({'status': 'Success', 'code': 1}), isTrue);
+    expect(parseTunaOk({'code': -1}), isFalse);
+    expect(parseTunaOk({'status': 'Success'}), isFalse);
+    expect(parseTunaOk(null), isFalse);
+  });
+
+  group('chamadas de cartões salvos', () {
+    test('List posta direto na Tuna e devolve os cartões', () async {
+      final fake = _FakeAdapter(200, {
+        'code': 1,
+        'tokens': [
+          {'token': 'tok_1', 'brand': 'Visa', 'maskedNumber': '411111xxxxxx1111'}
+        ],
+      });
+      final dio = Dio()..httpClientAdapter = fake;
+      final l = await tunaListCards(tokenUrl: 'https://token.tunagateway.com', sessionId: 'sess', dio: dio);
+      expect(l?.single.token, 'tok_1');
+      expect(fake.last?.uri.toString(), 'https://token.tunagateway.com/api/Token/List');
+      expect(fake.lastBody, {'sessionId': 'sess'});
+    });
+
+    test('Bind manda sessão + token + CVV', () async {
+      final fake = _FakeAdapter(200, {'code': 1, 'message': 'Bind succeded', 'validFor': 1200});
+      final dio = Dio()..httpClientAdapter = fake;
+      final ok = await tunaBindCvv(
+          tokenUrl: 'https://token.tunagateway.com', sessionId: 'sess', token: 'tok_1', cvv: '321', dio: dio);
+      expect(ok, isTrue);
+      expect(fake.last?.uri.toString(), 'https://token.tunagateway.com/api/Token/Bind');
+      expect(fake.lastBody, {'sessionId': 'sess', 'token': 'tok_1', 'cvv': '321'});
+    });
+
+    test('Delete manda sessão + token', () async {
+      final fake = _FakeAdapter(200, {'status': 'Success', 'code': 1});
+      final dio = Dio()..httpClientAdapter = fake;
+      final ok = await tunaDeleteCard(tokenUrl: 'https://token.tunagateway.com', sessionId: 'sess', token: 'tok_1', dio: dio);
+      expect(ok, isTrue);
+      expect(fake.last?.uri.toString(), 'https://token.tunagateway.com/api/Token/Delete');
+      expect(fake.lastBody, {'sessionId': 'sess', 'token': 'tok_1'});
+    });
+
+    test('falhas → null/false (nunca lança)', () async {
+      final dio = Dio()..httpClientAdapter = _FakeAdapter(500, {'error': 'x'});
+      expect(await tunaListCards(tokenUrl: 'https://t.example', sessionId: 's', dio: dio), isNull);
+      expect(await tunaBindCvv(tokenUrl: 'https://t.example', sessionId: 's', token: 't', cvv: '1', dio: dio), isFalse);
+      expect(await tunaDeleteCard(tokenUrl: 'https://t.example', sessionId: 's', token: 't', dio: dio), isFalse);
+      final neg = Dio()..httpClientAdapter = _FakeAdapter(200, {'code': -1});
+      expect(await tunaBindCvv(tokenUrl: 'https://t.example', sessionId: 's', token: 't', cvv: '1', dio: neg), isFalse);
+    });
+
+    test('Generate salvando manda singleUse false', () async {
+      final fake = _FakeAdapter(200, {'code': 1, 'token': 'tok_salvo', 'brand': 'Visa'});
+      final dio = Dio()..httpClientAdapter = fake;
+      final t = await tunaGenerateToken(
+          tokenUrl: 'https://t.example', sessionId: 'sess_dev', card: card, singleUse: false, dio: dio);
+      expect(t?.token, 'tok_salvo');
+      expect(((fake.lastBody as Map)['card'] as Map)['singleUse'], false);
+    });
+  });
+
   test('URL do Generate só em HTTPS', () {
     expect(tunaGenerateUrl('https://token.tunagateway.com'), 'https://token.tunagateway.com/api/Token/Generate');
     expect(tunaGenerateUrl('https://token.tunagateway.com/'), 'https://token.tunagateway.com/api/Token/Generate');

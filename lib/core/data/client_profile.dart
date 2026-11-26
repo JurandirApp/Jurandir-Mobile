@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,11 +15,17 @@ class ClientProfile {
   final String? document; // CPF (só dígitos ou mascarado)
   final String clientId;
 
+  /// Chave secreta do aparelho pros cartões salvos (Tuna): o servidor deriva
+  /// dela o "dono" dos cartões. Gerada uma vez; NUNCA logar nem mandar pra
+  /// outro lugar além de `/tuna/cards/session` e da cobrança.
+  final String cardKey;
+
   const ClientProfile({
     this.name,
     this.phone,
     this.document,
     required this.clientId,
+    required this.cardKey,
   });
 
   /// Verifica se o perfil está completo: nome não-vazio e telefone >= 8 dígitos.
@@ -40,6 +47,7 @@ class ClientProfileController extends Notifier<ClientProfile> {
   static const _kPhone = 'client_phone';
   static const _kDocument = 'client_document';
   static const _kId = 'client_id';
+  static const _kCardKey = 'client_card_key';
 
   @override
   ClientProfile build() {
@@ -51,12 +59,18 @@ class ClientProfileController extends Notifier<ClientProfile> {
       id = 'c_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(0x7fffffff)}';
       prefs.setString(_kId, id);
     }
+    var cardKey = prefs.getString(_kCardKey);
+    if (cardKey == null || !isValidCardKey(cardKey)) {
+      cardKey = generateCardKey();
+      prefs.setString(_kCardKey, cardKey);
+    }
 
     return ClientProfile(
       name: prefs.getString(_kName),
       phone: prefs.getString(_kPhone),
       document: prefs.getString(_kDocument),
       clientId: id,
+      cardKey: cardKey,
     );
   }
 
@@ -72,6 +86,7 @@ class ClientProfileController extends Notifier<ClientProfile> {
       phone: trimmedPhone,
       document: state.document,
       clientId: state.clientId,
+      cardKey: state.cardKey,
     );
   }
 
@@ -85,6 +100,7 @@ class ClientProfileController extends Notifier<ClientProfile> {
       phone: state.phone,
       document: digits,
       clientId: state.clientId,
+      cardKey: state.cardKey,
     );
   }
 }
@@ -94,6 +110,17 @@ final clientProfileProvider =
     NotifierProvider<ClientProfileController, ClientProfile>(
   ClientProfileController.new,
 );
+
+/// Gera a chave secreta dos cartões salvos: 32 bytes de `Random.secure()` em
+/// base64url sem `=` (43 chars). Nunca logar.
+String generateCardKey([Random? random]) {
+  final r = random ?? Random.secure();
+  final bytes = List<int>.generate(32, (_) => r.nextInt(256));
+  return base64Url.encode(bytes).replaceAll('=', '');
+}
+
+/// Mesmo formato que o servidor aceita (base64url, 32–128 chars).
+bool isValidCardKey(String key) => RegExp(r'^[A-Za-z0-9_-]{32,128}$').hasMatch(key);
 
 /// Valida um CPF (11 dígitos + dígitos verificadores). Rejeita sequências
 /// repetidas (000..., 111...). Usado antes de mandar pro Pagar.me.

@@ -141,6 +141,44 @@ void main() {
       expect(c.usable, isFalse);
     });
   });
+
+  group('tunaCardsSession (cartões salvos)', () {
+    final key = 'k' * 43;
+
+    test('200 → sessão do aparelho; manda só a deviceKey', () async {
+      final t = _api(200, {'sessionId': 'sess_dev', 'tokenUrl': 'https://token.tunagateway.com'});
+      final s = await t.api.tunaCardsSession(key);
+      expect(s?.sessionId, 'sess_dev');
+      expect(s?.tokenUrl, 'https://token.tunagateway.com');
+      expect(t.fake.last?.path, '/tuna/cards/session');
+      expect(t.fake.last?.data, {'deviceKey': key});
+    });
+
+    for (final status in [422, 403, 502, 503]) {
+      test('$status → null (nunca lança)', () async {
+        expect(await _api(status, {'error': 'x'}).api.tunaCardsSession(key), isNull);
+      });
+    }
+
+    test('200 sem sessionId → null', () async {
+      expect(await _api(200, {'tokenUrl': 'https://t.example'}).api.tunaCardsSession(key), isNull);
+    });
+
+    test('erro de rede → null', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example/api/public'))
+        ..httpClientAdapter = _ThrowingAdapter();
+      expect(await PublicApi(dio).tunaCardsSession(key), isNull);
+    });
+
+    test('createCardOrder leva a deviceKey dentro do bloco tuna', () async {
+      final t = _api(200, {'ok': true, 'status': 'paid'});
+      await t.api.createCardOrder('ord_1', 'tok_salvo',
+          method: 'credit', tuna: {'sessionId': 'sess_dev', 'brand': 'Master', 'deviceKey': key});
+      final body = t.fake.last?.data as Map;
+      expect(body['cardToken'], 'tok_salvo');
+      expect(body['tuna'], {'sessionId': 'sess_dev', 'brand': 'Master', 'deviceKey': key});
+    });
+  });
 }
 
 /// Adapter que sempre falha (simula rede/timeout).

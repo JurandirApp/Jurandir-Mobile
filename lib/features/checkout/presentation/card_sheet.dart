@@ -19,14 +19,24 @@ import '../../../core/utils/money.dart';
 /// Com `tuna` a folha NÃO tokeniza (`token` vazio, sem billing): a sessão da
 /// Tuna é presa ao pedido, que só existe depois — `tunaTokenize` manda o cartão
 /// (guardado só em memória, dentro da função) direto pra Tuna com a sessão.
+/// Cartões salvos (Tuna): `tunaSavedCard` = pagar com um cartão salvo (o
+/// `tunaTokenize` faz o Bind do CVV e devolve o token salvo); `tunaSaveNew` =
+/// cartão novo que o cliente pediu pra salvar. Nos dois, quem chama usa a
+/// sessão DO APARELHO e passa `device: true`; com `device: false` (sessão do
+/// pedido) o cartão novo vai de uso único, como sempre.
 typedef CardSheetResult = ({
   String token,
   Map<String, dynamic> billing,
   RawCard? raw,
   BillingParts? billingParts,
   String Function()? freshToken,
-  Future<TunaToken?> Function(String tokenUrl, String sessionId)? tunaTokenize,
+  Future<TunaToken?> Function(String tokenUrl, String sessionId, bool device)? tunaTokenize,
+  bool tunaSavedCard,
+  bool tunaSaveNew,
 });
+
+/// Sessão da Tuna do aparelho (cartões salvos) — `/tuna/cards/session`.
+typedef TunaDeviceSession = ({String sessionId, String tokenUrl});
 
 /// Abre a tela de cartão (bottom sheet). Coleta os dados, tokeniza DIRETO no
 /// Pagar.me — ou, com `pagbankKey`, criptografa com a chave pública do PagBank
@@ -35,6 +45,9 @@ typedef CardSheetResult = ({
 /// devolve `raw`/`billingParts` (dados que a folha já coleta) pro 3DS. `tuna`
 /// só valida e devolve `tunaTokenize` (nenhum outro gateway tokeniza; a Tuna
 /// não usa o endereço de cobrança, então a folha nem pede).
+/// `tunaCardsSession` (só Tuna): abre a sessão do aparelho pra listar/remover
+/// cartões salvos e liga o "Salvar este cartão". Falhar nunca impede pagar com
+/// um cartão novo.
 Future<CardSheetResult?> showCardSheet(
   BuildContext context, {
   required double amount,
@@ -42,13 +55,21 @@ Future<CardSheetResult?> showCardSheet(
   String? pagbankKey,
   bool wantRaw = false,
   bool tuna = false,
+  Future<TunaDeviceSession?> Function()? tunaCardsSession,
 }) {
   return showModalBottomSheet<CardSheetResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.canvas,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-    builder: (_) => _CardSheet(amount: amount, debit: debit, pagbankKey: pagbankKey, wantRaw: wantRaw, tuna: tuna),
+    builder: (_) => _CardSheet(
+      amount: amount,
+      debit: debit,
+      pagbankKey: pagbankKey,
+      wantRaw: wantRaw,
+      tuna: tuna,
+      tunaCardsSession: tuna ? tunaCardsSession : null,
+    ),
   );
 }
 
@@ -59,12 +80,14 @@ class _CardSheet extends StatefulWidget {
     this.pagbankKey,
     this.wantRaw = false,
     this.tuna = false,
+    this.tunaCardsSession,
   });
   final double amount;
   final bool debit;
   final String? pagbankKey;
   final bool wantRaw;
   final bool tuna;
+  final Future<TunaDeviceSession?> Function()? tunaCardsSession;
 
   @override
   State<_CardSheet> createState() => _CardSheetState();
@@ -79,6 +102,94 @@ class _CardSheetState extends State<_CardSheet> {
   final _addrNum = TextEditingController();
   bool _busy = false;
   String? _err;
+
+  // Cartões salvos (Tuna). Tokens só em memória; nunca logar.
+  TunaDeviceSession? _deviceSession;
+  List<TunaSavedCard> _saved = const [];
+  bool _savedLoading = false;
+  TunaSavedCard? _selected; // null = cartão novo
+  bool _saveNew = false; // consentimento (LGPD): desmarcado por padrão
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.tunaCardsSession != null) _loadSaved();
+  }
+
+  /// Abre a sessão do aparelho e lista os cartões salvos. Qualquer falha → sem
+  /// lista (o cartão novo segue normal).
+  Future<void> _loadSaved() async {
+    setState(() => _savedLoading = true);
+    final s = await widget.tunaCardsSession!();
+    final list = s == null ? null : await tunaListCards(tokenUrl: s.tokenUrl, sessionId: s.sessionId);
+    if (!mounted) return;
+    setState(() {
+      _savedLoading = false;
+      _deviceSession = s;
+      _saved = list ?? const [];
+    });
+  }
+
+  /// Remove o cartão salvo na Tuna (com confirmação).
+  Future<void> _remove(TunaSavedCard c) async {
+    final s = _deviceSession;
+    if (s == null || _busy) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.canvas,
+        title: Text('Remover cartão?', style: AppText.display(size: 18)),
+        content: Text('${c.label} será apagado deste aparelho.',
+            style: AppText.body(size: 14, color: AppColors.inkA(0.75))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancelar', style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Remover', style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    final done = await tunaDeleteCard(tokenUrl: s.tokenUrl, sessionId: s.sessionId, token: c.token);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (done) {
+        _saved = _saved.where((x) => x.token != c.token).toList();
+        if (_selected?.token == c.token) _selected = null;
+        _err = null;
+      } else {
+        _err = 'Não foi possível remover o cartão agora.';
+      }
+    });
+  }
+
+  /// Pagar com o cartão salvo: só o CVV; o Bind é feito na hora da cobrança,
+  /// com a sessão do aparelho (o CVV fica só dentro da função, em memória).
+  void _paySaved(TunaSavedCard c) {
+    final cvv = _cvv.text.trim();
+    if (cvv.length < 3) return setState(() => _err = 'CVV inválido.');
+    final CardSheetResult result = (
+      token: '',
+      billing: const <String, dynamic>{},
+      raw: null,
+      billingParts: null,
+      freshToken: null,
+      tunaTokenize: (tokenUrl, sessionId, device) async {
+        if (!device) return null; // cartão salvo só com a sessão do aparelho
+        final ok = await tunaBindCvv(tokenUrl: tokenUrl, sessionId: sessionId, token: c.token, cvv: cvv);
+        return ok ? (token: c.token, brand: c.brand) : null;
+      },
+      tunaSavedCard: true,
+      tunaSaveNew: false,
+    );
+    Navigator.pop(context, result);
+  }
 
   @override
   void dispose() {
@@ -102,6 +213,8 @@ class _CardSheetState extends State<_CardSheet> {
 
   Future<void> _pay() async {
     if (_busy) return;
+    final selected = _selected;
+    if (widget.tuna && selected != null) return _paySaved(selected);
     final num = _number.text.replaceAll(RegExp(r'\D'), '');
     final name = _name.text.trim();
     final exp = _exp.text.replaceAll(RegExp(r'\D'), '');
@@ -123,15 +236,20 @@ class _CardSheetState extends State<_CardSheet> {
     if (cvv.length < 3) return setState(() => _err = 'CVV inválido.');
     if (widget.tuna) {
       // Tuna: tokeniza depois, com a sessão do pedido. O cartão fica só dentro
-      // da função (memória); nunca logar/persistir.
+      // da função (memória); nunca logar/persistir. Salvar (opt-in): com a
+      // sessão do aparelho, Generate com `singleUse: false`.
       final card = TunaCard(number: num, holder: name, expMonth: mm, expYear: year, cvv: cvv);
+      final save = _saveNew && widget.tunaCardsSession != null;
       final CardSheetResult result = (
         token: '',
         billing: const <String, dynamic>{},
         raw: null,
         billingParts: null,
         freshToken: null,
-        tunaTokenize: (tokenUrl, sessionId) => tunaGenerateToken(tokenUrl: tokenUrl, sessionId: sessionId, card: card),
+        tunaTokenize: (tokenUrl, sessionId, device) => tunaGenerateToken(
+            tokenUrl: tokenUrl, sessionId: sessionId, card: card, singleUse: !(save && device)),
+        tunaSavedCard: false,
+        tunaSaveNew: save,
       );
       Navigator.pop(context, result);
       return;
@@ -203,6 +321,8 @@ class _CardSheetState extends State<_CardSheet> {
           ? () => _pagbankEncrypt(pagbankKey, num, cvv, mm, year, name) ?? token
           : null,
       tunaTokenize: null,
+      tunaSavedCard: false,
+      tunaSaveNew: false,
     );
     Navigator.pop(context, result);
   }
@@ -230,9 +350,50 @@ class _CardSheetState extends State<_CardSheet> {
             Text('Seus dados são criptografados no celular e enviados direto pro processador do pagamento.',
                 style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 16),
+            // Cartões salvos deste aparelho (Tuna). Carregando/falhou → nada
+            // aparece além da linha de "carregando"; o cartão novo segue normal.
+            if (_savedLoading)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(children: [
+                  SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.inkA(0.4))),
+                  const SizedBox(width: 8),
+                  Text('Buscando cartões salvos…',
+                      style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
+                ]),
+              ),
+            if (_saved.isNotEmpty) ...[
+              Text('Cartões salvos',
+                  style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+              const SizedBox(height: 8),
+              for (final c in _saved) ...[
+                _savedTile(c),
+                const SizedBox(height: 8),
+              ],
+              _optionTile(
+                selected: _selected == null,
+                onTap: () => setState(() {
+                  _selected = null;
+                  _err = null;
+                }),
+                icon: Icons.add_card_rounded,
+                label: 'Usar um cartão novo',
+              ),
+              const SizedBox(height: 14),
+            ],
             // AutofillGroup + autofillHints: o iOS oferece o cartão salvo /
             // "Escanear cartão" — número, nome e validade autopreenchem; o
             // cliente só digita o CVV (o CVV nunca é salvo, por segurança).
+            if (_selected != null)
+              _field(_cvv, 'CVV do cartão salvo',
+                  keyboard: TextInputType.number,
+                  formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
+                  hint: '123',
+                  autofill: const [AutofillHints.creditCardSecurityCode])
+            else
             AutofillGroup(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,6 +429,27 @@ class _CardSheetState extends State<_CardSheet> {
                 ],
               ),
             ),
+            // Salvar o cartão novo (Tuna, opt-in): só com a sessão do aparelho disponível.
+            if (widget.tunaCardsSession != null && _selected == null && !_savedLoading && _deviceSession != null) ...[
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: () => setState(() => _saveNew = !_saveNew),
+                borderRadius: BorderRadius.circular(10),
+                child: Row(children: [
+                  Checkbox(
+                    value: _saveNew,
+                    onChanged: (v) => setState(() => _saveNew = v ?? false),
+                    activeColor: AppColors.ink,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  Expanded(
+                    child: Text('Salvar este cartão para as próximas compras',
+                        style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.75))),
+                  ),
+                ]),
+              ),
+            ],
             // A Tuna não usa o endereço de cobrança — não pede.
             if (!widget.tuna) ...[
               const SizedBox(height: 14),
@@ -320,6 +502,54 @@ class _CardSheetState extends State<_CardSheet> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Linha de um cartão salvo: toca pra escolher; "Remover" apaga na Tuna.
+  Widget _savedTile(TunaSavedCard c) {
+    return _optionTile(
+      selected: _selected?.token == c.token,
+      onTap: () => setState(() {
+        _selected = c;
+        _err = null;
+      }),
+      icon: Icons.credit_card_rounded,
+      label: c.label,
+      trailing: TextButton(
+        onPressed: _busy ? null : () => _remove(c),
+        style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 32)),
+        child: Text('Remover', style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.coralDeep)),
+      ),
+    );
+  }
+
+  Widget _optionTile({
+    required bool selected,
+    required VoidCallback onTap,
+    required IconData icon,
+    required String label,
+    Widget? trailing,
+  }) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: selected ? AppColors.ink : AppColors.inkA(0.15), width: selected ? 2 : 1.5),
+      ),
+      child: InkWell(
+        onTap: _busy ? null : onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14, trailing == null ? 12 : 4, trailing == null ? 14 : 4, trailing == null ? 12 : 4),
+          child: Row(children: [
+            Icon(icon, size: 20, color: AppColors.inkA(selected ? 0.9 : 0.5)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label, style: AppText.body(size: 14, weight: FontWeight.w700))),
+            ?trailing,
+          ]),
         ),
       ),
     );

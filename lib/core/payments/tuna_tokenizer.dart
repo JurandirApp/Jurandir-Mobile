@@ -19,8 +19,9 @@ class TunaCard {
 /// Token de uso único da Tuna + a bandeira (vai no `tuna.brand` da cobrança).
 typedef TunaToken = ({String token, String? brand});
 
-/// Corpo do `POST <tokenUrl>/api/Token/Generate`.
-Map<String, dynamic> tunaGenerateBody(String sessionId, TunaCard card) => {
+/// Corpo do `POST <tokenUrl>/api/Token/Generate`. `singleUse: false` SALVA o
+/// cartão no customer da sessão (só com a sessão do aparelho — cartões salvos).
+Map<String, dynamic> tunaGenerateBody(String sessionId, TunaCard card, {bool singleUse = true}) => {
       'sessionId': sessionId,
       'card': {
         'cardNumber': card.number.replaceAll(RegExp(r'\D'), ''),
@@ -28,16 +29,20 @@ Map<String, dynamic> tunaGenerateBody(String sessionId, TunaCard card) => {
         'expirationMonth': card.expMonth,
         'expirationYear': card.expYear,
         'cvv': card.cvv.trim(),
-        'singleUse': true,
+        'singleUse': singleUse,
       },
     };
 
 /// URL do Generate a partir do `tokenUrl` da sessão. Só HTTPS — o cartão cru
 /// nunca sai do celular em texto puro. Null se a URL não servir.
-String? tunaGenerateUrl(String tokenUrl) {
+String? tunaGenerateUrl(String tokenUrl) => tunaTokenApiUrl(tokenUrl, 'Generate');
+
+/// URL de uma operação da API de token (`Generate`, `List`, `Bind`, `Delete`).
+/// Só HTTPS; null se a URL não servir.
+String? tunaTokenApiUrl(String tokenUrl, String op) {
   final uri = Uri.tryParse(tokenUrl.trim());
   if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
-  return '${uri.toString().replaceFirst(RegExp(r'/+$'), '')}/api/Token/Generate';
+  return '${uri.toString().replaceFirst(RegExp(r'/+$'), '')}/api/Token/$op';
 }
 
 /// Lê a resposta do Generate. A Tuna responde 200 até em erro de negócio:
@@ -60,20 +65,146 @@ Future<TunaToken?> tunaGenerateToken({
   required String tokenUrl,
   required String sessionId,
   required TunaCard card,
+  bool singleUse = true,
   Dio? dio,
 }) async {
   final url = tunaGenerateUrl(tokenUrl);
   if (url == null || sessionId.isEmpty) return null;
-  final client = dio ??
-      Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 20),
-        headers: {'Content-Type': 'application/json'},
-      ));
   try {
-    final res = await client.post<Object?>(url, data: tunaGenerateBody(sessionId, card));
+    final res = await (dio ?? _tunaDio())
+        .post<Object?>(url, data: tunaGenerateBody(sessionId, card, singleUse: singleUse));
     return parseTunaGenerate(res.data);
   } on DioException {
     return null;
+  }
+}
+
+/// Dio só pra Tuna — sem baseUrl nem headers do nosso backend.
+Dio _tunaDio() => Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 20),
+      headers: {'Content-Type': 'application/json'},
+    ));
+
+// ---- Cartões salvos (sessão do APARELHO, de `/tuna/cards/session`) ----------
+// A Tuna só lista os cartões do customer da sessão: o token salvo só aparece
+// pro aparelho dono, e o CVV é pedido sempre (Bind). Nunca logar token/CVV.
+
+/// Cartão salvo na Tuna (vem do Token/List). Sem número completo nem CVV.
+class TunaSavedCard {
+  final String token;
+  final String? brand;
+  final int? expMonth;
+  final int? expYear;
+  final String maskedNumber; // ex.: "520000xxxxxx2235"
+  const TunaSavedCard({
+    required this.token,
+    this.brand,
+    this.expMonth,
+    this.expYear,
+    required this.maskedNumber,
+  });
+
+  /// Últimos 4 dígitos do número mascarado ('' se não houver).
+  String get last4 {
+    final d = maskedNumber.replaceAll(RegExp(r'\D'), '');
+    return d.length >= 4 ? d.substring(d.length - 4) : '';
+  }
+
+  /// Ex.: "Mastercard •••• 2235 · 01/30".
+  String get label {
+    final b = switch ((brand ?? '').trim()) {
+      '' => 'Cartão',
+      'Master' => 'Mastercard',
+      final x => x,
+    };
+    final m = expMonth;
+    final y = expYear;
+    final exp = m != null && y != null
+        ? ' · ${m.toString().padLeft(2, '0')}/${(y % 100).toString().padLeft(2, '0')}'
+        : '';
+    return '$b •••• $last4$exp';
+  }
+}
+
+/// Corpo do `Token/List`.
+Map<String, dynamic> tunaListBody(String sessionId) => {'sessionId': sessionId};
+
+/// Lê o `Token/List`: só itens com token. `code < 0` ou formato estranho → null.
+List<TunaSavedCard>? parseTunaList(Object? data) {
+  if (data is! Map) return null;
+  final code = data['code'];
+  if (code is! num || code < 0) return null;
+  final tokens = data['tokens'];
+  if (tokens == null) return const [];
+  if (tokens is! List) return null;
+  int? asInt(Object? v) => v is num ? v.toInt() : (v is String ? int.tryParse(v) : null);
+  String? asStr(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
+  return [
+    for (final t in tokens)
+      if (t is Map && asStr(t['token']) != null)
+        TunaSavedCard(
+          token: asStr(t['token'])!,
+          brand: asStr(t['brand']),
+          expMonth: asInt(t['expirationMonth']),
+          expYear: asInt(t['expirationYear']),
+          maskedNumber: asStr(t['maskedNumber']) ?? '',
+        ),
+  ];
+}
+
+/// Corpo do `Token/Bind` (vincula o CVV ao token salvo pra esta cobrança).
+Map<String, dynamic> tunaBindBody(String sessionId, String token, String cvv) =>
+    {'sessionId': sessionId, 'token': token, 'cvv': cvv.trim()};
+
+/// Corpo do `Token/Delete`.
+Map<String, dynamic> tunaDeleteBody(String sessionId, String token) => {'sessionId': sessionId, 'token': token};
+
+/// Resposta da Tuna com `code >= 0` = deu certo (Bind/Delete).
+bool parseTunaOk(Object? data) {
+  if (data is! Map) return false;
+  final code = data['code'];
+  return code is num && code >= 0;
+}
+
+/// Lista os cartões salvos do aparelho. Null em qualquer falha (nunca lança).
+Future<List<TunaSavedCard>?> tunaListCards({required String tokenUrl, required String sessionId, Dio? dio}) async {
+  final url = tunaTokenApiUrl(tokenUrl, 'List');
+  if (url == null || sessionId.isEmpty) return null;
+  try {
+    final res = await (dio ?? _tunaDio()).post<Object?>(url, data: tunaListBody(sessionId));
+    return parseTunaList(res.data);
+  } on DioException {
+    return null;
+  }
+}
+
+/// Vincula o CVV ao cartão salvo. false em qualquer falha (nunca lança).
+Future<bool> tunaBindCvv({
+  required String tokenUrl,
+  required String sessionId,
+  required String token,
+  required String cvv,
+  Dio? dio,
+}) async {
+  final url = tunaTokenApiUrl(tokenUrl, 'Bind');
+  if (url == null || sessionId.isEmpty || token.isEmpty) return false;
+  try {
+    final res = await (dio ?? _tunaDio()).post<Object?>(url, data: tunaBindBody(sessionId, token, cvv));
+    return parseTunaOk(res.data);
+  } on DioException {
+    return false;
+  }
+}
+
+/// Apaga o cartão salvo na Tuna. false em qualquer falha (nunca lança).
+Future<bool> tunaDeleteCard({required String tokenUrl, required String sessionId, required String token, Dio? dio}) async {
+  final url = tunaTokenApiUrl(tokenUrl, 'Delete');
+  if (url == null || sessionId.isEmpty || token.isEmpty) return false;
+  try {
+    final res = await (dio ?? _tunaDio()).post<Object?>(url, data: tunaDeleteBody(sessionId, token));
+    return parseTunaOk(res.data);
+  } on DioException {
+    return false;
   }
 }
