@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../core/utils/backoff_poller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +28,7 @@ class PixScreen extends ConsumerStatefulWidget {
 }
 
 class _PixScreenState extends ConsumerState<PixScreen> {
-  Timer? _poll;
+  BackoffPoller? _poll;
   bool _checking = false;
   bool _done = false;
 
@@ -38,10 +39,8 @@ class _PixScreenState extends ConsumerState<PixScreen> {
   }
 
   void _startPolling(String id) {
-    _poll ??= Timer.periodic(
-      const Duration(seconds: 4),
-      (_) => _check(id, silent: true),
-    );
+    // 4 s no 1º minuto, depois espaça (ver paymentPollSchedule).
+    _poll ??= BackoffPoller(() => _check(id, silent: true))..start();
   }
 
   Future<void> _check(String id, {bool silent = false}) async {

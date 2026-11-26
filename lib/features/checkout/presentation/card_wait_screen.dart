@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../core/utils/backoff_poller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,14 +38,14 @@ class CardWaitScreen extends ConsumerStatefulWidget {
 }
 
 class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
-  static const _interval = Duration(seconds: 3);
-  static const _maxPolls = 30; // ~90s
+  // Espera máxima antes de mostrar "ainda processando" (as consultas espaçam
+  // com o tempo — ver cardWaitPollSchedule).
+  static const _maxWait = Duration(seconds: 90);
 
-  Timer? _poll;
+  BackoffPoller? _poll;
   bool _checking = false;
   bool _done = false;
   bool _timedOut = false;
-  int _polls = 0;
 
   @override
   void dispose() {
@@ -53,15 +54,15 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
   }
 
   void _startPolling(String id) {
-    _poll ??= Timer.periodic(_interval, (_) {
-      _polls++;
+    _poll ??= BackoffPoller(() {
       _check(id, silent: true);
-      if (_polls >= _maxPolls && !_done && mounted) {
+      if ((_poll?.elapsed ?? Duration.zero) >= _maxWait && !_done && mounted) {
         _poll?.cancel();
         _poll = null;
         setState(() => _timedOut = true);
       }
-    });
+    }, schedule: cardWaitPollSchedule)
+      ..start();
   }
 
   Future<void> _check(String id, {bool silent = false}) async {
