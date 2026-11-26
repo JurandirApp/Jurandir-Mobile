@@ -23,14 +23,15 @@ import '../../../core/utils/money.dart';
 /// `tunaTokenize` faz o Bind do CVV e devolve o token salvo); `tunaSaveNew` =
 /// cartão novo que o cliente pediu pra salvar. Nos dois, quem chama usa a
 /// sessão DO APARELHO e passa `device: true`; com `device: false` (sessão do
-/// pedido) o cartão novo vai de uso único, como sempre.
+/// pedido) o cartão novo vai de uso único, como sempre. `authCode` (débito
+/// Tuna, 3DS) vai no Generate/Bind e o token volta com os dados 3DS (`auth`).
 typedef CardSheetResult = ({
   String token,
   Map<String, dynamic> billing,
   RawCard? raw,
   BillingParts? billingParts,
   String Function()? freshToken,
-  Future<TunaToken?> Function(String tokenUrl, String sessionId, bool device)? tunaTokenize,
+  Future<TunaToken?> Function(String tokenUrl, String sessionId, bool device, String? authCode)? tunaTokenize,
   bool tunaSavedCard,
   bool tunaSaveNew,
 });
@@ -180,10 +181,11 @@ class _CardSheetState extends State<_CardSheet> {
       raw: null,
       billingParts: null,
       freshToken: null,
-      tunaTokenize: (tokenUrl, sessionId, device) async {
+      tunaTokenize: (tokenUrl, sessionId, device, authCode) async {
         if (!device) return null; // cartão salvo só com a sessão do aparelho
-        final ok = await tunaBindCvv(tokenUrl: tokenUrl, sessionId: sessionId, token: c.token, cvv: cvv);
-        return ok ? (token: c.token, brand: c.brand) : null;
+        final r = await tunaBind(
+            tokenUrl: tokenUrl, sessionId: sessionId, token: c.token, cvv: cvv, authCode: authCode);
+        return r.ok ? (token: c.token, brand: c.brand, auth: r.auth) : null;
       },
       tunaSavedCard: true,
       tunaSaveNew: false,
@@ -246,8 +248,8 @@ class _CardSheetState extends State<_CardSheet> {
         raw: null,
         billingParts: null,
         freshToken: null,
-        tunaTokenize: (tokenUrl, sessionId, device) => tunaGenerateToken(
-            tokenUrl: tokenUrl, sessionId: sessionId, card: card, singleUse: !(save && device)),
+        tunaTokenize: (tokenUrl, sessionId, device, authCode) => tunaGenerateToken(
+            tokenUrl: tokenUrl, sessionId: sessionId, card: card, singleUse: !(save && device), authCode: authCode),
         tunaSavedCard: false,
         tunaSaveNew: save,
       );

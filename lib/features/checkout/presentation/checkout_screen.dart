@@ -25,10 +25,12 @@ import '../../menu/presentation/item_sheet.dart';
 import 'card_wait_screen.dart';
 import '../../../core/payments/threeds.dart';
 import '../../../core/payments/tuna_fingerprint.dart';
+import '../../../core/payments/tuna_threeds.dart';
 import '../../../core/payments/wallet_config.dart';
 import 'card_sheet.dart';
 import 'three_ds_screen.dart';
 import 'tuna_fingerprint_collector.dart';
+import 'tuna_threeds_screen.dart';
 
 class _PayMethod {
   final String id;
@@ -260,7 +262,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Débito PagBank: entre criar o pedido e cobrar, o banco confirma a compra
   /// (3DS) numa tela dentro do app; sem confirmação, não cobra.
   /// Tuna: a folha só coleta o cartão; a sessão de tokenização é presa ao pedido,
-  /// então tokeniza DEPOIS de criar o pedido (débito Tuna é simples, sem 3DS).
+  /// então tokeniza DEPOIS de criar o pedido. Débito Tuna: 3DS (código no
+  /// Generate/Bind → DDC → cobrança com `threeDs` → desafio do banco se pedir).
+  /// Crédito Tuna segue sem 3DS.
   Future<void> _payCard(double grand, {required bool debit}) async {
     // InfinitePay: o crédito é pago na página hospedada (sem tokenização no app).
     if (!debit && _cartEst()?.gatewayFor('credit') == 'INFINITEPAY') return _payHosted('CREDIT');
@@ -336,16 +340,31 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     // 1c) Tuna: abre a sessão do pedido e manda o cartão direto pra Tuna. Falhou
     //     → nada cobrado; o pedido fica pendente (a próxima tentativa descarta
     //     pelo `_replacePending`).
+    //     Débito: na produção da Tuna TODO débito passa por 3DS — o código curto
+    //     vai no Generate/Bind (a Tuna devolve os dados do Cardinal), roda o
+    //     DDC (best-effort) e a cobrança leva `threeDs` + `browser`. Cartão
+    //     salvo sem `authenticationInformation` no Bind vai sem 3DS (a Tuna
+    //     provavelmente recusa).
     Map<String, dynamic>? tunaInfo;
     if (tuna) {
-      final t = await _tokenizeTuna(id, card);
-      if (t == null) return; // já avisou e liberou o botão
+      final authCode = debit ? newTunaThreeDsCode() : null;
+      final t = await _tokenizeTuna(id, card, authCode: authCode);
+      if (t == null || !mounted) return; // já avisou e liberou o botão
       chargeToken = t.token;
+      Map<String, dynamic>? threeDsInfo;
+      final auth = t.auth;
+      if (authCode != null && auth != null) {
+        await runTunaDdc(context, auth);
+        if (!mounted) return;
+        threeDsInfo = tunaThreeDsBlock(authCode, auth);
+      }
       tunaInfo = {
         'sessionId': t.sessionId,
         'brand': ?t.brand,
         'deviceSessionId': ?_deviceSessionId,
         'deviceKey': ?t.deviceKey, // só cartão salvo / cartão novo salvo agora
+        'threeDs': ?threeDsInfo,
+        if (threeDsInfo != null) 'browser': _tunaBrowser(),
       };
     }
 
@@ -364,7 +383,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             tuna: tunaInfo,
           );
       if (!mounted) return;
-      if (r.ok && r.status == 'paid') {
+      final challenge = r.challenge;
+      if (tuna && r.ok && challenge != null) {
+        // Débito Tuna: o banco pediu confirmação (desafio 3DS).
+        await _tunaChallenge(order, challenge);
+      } else if (r.ok && r.status == 'paid') {
         _markPending(null);
         ref.read(cartProvider.notifier).clear();
         context.go('/done', extra: DoneArgs(incomplete: false, code: order.code));
@@ -392,15 +415,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// `deviceKey` pra cobrança ir no customer do aparelho. Sem essa sessão, o
   /// cartão salvo não paga (avisa); o cartão novo cai no fluxo de sempre, sem
   /// salvar.
-  Future<({String token, String? brand, String sessionId, String? deviceKey})?> _tokenizeTuna(
-      String orderId, CardSheetResult card) async {
+  /// `authCode` (débito, 3DS) vai no Generate/Bind; `auth` volta com os dados
+  /// do Cardinal quando a Tuna devolve `authenticationInformation`.
+  Future<({String token, String? brand, String sessionId, String? deviceKey, TunaAuthInfo? auth})?> _tokenizeTuna(
+      String orderId, CardSheetResult card,
+      {String? authCode}) async {
     final tokenize = card.tunaTokenize;
     if (tokenize != null && (card.tunaSavedCard || card.tunaSaveNew)) {
       final key = ref.read(clientProfileProvider).cardKey;
       final ds = await ref.read(publicApiProvider).tunaCardsSession(key);
       if (!mounted) return null;
       if (ds != null) {
-        final t = await tokenize(ds.tokenUrl, ds.sessionId, true);
+        final t = await tokenize(ds.tokenUrl, ds.sessionId, true, authCode);
         if (!mounted) return null;
         if (t == null) {
           setState(() => _submitting = false);
@@ -409,7 +435,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               : 'Não foi possível validar o cartão. Confira os dados ou tente outro cartão.');
           return null;
         }
-        return (token: t.token, brand: t.brand, sessionId: ds.sessionId, deviceKey: key);
+        return (token: t.token, brand: t.brand, sessionId: ds.sessionId, deviceKey: key, auth: t.auth);
       }
       if (card.tunaSavedCard) {
         setState(() => _submitting = false);
@@ -426,14 +452,59 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _toast('Pagamento com cartão indisponível agora. Tente outro método.');
       return null;
     }
-    final t = await tokenize(session.tokenUrl, session.sessionId, false);
+    final t = await tokenize(session.tokenUrl, session.sessionId, false, authCode);
     if (!mounted) return null;
     if (t == null) {
       setState(() => _submitting = false);
       _toast('Não foi possível validar o cartão. Confira os dados ou tente outro cartão.');
       return null;
     }
-    return (token: t.token, brand: t.brand, sessionId: session.sessionId, deviceKey: null);
+    return (token: t.token, brand: t.brand, sessionId: session.sessionId, deviceKey: null, auth: t.auth);
+  }
+
+  /// Bloco `tuna.browser` (3DS): tela em px lógicos, idioma e fuso do aparelho.
+  Map<String, dynamic> _tunaBrowser() {
+    final size = MediaQuery.sizeOf(context);
+    return tunaBrowserBlock(
+      screenWidth: size.width,
+      screenHeight: size.height,
+      timeZoneOffset: DateTime.now().timeZoneOffset,
+      languageTag: WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
+    );
+  }
+
+  /// Débito Tuna: o banco pediu confirmação. Abre a tela do desafio, que
+  /// acompanha o pedido sozinha (o resultado vai do banco direto pra Tuna).
+  /// Pago → /done; recusado/fechado → avisa e libera o botão (o pedido fica
+  /// pendente; a próxima tentativa descarta pelo `_replacePending`); sem
+  /// resposta em 5 min → tela de processamento (ainda pode confirmar).
+  Future<void> _tunaChallenge(ClientOrder order, TunaChallenge challenge) async {
+    final id = order.dbId;
+    final api = ref.read(publicApiProvider);
+    final outcome = await runTunaChallenge(
+      context,
+      challenge: challenge,
+      fetchOrder: () async {
+        if (id == null) return null;
+        final list = await api.myOrders([id]);
+        return list.isEmpty ? null : list.first;
+      },
+    );
+    if (!mounted) return;
+    switch (outcome) {
+      case TunaChallengePaid(order: final paid):
+        _markPending(null);
+        ref.read(cartProvider.notifier).clear();
+        context.go('/done', extra: DoneArgs(incomplete: false, code: paid.code.isNotEmpty ? paid.code : order.code));
+      case TunaChallengeTimeout():
+        context.go('/pagamento', extra: CardWaitArgs(order: order));
+      case TunaChallengeDeclined():
+        setState(() => _submitting = false);
+        _declineToast('Pagamento não aprovado pelo banco. Tente de novo ou use outro cartão.');
+      case TunaChallengeCancelled():
+        setState(() => _submitting = false);
+        _declineToast('Pagamento não confirmado com o banco. Tente de novo ou use outro método.');
+    }
   }
 
   /// Débito PagBank: abre a sessão 3DS do pedido e a tela "Confirmação do banco".
