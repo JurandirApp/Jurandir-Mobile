@@ -12,6 +12,7 @@ import '../api/api_config.dart';
 import '../payments/threeds.dart';
 import '../payments/tuna_fingerprint.dart';
 import '../payments/tuna_threeds.dart';
+import 'kitchen.dart';
 import 'models.dart';
 import 'onboarding_controller.dart';
 import 'open_status.dart';
@@ -31,10 +32,13 @@ class PublicApi {
   Future<List<Establishment>> establishments() async =>
       (await establishmentsRaw()).map(Establishment.fromJson).toList();
 
-  Future<List<MenuItem>> menu(String slug) async {
+  Future<List<MenuItem>> menu(String slug) async => (await menuData(slug)).items;
+
+  /// Cardápio + situação da cozinha (`est.kitchenOpenNow`/`kitchenNextOpenLabel`)
+  /// numa chamada só. Campos ausentes (servidor antigo) = cozinha aberta.
+  Future<MenuData> menuData(String slug) async {
     final res = await _dio.get<Map<String, dynamic>>('/$slug');
-    final list = (res.data!['menu'] as List).cast<Map<String, dynamic>>();
-    return list.map(MenuItem.fromJson).toList();
+    return MenuData.fromJson(res.data!);
   }
 
   /// Mesas/pontos de QR cadastrados do bar (só os labels), pela rota pública do
@@ -52,11 +56,11 @@ class PublicApi {
   /// Status "aberto agora" do bar, fresco (o `est` do GET /{slug}). Usado no
   /// cardápio e no checkout — a lista da home pode estar em cache (stale).
   /// Falha de rede → null (a tela cai no valor da lista).
+  /// Mesmo parse do [menuData] (`MenuData.open`); as telas usam o
+  /// [barOpenStatusProvider], que deriva do [menuDataProvider] (1 requisição).
   Future<BarOpenStatus?> barOpenStatus(String slug) async {
     try {
-      final res = await _dio.get<Map<String, dynamic>>('/$slug');
-      final est = res.data?['est'];
-      return BarOpenStatus.fromJson(est is Map<String, dynamic> ? est : null);
+      return (await menuData(slug)).open;
     } on DioException {
       return null;
     }
@@ -611,6 +615,26 @@ class PublicApi {
     return (d['enabled'] as bool?) ?? enabled;
   }
 
+  /// Configuração da cozinha do bar logado (GET /establishment/kitchen):
+  /// horário + categorias que são comida.
+  Future<KitchenConfig> establishmentKitchen(String token) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/establishment/kitchen',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return KitchenConfig.fromJson(res.data ?? const {});
+  }
+
+  /// Salva a configuração da cozinha (POST /establishment/kitchen). Lança em
+  /// falha (quem chama desfaz a mudança na tela).
+  Future<void> saveEstablishmentKitchen(String token, KitchenConfig cfg) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/establishment/kitchen',
+      data: cfg.toJson(),
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
   /// Rastreio por mesa de um dia (GET /establishment/tracking?day=YYYY-MM-DD).
   Future<List<TrackedTable>> establishmentTracking(String token, String day) async {
     final res = await _dio.get<Map<String, dynamic>>(
@@ -900,15 +924,40 @@ class _EstablishmentsCache extends AsyncNotifier<List<Establishment>> {
 final establishmentsProvider =
     AsyncNotifierProvider<_EstablishmentsCache, List<Establishment>>(_EstablishmentsCache.new);
 
-/// Status "aberto agora" fresco de um bar (null = indisponível → usar a lista).
+/// Status "aberto agora" de um bar (null = indisponível → usar a lista).
+/// Deriva do [menuDataProvider]: o MESMO GET /{slug} traz cardápio, cozinha e
+/// horário do bar. O cardápio recarrega esse dado ao abrir e o checkout antes
+/// de cobrar, então o status não fica velho.
 final barOpenStatusProvider =
     FutureProvider.autoDispose.family<BarOpenStatus?, String>((ref, slug) async {
-  return ref.watch(publicApiProvider).barOpenStatus(slug);
+  try {
+    return (await ref.watch(menuDataProvider(slug).future)).open;
+  } catch (_) {
+    return null;
+  }
 });
 
 /// Cardápio de um estabelecimento — dados reais da API. Erros propagam.
+final menuDataProvider = FutureProvider.family<MenuData, String>((ref, slug) async {
+  return ref.watch(publicApiProvider).menuData(slug);
+});
+
+/// Só os itens do cardápio (derivado de [menuDataProvider] — mesma requisição).
 final menuProvider = FutureProvider.family<List<MenuItem>, String>((ref, slug) async {
-  return ref.watch(publicApiProvider).menu(slug);
+  return (await ref.watch(menuDataProvider(slug).future)).items;
+});
+
+/// Situação da cozinha do bar. Enquanto carrega/erro: aberta (o servidor é
+/// quem barra de verdade).
+final kitchenStatusProvider = Provider.family<KitchenStatus, String>((ref, slug) {
+  return ref.watch(menuDataProvider(slug)).asData?.value.kitchen ?? KitchenStatus.open;
+});
+
+/// Configuração da cozinha do bar logado (Estab · Perfil).
+final establishmentKitchenProvider = FutureProvider.autoDispose<KitchenConfig>((ref) async {
+  final token = ref.watch(authProvider).token;
+  if (token == null) throw StateError('sem sessão');
+  return ref.watch(publicApiProvider).establishmentKitchen(token);
 });
 
 /// Ofertas do dia — cache stale-while-revalidate (mesmo padrão dos estabelecimentos).

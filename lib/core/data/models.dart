@@ -157,6 +157,9 @@ class MenuItem {
   final String? photoId; // seed (Unsplash)
   final String? photo; // API (URL direta)
   final List<MenuOptionGroup> groups; // adicionais/opções (vazio = sem)
+  /// Item de cozinha (comida): indisponível com a cozinha fechada. Servidor
+  /// antigo não manda → false (nunca bloqueia).
+  final bool kitchen;
 
   const MenuItem({
     required this.id,
@@ -169,6 +172,7 @@ class MenuItem {
     this.photo,
     required this.category,
     this.groups = const [],
+    this.kitchen = false,
   });
 
   String get photoUrl =>
@@ -193,6 +197,7 @@ class MenuItem {
         .cast<Map<String, dynamic>>()
         .map(MenuOptionGroup.fromJson)
         .toList(),
+    kitchen: j['kitchen'] == true,
   );
 }
 

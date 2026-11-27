@@ -10,6 +10,7 @@ import '../../../core/widgets/app_toggle.dart';
 import '../../../core/widgets/avatar.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
+import '../../../core/widgets/language_selector.dart';
 import '../../auth/auth_controller.dart';
 import '../../shell/client_mode.dart';
 
@@ -94,6 +95,9 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
           ),
           const SizedBox(height: 22),
           AppButton.primary(label: 'Entrar', onPressed: () => context.go('/login')),
+          const SizedBox(height: 32),
+          Align(alignment: Alignment.centerLeft, child: _h2('Idioma')),
+          const LanguageSelector(),
         ],
       ),
     );
@@ -155,6 +159,9 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
               onPressed: () => context.go(ret.route),
             ),
           ],
+          const SizedBox(height: 16),
+          _h2('Idioma'),
+          const LanguageSelector(),
           const SizedBox(height: 16),
           _h2('Conta'),
           BrutalCard(

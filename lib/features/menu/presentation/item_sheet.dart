@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/data/kitchen.dart';
 import '../../../core/data/models.dart';
+import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/images.dart';
@@ -310,7 +312,29 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
     );
   }
 
+  /// Cozinha fechada pra este item? (bar do item → senão o do carrinho/aberto).
+  KitchenStatus? _blockedKitchen() {
+    final slug = widget.slug ?? ref.watch(cartEstablishmentProvider) ?? ref.watch(selectedSlugProvider);
+    if (slug == null) return null;
+    final kitchen = ref.watch(kitchenStatusProvider(slug));
+    return itemBlockedByKitchen(_m, kitchen) ? kitchen : null;
+  }
+
   Widget _confirmBtn() {
+    // Editar uma linha que já está no carrinho continua liberado (o checkout
+    // é quem barra); adicionar item de cozinha fechada, não.
+    final closed = _isEdit ? null : _blockedKitchen();
+    if (closed != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(color: AppColors.inkA(0.12), borderRadius: BorderRadius.circular(999)),
+        child: Center(
+          child: Text(closed.closedLabel,
+              style: AppText.body(size: 15, weight: FontWeight.w800, color: AppColors.inkA(0.6))),
+        ),
+      );
+    }
     final label = _isEdit ? 'Salvar' : 'Adicionar';
     final enabled = _valid;
     return SizedBox(

@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
+import '../../../core/widgets/language_selector.dart';
 import '../../auth/auth_controller.dart';
 
 /// Estab · Conta: card da conta + menu (Auditoria/Perfil/Config) + sair.
@@ -74,7 +75,16 @@ class EstabContaScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text('Idioma'.toUpperCase(), style: AppText.sectionTitle),
+                    ),
+                  ),
+                  const LanguageSelector(),
+                  const SizedBox(height: 18),
                   AppButton.dark(
                     label: 'Sair da conta',
                     onPressed: () {
