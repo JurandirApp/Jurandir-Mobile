@@ -37,6 +37,7 @@ import '../../features/pedidos/presentation/pedidos_screen.dart';
 import '../../features/perfil/presentation/perfil_screen.dart';
 import '../../features/scanner/presentation/scanner_screen.dart';
 import '../../features/shell/admin_scaffold.dart';
+import '../../features/shell/client_mode.dart';
 import '../../features/shell/client_scaffold.dart';
 import '../../features/shell/estab_scaffold.dart';
 import '../../features/splash/presentation/splash_screen.dart';
@@ -63,8 +64,11 @@ bool _isClientGatedRoute(String location) {
 const _staffBrowsePaths = ['/perfil', '/menu'];
 
 /// Precisa do perfil local de cliente pra abrir `location`?
-bool needsClientProfile(String location, {required bool staffSession}) {
+/// No modo visualização (`preview`, equipe vendo como o cliente) nenhuma tela
+/// do cliente exige o perfil — lá não se paga nem se cria pedido.
+bool needsClientProfile(String location, {required bool staffSession, bool preview = false}) {
   if (!_isClientGatedRoute(location)) return false;
+  if (preview) return false;
   if (staffSession && _staffBrowsePaths.contains(location)) return false;
   return true;
 }
@@ -98,7 +102,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final profile = ref.read(clientProfileProvider);
       final auth = ref.read(authProvider);
       final staff = auth.isAuthed && (auth.role == 'estab' || auth.role == 'waiter');
-      if (!profile.isComplete && needsClientProfile(loc, staffSession: staff)) {
+      final preview = ref.read(previewModeProvider);
+      if (!profile.isComplete && needsClientProfile(loc, staffSession: staff, preview: preview)) {
         return '/profile-onboarding';
       }
       if (profile.isComplete && loc == '/profile-onboarding') {

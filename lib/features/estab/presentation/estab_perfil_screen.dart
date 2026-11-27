@@ -85,8 +85,9 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
     }
   }
 
-  /// "Ver como cliente": abre o cardápio do próprio bar na experiência do
-  /// cliente SEM deslogar (a sessão do estabelecimento continua salva).
+  /// "Ver como o cliente vê": abre o cardápio do próprio bar no MODO
+  /// VISUALIZAÇÃO (cardápio + mesas iguais ao cliente, pagamento desativado),
+  /// SEM deslogar (a sessão do estabelecimento continua salva).
   Future<void> _viewAsClient() async {
     final slug = await resolveOwnSlug(ref);
     if (!mounted) return;
@@ -228,10 +229,10 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
           // Horário da cozinha: salva à parte (endpoint próprio).
           const EstabKitchenCard(),
           const SizedBox(height: 14),
-          AppButton.ghost(label: 'Ver como cliente', onPressed: _viewAsClient),
+          AppButton.ghost(label: 'Ver como o cliente vê', onPressed: _viewAsClient),
           const SizedBox(height: 6),
           Center(
-            child: Text('Abre seu cardápio como o cliente vê, sem sair da conta.',
+            child: Text('Abre seu cardápio e suas mesas como o cliente vê, sem sair da conta. Pagamentos ficam desativados.',
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
           ),

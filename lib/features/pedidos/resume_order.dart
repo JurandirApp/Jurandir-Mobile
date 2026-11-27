@@ -7,6 +7,7 @@ import '../../core/data/public_api.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../cart/cart_controller.dart';
+import '../shell/client_mode.dart';
 
 /// Linha do carrinho remontada a partir de um pedido.
 typedef ResumeLine = ({MenuItem item, List<SelectedOption> options, int qty});
@@ -68,6 +69,18 @@ bool _pixOpen(ClientOrder o) => o.payMethod == 'pix' && o.pixPayload != null && 
 ///    pagamento; ao pagar, o pedido antigo é descartado e um novo criado no
 ///    lugar (mesmo fluxo do "editar pedido pendente").
 Future<void> resumeOrderPayment(BuildContext context, WidgetRef ref, ClientOrder o) async {
+  void toast(String msg) => ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.ink,
+      content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
+    ));
+  // Modo visualização (estab vendo como o cliente): não retoma pagamento.
+  if (ref.read(previewModeProvider)) {
+    toast(previewPaymentBlockedMsg);
+    return;
+  }
   if (o.splits?.isNotEmpty ?? false) {
     context.push('/split', extra: o);
     return;
@@ -77,13 +90,6 @@ Future<void> resumeOrderPayment(BuildContext context, WidgetRef ref, ClientOrder
     return;
   }
   final slug = o.estSlug;
-  void toast(String msg) => ScaffoldMessenger.of(context)
-    ..clearSnackBars()
-    ..showSnackBar(SnackBar(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: AppColors.ink,
-      content: Text(msg, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
-    ));
   if (slug == null) {
     toast('Não foi possível retomar este pedido. Faça o pedido de novo pelo cardápio.');
     return;

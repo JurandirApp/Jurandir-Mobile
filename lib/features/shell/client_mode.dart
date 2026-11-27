@@ -8,10 +8,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../auth/auth_controller.dart';
 
-// "Modo cliente" do estabelecimento: o dono navega pela experiência do cliente
-// SEM deslogar. Não há estado novo — a sessão do estab continua no
-// `authProvider` (role 'estab'); enquanto ela existir, as telas do cliente
-// mostram o atalho "Voltar ao painel do estabelecimento".
+// "Modo visualização" do estabelecimento: o dono navega pela experiência do
+// cliente SEM deslogar (a sessão do estab continua no `authProvider`) e vê o
+// cardápio e as mesas exatamente como o cliente — mas NÃO consegue pagar nem
+// criar pedido. O estado é o [previewModeProvider]: ligado pelo botão "Ver como
+// o cliente vê" e desligado ao voltar ao painel (ou ao deslogar).
 
 /// Sessão de estabelecimento ativa (o dono está vendo como cliente).
 bool isEstabSession(AuthState auth) => auth.isAuthed && auth.role == 'estab';
@@ -26,6 +27,29 @@ bool isEstabSession(AuthState auth) => auth.isAuthed && auth.role == 'estab';
     _ => null,
   };
 }
+
+/// Flag crua do modo visualização (ligada/desligada pelos atalhos abaixo).
+class PreviewModeFlag extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool on) => state = on;
+}
+
+final previewModeFlagProvider = NotifierProvider<PreviewModeFlag, bool>(PreviewModeFlag.new);
+
+/// Regra pura do modo visualização: só vale com a flag ligada E uma sessão de
+/// equipe (estab/garçom) ativa — se a sessão cair, o preview some sozinho.
+bool isPreviewActive({required bool flag, required AuthState auth}) =>
+    flag && auth.isAuthed && (auth.role == 'estab' || auth.role == 'waiter');
+
+/// Modo visualização efetivo: a equipe está vendo as telas do cliente pelo
+/// "Ver como o cliente vê". Enquanto true: nada de pagamento nem pedido, e o
+/// perfil local do cliente (nome/telefone) não é exigido.
+final previewModeProvider = Provider<bool>((ref) =>
+    isPreviewActive(flag: ref.watch(previewModeFlagProvider), auth: ref.watch(authProvider)));
+
+/// Texto padrão dos bloqueios de pagamento no modo visualização.
+const previewPaymentBlockedMsg = 'Pagamento desativado no modo visualização';
 
 /// Slug do próprio bar: vem do GET /establishment/qr; sem ele, procura o id do
 /// login na lista pública. Null se não achar.
@@ -45,14 +69,22 @@ Future<String?> resolveOwnSlug(WidgetRef ref) async {
   return null;
 }
 
-/// Entra no modo cliente com o bar já selecionado (abre o cardápio dele).
+/// Entra no modo visualização com o bar já selecionado (abre o cardápio dele).
 void enterClientMode(WidgetRef ref, BuildContext context, String slug) {
+  ref.read(previewModeFlagProvider.notifier).set(true);
   ref.read(selectedSlugProvider.notifier).set(slug);
   context.go('/menu');
 }
 
-/// Faixa "Modo cliente · Voltar ao painel" (só aparece com sessão de estab ou
-/// de garçom navegando nas telas do cliente).
+/// Sai do modo visualização e volta ao painel da sessão logada.
+void exitPreviewToPanel(WidgetRef ref, BuildContext context, String route) {
+  ref.read(previewModeFlagProvider.notifier).set(false);
+  context.go(route);
+}
+
+/// Faixa de volta ao painel (só aparece com sessão de estab ou de garçom
+/// navegando nas telas do cliente). No modo visualização, explica que é a
+/// visão do cliente e que os pagamentos estão desativados.
 class BackToPanelBar extends ConsumerWidget {
   const BackToPanelBar({super.key});
 
@@ -60,25 +92,59 @@ class BackToPanelBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ret = panelReturnFor(ref.watch(authProvider));
     if (ret == null) return const SizedBox.shrink();
+    if (!ref.watch(previewModeProvider)) {
+      return Material(
+        color: AppColors.amber,
+        child: InkWell(
+          onTap: () => exitPreviewToPanel(ref, context, ret.route),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            child: Row(
+              children: [
+                const Icon(Symbols.storefront, size: 17, color: AppColors.ink),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(ret.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.ink)),
+                ),
+                const Icon(Symbols.arrow_forward, size: 16, color: AppColors.ink),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Material(
       color: AppColors.amber,
-      child: InkWell(
-        onTap: () => context.go(ret.route),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          child: Row(
-            children: [
-              const Icon(Symbols.storefront, size: 17, color: AppColors.ink),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(ret.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.ink)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 9, 10, 9),
+        child: Row(
+          children: [
+            const Icon(Symbols.visibility, size: 18, color: AppColors.ink),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Modo visualização — é assim que o cliente vê seu cardápio. Pagamentos desativados.',
+                style: AppText.body(size: 11.5, weight: FontWeight.w700, height: 1.3, color: AppColors.ink),
               ),
-              const Icon(Symbols.arrow_forward, size: 16, color: AppColors.ink),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            Material(
+              color: AppColors.ink,
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: () => exitPreviewToPanel(ref, context, ret.route),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Text('Voltar ao painel',
+                      style: AppText.body(size: 11.5, weight: FontWeight.w800, color: AppColors.dune)),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

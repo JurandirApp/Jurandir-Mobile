@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/dark_header.dart';
+import '../../shell/client_mode.dart';
 import '../resume_order.dart';
 
 /// Meus pedidos: status real (Neon) dos pedidos que este aparelho criou.
@@ -165,7 +166,9 @@ class PedidosScreen extends ConsumerWidget {
           if (resumable) ...[
             const SizedBox(height: 12),
             AppButton.primary(
-              label: 'Continuar pagamento',
+              // Modo visualização: o botão continua visível (é o que o cliente
+              // vê), mas tocar só avisa que o pagamento está desativado.
+              label: ref.watch(previewModeProvider) ? previewPaymentBlockedMsg : 'Continuar pagamento',
               icon: Symbols.payments,
               onPressed: () => resumeOrderPayment(context, ref, o),
             ),

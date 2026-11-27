@@ -24,6 +24,7 @@ import '../../auth/auth_controller.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
 import '../../menu/presentation/item_sheet.dart';
+import '../../shell/client_mode.dart';
 import 'card_wait_screen.dart';
 import '../../../core/payments/threeds.dart';
 import '../../../core/payments/tuna_fingerprint.dart';
@@ -143,7 +144,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return 'PED-${List.generate(8, (_) => chars[r.nextInt(chars.length)]).join()}';
   }
 
+  /// Modo visualização (estab vendo como o cliente): NENHUM pagamento nem
+  /// pedido sai daqui. Avisa e devolve true quando bloqueou — guarda no começo
+  /// de toda entrada que cria pedido ou cobra.
+  bool _blockedByPreview() {
+    if (!ref.read(previewModeProvider)) return false;
+    _toast(previewPaymentBlockedMsg);
+    return true;
+  }
+
   Future<void> _pay(double grand) async {
+    if (_blockedByPreview()) return;
     if (_submitting) return;
     // Bar fechado (horário) → nem abre o pagamento; cozinha fechada com
     // comida no carrinho → avisa e não deixa seguir. Um GET /{slug} só.
@@ -184,6 +195,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// token, cai no `_onWallet` (cria o pedido + cobra). Se a carteira não estiver
   /// disponível (sem cartão no Wallet), avisa e o cliente usa outro método.
   Future<void> _startWallet(double grand) async {
+    if (_blockedByPreview()) return;
     final iOS = defaultTargetPlatform == TargetPlatform.iOS;
     if (iOS && _applePayBlocked) {
       // Defensivo (a opção nem aparece): nunca abre Apple Pay de bar na Tuna.
@@ -271,6 +283,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Generate/Bind → DDC → cobrança com `threeDs` → desafio do banco se pedir).
   /// Crédito Tuna segue sem 3DS.
   Future<void> _payCard(double grand, {required bool debit}) async {
+    if (_blockedByPreview()) return;
     // InfinitePay: o crédito é pago na página hospedada (sem tokenização no app).
     if (!debit && _cartEst()?.gatewayFor('credit') == 'INFINITEPAY') return _payHosted('CREDIT');
     if (!await _ensureCpf() || !mounted) return;
@@ -554,6 +567,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// tela de espera, que confirma sozinha pelo polling. O pedido já fica em
   /// "Pedidos" — se o cliente fechar a página, dá pra reabrir de lá.
   Future<void> _payHosted(String method) async {
+    if (_blockedByPreview()) return;
     if (_submitting) return;
     final payload = _orderPayload(method: method);
     if (payload == null) {
@@ -652,6 +666,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   /// Cria o pedido Pix (cobrança real na Pagar.me) e abre a tela do QR.
   Future<void> _payPix() async {
+    if (_blockedByPreview()) return;
     if (_submitting) return;
     // InfinitePay: não há QR Pix por API — o Pix é pago na página hospedada.
     if (_cartEst()?.gatewayFor('pix') == 'INFINITEPAY') return _payHosted('PIX');
@@ -698,6 +713,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Cria o pedido real (best-effort) e vai pra confirmação. Sem backend /
   /// estabelecimento real, mantém o comportamento de demonstração (stub).
   Future<void> _finish({required bool incomplete}) async {
+    if (_blockedByPreview()) return;
     if (_submitting) return;
     setState(() => _submitting = true);
     await _replacePending();
@@ -726,6 +742,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<ClientOrder?> _submitOrder() async {
+    if (ref.read(previewModeProvider)) return null; // modo visualização: nunca cria pedido
     final payload = _orderPayload(method: _enumMethod(_selPay));
     if (payload == null) return null;
     try {
@@ -744,6 +761,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Editar pedido = descartar o pedido pendente (não pago) antes de criar o
   /// novo. Best-effort: se o cancelamento falhar, segue mesmo assim.
   Future<void> _replacePending() async {
+    if (ref.read(previewModeProvider)) return; // modo visualização: não mexe em pedido
     final pending = ref.read(pendingOrderProvider);
     if (pending == null) return;
     // Só tira da lista local se REALMENTE cancelou; se já tinha sido pago
@@ -831,6 +849,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   /// Chama o garçom até a mesa. Cooldown de 60s (o backend também deduplica).
   Future<void> _callWaiter() async {
+    // Modo visualização: não dispara chamada real pros garçons do bar.
+    if (ref.read(previewModeProvider)) {
+      _toast('Chamar garçom desativado no modo visualização');
+      return;
+    }
     if (_calling) return;
     final estId = _cartEst()?.id;
     if (estId == null) {
@@ -1130,7 +1153,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             : null) ??
         est.openStatus;
     final closed = !openStatus.openNow;
-    final canPay = !closed && (isSplit ? true : _selPay != null);
+    // Modo visualização: tudo de pagamento fica apagado (só navegação).
+    final preview = ref.watch(previewModeProvider);
+    final canPay = !preview && !closed && (isSplit ? true : _selPay != null);
     final topSafe = MediaQuery.paddingOf(context).top;
     unawaited(_maybeStartFingerprint()); // idempotente (só roda uma vez)
     final kitchen = selSlug == null ? KitchenStatus.open : ref.watch(kitchenStatusProvider(selSlug));
@@ -1138,7 +1163,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final String payLabel;
     final Color payBg;
-    if (closed) {
+    if (preview) {
+      payLabel = previewPaymentBlockedMsg;
+      payBg = AppColors.inkA(0.25);
+    } else if (closed) {
       payLabel = 'Bar fechado agora';
       payBg = AppColors.inkA(0.25);
     } else if (isSplit) {
@@ -1183,6 +1211,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 12),
                 Text('Confirmar pedido'.toUpperCase(), style: AppText.display(size: 22, letterSpacing: -0.5)),
                 const SizedBox(height: 14),
+                if (preview) ...[
+                  const BackToPanelBar(),
+                  const SizedBox(height: 10),
+                  _previewTableRow(),
+                  const SizedBox(height: 14),
+                ],
                 if (closed) ...[
                   _closedNotice(openStatus.nextOpenLabel),
                   const SizedBox(height: 14),
@@ -1207,12 +1241,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 10),
                 _obsField(),
                 const SizedBox(height: 18),
-                _modeToggle(),
-                const SizedBox(height: 12),
-                if (!isSplit)
-                  _payGrid()
-                else
-                  _splitCard(grand, share),
+                if (preview) ...[
+                  _previewPayNotice(),
+                  const SizedBox(height: 12),
+                ],
+                // Modo visualização: o cliente veria estas opções, mas aqui
+                // ficam apagadas e sem toque (sem pagamento, sem divisão).
+                Opacity(
+                  opacity: preview ? 0.45 : 1,
+                  child: IgnorePointer(
+                    ignoring: preview,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _modeToggle(),
+                        const SizedBox(height: 12),
+                        if (!isSplit)
+                          _payGrid()
+                        else
+                          _splitCard(grand, share),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1226,6 +1277,66 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
     );
   }
+
+  /// Modo visualização: mesa/local atual + atalho pro seletor de mesas (as
+  /// mesas REAIS do bar, igual o cliente vê). Só escolhe — não cria pedido.
+  Widget _previewTableRow() {
+    final mesa = (ref.watch(selectedLocalProvider) ?? '').trim();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.inkA(0.12), width: 2),
+      ),
+      child: Row(
+        children: [
+          const Icon(Symbols.table_restaurant, size: 18, color: AppColors.coral),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(mesa.isEmpty ? 'Mesa: ainda não escolhida' : 'Mesa: $mesa',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.body(size: 13, weight: FontWeight.w700)),
+          ),
+          GestureDetector(
+            onTap: () async {
+              final table = await _askTable();
+              if (table == null || !mounted) return;
+              ref.read(selectedLocalProvider.notifier).set(table);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
+              child: Text('Ver mesas',
+                  style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.dune)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Aviso acima das formas de pagamento no modo visualização.
+  Widget _previewPayNotice() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.amber.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.amber),
+        ),
+        child: Row(
+          children: [
+            const Icon(Symbols.block, size: 16, color: AppColors.ink),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(previewPaymentBlockedMsg,
+                  style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.ink)),
+            ),
+          ],
+        ),
+      );
 
   /// Aviso no checkout: comida no carrinho com a cozinha fechada.
   Widget _kitchenWarning(KitchenStatus kitchen, List<MenuItem> blocked) {
@@ -1495,6 +1606,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Recebe o resultado do Google/Apple Pay, cria o pedido e cobra na hora
   /// (POST /orders/wallet → Pagar.me). Aprovado → confirmação "em produção".
   Future<void> _onWallet(Map<String, dynamic> result) async {
+    if (_blockedByPreview()) return;
     if (_submitting) return;
     if (!await _preChargeGates() || !mounted) return;
     final token = _walletToken(result);
@@ -1740,6 +1852,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   /// Gera o pedido dividido (N cobranças Pix, uma por pessoa) e abre a tela de split.
   Future<void> _paySplit() async {
+    if (_blockedByPreview()) return;
     if (_submitting) return;
     if (!await _ensureCpf() || !mounted) return;
     final payload = _orderPayload(method: 'PIX');
@@ -1811,7 +1924,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             color: _submitting ? AppColors.coral.withValues(alpha: 0.6) : bg,
             borderRadius: BorderRadius.circular(999),
             child: InkWell(
-              onTap: enabled ? () => _pay(grand) : null,
+              onTap: enabled
+                  ? () => _pay(grand)
+                  // Modo visualização: tocar só explica por que está desativado.
+                  : (ref.read(previewModeProvider) ? () => _toast(previewPaymentBlockedMsg) : null),
               borderRadius: BorderRadius.circular(999),
               child: SizedBox(
                 width: double.infinity,
