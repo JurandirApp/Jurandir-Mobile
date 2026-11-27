@@ -11,6 +11,7 @@ import '../../../core/utils/images.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/network_image.dart';
 import '../../cart/cart_controller.dart';
+import '../../../l10n/i18n.dart';
 
 /// Abre o detalhe do produto: foto, descrição, adicionais (com regras de
 /// obrigatório/mín/máx) e quantidade. Adiciona ao carrinho — ou, se `editing`
@@ -218,7 +219,7 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
                   const SizedBox(height: 22),
                   Row(
                     children: [
-                      Text('Quantidade', style: AppText.body(size: 14, weight: FontWeight.w700)),
+                      Text(context.tr('menu.quantity'), style: AppText.body(size: 14, weight: FontWeight.w700)),
                       const Spacer(),
                       _circleBtn(34, AppColors.duneA(0.6), Symbols.remove, AppColors.ink, () {
                         if (_qty > 1) setState(() => _qty--);
@@ -242,11 +243,11 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
     final valid = _groupValid(g);
     final String hint;
     if (g.single) {
-      hint = g.required ? 'Obrigatório' : 'Opcional';
+      hint = g.required ? context.tr('menu.required') : context.tr('menu.optional');
     } else if (g.minRequired > 0) {
-      hint = 'Escolha ${g.minRequired} a ${g.maxSelect}';
+      hint = context.tr('menu.chooseRange', {'min': g.minRequired, 'max': g.maxSelect});
     } else {
-      hint = 'Até ${g.maxSelect}';
+      hint = context.tr('menu.upTo', {'max': g.maxSelect});
     }
     return Padding(
       padding: const EdgeInsets.only(top: 20),
@@ -335,7 +336,7 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
         ),
       );
     }
-    final label = _isEdit ? 'Salvar' : 'Adicionar';
+    final label = _isEdit ? context.tr('menu.save') : context.tr('menu.add');
     final enabled = _valid;
     return SizedBox(
       width: double.infinity,

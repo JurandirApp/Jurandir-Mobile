@@ -16,6 +16,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
+import '../../../l10n/i18n.dart';
 
 /// Pagamento Pix: QR + copia-e-cola REAIS (Pagar.me). Faz polling do status —
 /// quando o Pix cai, o backend reconcilia, o pedido vira "em produção" e a tela
@@ -69,7 +70,7 @@ class _PixScreenState extends ConsumerState<PixScreen> {
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColors.ink,
           content: Text(
-            'Ainda não identificamos o pagamento. Assim que cair, seguimos.',
+            context.tr('checkout.pixNotYet'),
             style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune),
           ),
         ));
@@ -84,7 +85,7 @@ class _PixScreenState extends ConsumerState<PixScreen> {
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.pix,
         content: Text(
-          'Código Pix copiado — cole no seu banco.',
+          context.tr('checkout.pixCopied'),
           style: AppText.body(size: 13, weight: FontWeight.w700, color: Colors.white),
         ),
       ));
@@ -109,11 +110,11 @@ class _PixScreenState extends ConsumerState<PixScreen> {
           icon: const Icon(Symbols.arrow_back, color: AppColors.ink),
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: Text('Pagar com Pix', style: AppText.display(size: 18)),
+        title: Text(context.tr('checkout.payWithPix'), style: AppText.display(size: 18)),
         centerTitle: false,
       ),
       body: order == null
-          ? Center(child: Text('Pedido não encontrado.', style: AppText.body(size: 14)))
+          ? Center(child: Text(context.tr('checkout.orderNotFound'), style: AppText.body(size: 14)))
           : SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -128,13 +129,13 @@ class _PixScreenState extends ConsumerState<PixScreen> {
                     const SizedBox(height: 20),
                     if (payload != null)
                       AppButton.primary(
-                        label: 'Copiar código Pix',
+                        label: context.tr('checkout.copyPixCode'),
                         icon: Symbols.content_copy,
                         onPressed: () => _copy(payload),
                       ),
                     const SizedBox(height: 10),
                     AppButton.dark(
-                      label: _checking ? 'Verificando…' : 'Já paguei',
+                      label: _checking ? context.tr('checkout.checking') : context.tr('checkout.alreadyPaid'),
                       icon: Symbols.check_circle,
                       onPressed: (_checking || id == null) ? null : () => _check(id),
                     ),
@@ -143,14 +144,13 @@ class _PixScreenState extends ConsumerState<PixScreen> {
                       TextButton.icon(
                         onPressed: () => context.go('/checkout'),
                         icon: Icon(Symbols.edit, size: 16, color: AppColors.inkA(0.6)),
-                        label: Text('Editar pedido',
+                        label: Text(context.tr('checkout.editOrder'),
                             style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
                       ),
                     ],
                     const SizedBox(height: 14),
                     Text(
-                      'O pagamento é confirmado automaticamente. Você pode fechar '
-                      'esta tela e acompanhar em Pedidos.',
+                      context.tr('checkout.pixAutoConfirm'),
                       textAlign: TextAlign.center,
                       style: AppText.body(size: 12, color: AppColors.inkA(0.55)),
                     ),
@@ -165,11 +165,11 @@ class _PixScreenState extends ConsumerState<PixScreen> {
     final code4 = order.code4;
     return Column(
       children: [
-        Text('Valor a pagar', style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
+        Text(context.tr('checkout.amountToPay'), style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
         const SizedBox(height: 2),
         Text(money(order.grand), style: AppText.display(size: 30, letterSpacing: -0.5)),
         const SizedBox(height: 2),
-        Text('Pedido ${order.code}', style: AppText.body(size: 12, color: AppColors.inkA(0.5)).copyWith(fontFamily: 'monospace')),
+        Text(context.tr('checkout.orderCode', {'code': order.code}), style: AppText.body(size: 12, color: AppColors.inkA(0.5)).copyWith(fontFamily: 'monospace')),
         if (code4 != null) ...[
           const SizedBox(height: 12),
           Container(
@@ -181,7 +181,7 @@ class _PixScreenState extends ConsumerState<PixScreen> {
             ),
             child: Column(
               children: [
-                Text('Seu código de entrega',
+                Text(context.tr('checkout.yourDeliveryCode'),
                     style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
                 const SizedBox(height: 2),
                 Text(code4,
@@ -256,7 +256,7 @@ class _PixScreenState extends ConsumerState<PixScreen> {
         children: [
           const Icon(Symbols.qr_code_2, size: 48, color: AppColors.pix),
           const SizedBox(height: 8),
-          Text('Use o código copia-e-cola', style: AppText.body(size: 12, color: AppColors.inkA(0.6))),
+          Text(context.tr('checkout.useCopyPaste'), style: AppText.body(size: 12, color: AppColors.inkA(0.6))),
         ],
       ),
     );
@@ -273,7 +273,7 @@ class _PixScreenState extends ConsumerState<PixScreen> {
         ),
         const SizedBox(width: 10),
         Text(
-          'Aguardando pagamento',
+          context.tr('checkout.awaitingPayment'),
           style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.pix),
         ),
       ],

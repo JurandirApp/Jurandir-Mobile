@@ -11,12 +11,13 @@ import '../../../core/widgets/avatar.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/language_selector.dart';
+import '../../../l10n/i18n.dart';
 import '../../auth/auth_controller.dart';
 import '../../shell/client_mode.dart';
 
 const _payMethods = [
-  ('Pix', 'Aprovação na hora', Symbols.qr_code_2, AppColors.pix, true),
-  ('Visa •••• 4412', 'Crédito · até 6x sem juros', Symbols.credit_card, AppColors.credit, false),
+  ('Pix', 'perfil.pixSub', Symbols.qr_code_2, AppColors.pix, true),
+  ('Visa •••• 4412', 'perfil.creditSub', Symbols.credit_card, AppColors.credit, false),
 ];
 
 class PerfilScreen extends ConsumerStatefulWidget {
@@ -60,7 +61,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(title: 'Perfil'),
+          DarkHeader(title: context.tr('perfil.title')),
           Expanded(child: auth.isAuthed ? _authed(context, auth) : _notAuthed(context)),
         ],
       ),
@@ -82,21 +83,21 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
             child: const Icon(Symbols.person, size: 40, color: AppColors.amber),
           ),
           const SizedBox(height: 18),
-          Text('Acesso ao painel'.toUpperCase(),
+          Text(context.tr('perfil.panelAccessTitle').toUpperCase(),
               textAlign: TextAlign.center, style: AppText.display(size: 24, letterSpacing: -0.5)),
           const SizedBox(height: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 280),
             child: Text(
-              'Dono de bar ou administração? Entre pra gerenciar pedidos, cardápio e taxas. Pra pedir, é só escanear o QR da mesa — sem precisar de conta.',
+              context.tr('perfil.panelAccessBody'),
               textAlign: TextAlign.center,
               style: AppText.body(size: 13, weight: FontWeight.w600, height: 1.5, color: AppColors.inkA(0.55)),
             ),
           ),
           const SizedBox(height: 22),
-          AppButton.primary(label: 'Entrar', onPressed: () => context.go('/login')),
+          AppButton.primary(label: context.tr('perfil.signIn'), onPressed: () => context.go('/login')),
           const SizedBox(height: 32),
-          Align(alignment: Alignment.centerLeft, child: _h2('Idioma')),
+          Align(alignment: Alignment.centerLeft, child: _h2(context.tr('perfil.language'))),
           const LanguageSelector(),
         ],
       ),
@@ -137,17 +138,17 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          _h2('Formas de pagamento'),
+          _h2(context.tr('perfil.paymentMethods')),
           for (final p in _payMethods) ...[_payCard(p), const SizedBox(height: 8)],
           const SizedBox(height: 16),
-          _h2('Preferências'),
+          _h2(context.tr('perfil.preferences')),
           BrutalCard(
             radius: 14,
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Column(
               children: [
-                _prefRow('Notificações de pedido', _notif, (v) => setState(() => _notif = v), border: true),
-                _prefRow('Ofertas dos favoritos', _offers, (v) => setState(() => _offers = v), border: false),
+                _prefRow(context.tr('perfil.orderNotifications'), _notif, (v) => setState(() => _notif = v), border: true),
+                _prefRow(context.tr('perfil.favoriteOffers'), _offers, (v) => setState(() => _offers = v), border: false),
               ],
             ),
           ),
@@ -155,15 +156,15 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
           if (panelReturnFor(auth) case final ret?) ...[
             const SizedBox(height: 16),
             AppButton.dark(
-              label: auth.role == 'waiter' ? 'Voltar à fila do garçom' : 'Voltar ao painel do estabelecimento',
+              label: auth.role == 'waiter' ? context.tr('perfil.backToWaiter') : context.tr('perfil.backToPanel'),
               onPressed: () => context.go(ret.route),
             ),
           ],
           const SizedBox(height: 16),
-          _h2('Idioma'),
+          _h2(context.tr('perfil.language')),
           const LanguageSelector(),
           const SizedBox(height: 16),
-          _h2('Conta'),
+          _h2(context.tr('perfil.account')),
           BrutalCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
@@ -180,7 +181,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Conectado', style: AppText.body(size: 13, weight: FontWeight.w700)),
+                      Text(context.tr('perfil.connected'), style: AppText.body(size: 13, weight: FontWeight.w700)),
                       Text(auth.email ?? '',
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
@@ -193,7 +194,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                     decoration: BoxDecoration(color: AppColors.duneA(0.5), borderRadius: BorderRadius.circular(999)),
-                    child: Text('Sair', style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.inkA(0.7))),
+                    child: Text(context.tr('perfil.signOut'), style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.inkA(0.7))),
                   ),
                 ),
               ],
@@ -229,7 +230,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: AppText.body(size: 14, weight: FontWeight.w700)),
-                Text(sub, style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
+                Text(context.tr(sub), style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               ],
             ),
           ),
@@ -237,7 +238,7 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-              child: Text('Favorito'.toUpperCase(),
+              child: Text(context.tr('perfil.favorite').toUpperCase(),
                   style: AppText.body(size: 9, weight: FontWeight.w800, color: AppColors.dune)),
             ),
         ],

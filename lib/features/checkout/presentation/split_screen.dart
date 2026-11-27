@@ -15,6 +15,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../done/presentation/done_screen.dart';
+import '../../../l10n/i18n.dart';
 
 /// Conta dividida: um Pix por pessoa (Pagar.me). O organizador paga o seu e
 /// compartilha os outros no WhatsApp. Faz polling — quando TODAS as partes caem,
@@ -55,15 +56,15 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
 
   void _copy(String payload) {
     Clipboard.setData(ClipboardData(text: payload));
-    _snack('Código Pix copiado.', AppColors.pix);
+    _snack(context.tr('checkout.splitPixCopied'), AppColors.pix);
   }
 
   Future<void> _shareWhats(ClientOrder order, int i, ClientShare s) async {
-    final msg = 'Nossa conta no ${order.code} — sua parte é ${money(s.amount)}. '
-        'Paga no Pix (copia e cola):\n\n${s.pixPayload}';
+    final msg = context.tr('checkout.splitShareMsg',
+        {'code': order.code, 'value': money(s.amount), 'payload': s.pixPayload});
     final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(msg)}');
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) _snack('Não foi possível abrir o WhatsApp.', AppColors.ink);
+    if (!ok && mounted) _snack(context.tr('checkout.cantOpenWhatsapp'), AppColors.ink);
   }
 
   void _snack(String msg, Color bg) {
@@ -83,7 +84,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
       return Scaffold(
         backgroundColor: AppColors.canvas,
         appBar: AppBar(backgroundColor: AppColors.canvas, elevation: 0),
-        body: Center(child: Text('Pedido não encontrado.', style: AppText.body(size: 14))),
+        body: Center(child: Text(context.tr('checkout.orderNotFound'), style: AppText.body(size: 14))),
       );
     }
     _order ??= initial;
@@ -104,7 +105,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
           icon: const Icon(Symbols.arrow_back, color: AppColors.ink),
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: Text('Dividir a conta', style: AppText.display(size: 18)),
+        title: Text(context.tr('checkout.splitTitle'), style: AppText.display(size: 18)),
         centerTitle: false,
       ),
       body: SafeArea(
@@ -126,7 +127,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
   Widget _header(ClientOrder order, int total, int paidN) {
     return Column(
       children: [
-        Text('Total do pedido', style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
+        Text(context.tr('checkout.orderTotal'), style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
         const SizedBox(height: 2),
         Text(money(order.grand), style: AppText.display(size: 28, letterSpacing: -0.5)),
         const SizedBox(height: 10),
@@ -141,7 +142,9 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          paidN == total ? 'Todos pagaram! Enviando pra cozinha…' : '$paidN de $total pagaram',
+          paidN == total
+              ? context.tr('checkout.splitAllPaid')
+              : context.tr('checkout.splitPaidOf', {'paid': paidN, 'total': total}),
           style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.6)),
         ),
       ],
@@ -164,7 +167,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Pessoa ${i + 1}', style: AppText.body(size: 14, weight: FontWeight.w800)),
+              Text(context.tr('checkout.splitPerson', {'n': i + 1}), style: AppText.body(size: 14, weight: FontWeight.w800)),
               Text(money(s.amount), style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
             ],
           ),
@@ -179,7 +182,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
                 children: [
                   const Icon(Symbols.check_circle, size: 18, color: AppColors.successText),
                   const SizedBox(width: 6),
-                  Text('Pago', style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.successText)),
+                  Text(context.tr('checkout.paid'), style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.successText)),
                 ],
               ),
             )
@@ -202,7 +205,7 @@ class _SplitScreenState extends ConsumerState<SplitScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _smallBtn(Symbols.content_copy, 'Copiar', AppColors.ink,
+                  child: _smallBtn(Symbols.content_copy, context.tr('checkout.copy'), AppColors.ink,
                       s.pixPayload == null ? null : () => _copy(s.pixPayload!)),
                 ),
                 const SizedBox(width: 8),

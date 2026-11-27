@@ -10,6 +10,7 @@ import '../../cart/cart_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../l10n/i18n.dart';
 
 /// Argumentos passados pelo Checkout via `go('/done', extra: ...)`.
 class DoneArgs {
@@ -52,10 +53,10 @@ class _DoneScreenState extends ConsumerState<DoneScreen> {
 
     final bg = incomplete ? AppColors.warning : AppColors.success;
     final icon = incomplete ? Symbols.schedule : Symbols.check;
-    final title = incomplete ? 'Falta gente pagar' : 'Pedido confirmado!';
+    final title = incomplete ? context.tr('done.incompleteTitle') : context.tr('done.confirmedTitle');
     final sub = incomplete
-        ? 'Seu pedido vai à cozinha quando todos pagarem. Complete em Pedidos.'
-        : 'Pagamento confirmado! O estabelecimento já está preparando. Acompanhe em Pedidos.';
+        ? context.tr('done.incompleteSub')
+        : context.tr('done.confirmedSub');
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -91,7 +92,7 @@ class _DoneScreenState extends ConsumerState<DoneScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Código', style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
+                    Text(context.tr('done.code'), style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
                     const SizedBox(width: 10),
                     Text(
                       code,
@@ -102,9 +103,9 @@ class _DoneScreenState extends ConsumerState<DoneScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              AppButton.primary(label: 'Acompanhar pedido', onPressed: () => context.go('/pedidos')),
+              AppButton.primary(label: context.tr('done.track'), onPressed: () => context.go('/pedidos')),
               const SizedBox(height: 10),
-              AppButton.dark(label: 'Voltar ao início', onPressed: () => context.go('/home')),
+              AppButton.dark(label: context.tr('done.backHome'), onPressed: () => context.go('/home')),
             ],
           ),
         ),

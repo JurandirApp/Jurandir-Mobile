@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/labeled_input.dart';
+import '../../../l10n/i18n.dart';
 
 /// Onboarding do perfil local do cliente (nome + telefone).
 ///
@@ -53,11 +54,11 @@ class _ProfileOnboardingScreenState extends ConsumerState<ProfileOnboardingScree
     final digits = phone.replaceAll(RegExp(r'\D'), '');
 
     if (name.isEmpty) {
-      setState(() => _error = 'Informe seu nome.');
+      setState(() => _error = context.tr('onboarding.profileNameRequired'));
       return;
     }
     if (digits.length < 8) {
-      setState(() => _error = 'Informe um telefone válido (mín. 8 dígitos).');
+      setState(() => _error = context.tr('onboarding.profilePhoneInvalid'));
       return;
     }
 
@@ -90,13 +91,13 @@ class _ProfileOnboardingScreenState extends ConsumerState<ProfileOnboardingScree
               child: const Icon(Symbols.waving_hand, size: 34, color: Colors.white),
             ),
             const SizedBox(height: 22),
-            Text('Como podemos te chamar?'.toUpperCase(),
+            Text(context.tr('onboarding.profileTitle').toUpperCase(),
                 textAlign: TextAlign.center, style: AppText.display(size: 24, letterSpacing: -0.5)),
             const SizedBox(height: 8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 280),
               child: Text(
-                'Nome e telefone só pra identificar seu pedido no balcão. Sem conta, sem senha.',
+                context.tr('onboarding.profileSubtitle'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 13, weight: FontWeight.w600, height: 1.5, color: AppColors.inkA(0.55)),
               ),
@@ -107,10 +108,10 @@ class _ProfileOnboardingScreenState extends ConsumerState<ProfileOnboardingScree
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  LabeledInput(label: 'Nome', hint: 'Seu nome', controller: _name),
+                  LabeledInput(label: context.tr('common.name'), hint: context.tr('common.yourName'), controller: _name),
                   const SizedBox(height: 12),
                   LabeledInput(
-                    label: 'Telefone',
+                    label: context.tr('common.phone'),
                     hint: '(00) 00000-0000',
                     controller: _phone,
                     keyboardType: TextInputType.phone,
@@ -120,7 +121,7 @@ class _ProfileOnboardingScreenState extends ConsumerState<ProfileOnboardingScree
                     Text(_error!, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.danger)),
                   ],
                   const SizedBox(height: 16),
-                  AppButton.primary(label: _saving ? 'Salvando…' : 'Continuar', onPressed: _submit),
+                  AppButton.primary(label: _saving ? context.tr('common.saving') : context.tr('common.continue'), onPressed: _submit),
                 ],
               ),
             ),

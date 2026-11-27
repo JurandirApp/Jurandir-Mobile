@@ -7,6 +7,7 @@ import '../../core/data/public_api.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../cart/cart_controller.dart';
+import '../../l10n/i18n.dart';
 import '../shell/client_mode.dart';
 
 /// Linha do carrinho remontada a partir de um pedido.
@@ -91,20 +92,20 @@ Future<void> resumeOrderPayment(BuildContext context, WidgetRef ref, ClientOrder
   }
   final slug = o.estSlug;
   if (slug == null) {
-    toast('Não foi possível retomar este pedido. Faça o pedido de novo pelo cardápio.');
+    toast(tr('pedidos.resumeUnavailable'));
     return;
   }
   List<MenuItem> menu;
   try {
     menu = await ref.read(menuProvider(slug).future);
   } catch (_) {
-    if (context.mounted) toast('Sem conexão pra retomar o pedido agora. Tente de novo.');
+    if (context.mounted) toast(tr('pedidos.resumeOffline'));
     return;
   }
   if (!context.mounted) return;
   final lines = rebuildCartLines(o, menu);
   if (lines == null) {
-    toast('O cardápio mudou desde este pedido. Faça o pedido de novo pelo cardápio.');
+    toast(tr('pedidos.resumeMenuChanged'));
     return;
   }
   final cart = ref.read(cartProvider.notifier)..clear();

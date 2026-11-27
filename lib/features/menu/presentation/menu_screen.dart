@@ -18,6 +18,7 @@ import '../../../core/widgets/network_image.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../cart/cart_controller.dart';
 import '../../shell/client_mode.dart';
+import '../../../l10n/i18n.dart';
 import 'item_sheet.dart';
 
 /// Cardápio: header do estabelecimento, barra de categorias fixa (sticky),
@@ -30,7 +31,10 @@ class MenuScreen extends ConsumerStatefulWidget {
 }
 
 class _MenuScreenState extends ConsumerState<MenuScreen> {
-  String _cat = 'Todos';
+  // Sentinela interna "todas as categorias" (rótulo traduzido na barra);
+  // categorias vêm do servidor e não são traduzidas.
+  static const _all = '__all__';
+  String _cat = _all;
 
   @override
   void initState() {
@@ -65,8 +69,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     // Aberto agora? Status fresco do servidor (GET /{slug}); sem ele, o da lista.
     final openStatus = ref.watch(barOpenStatusProvider(slug)).asData?.value ?? est.openStatus;
     final barClosed = !openStatus.openNow;
-    final cats = <String>['Todos', ...{for (final m in menu) m.category}];
-    final items = _cat == 'Todos' ? menu : menu.where((m) => m.category == _cat).toList();
+    final cats = <String>[_all, ...{for (final m in menu) m.category}];
+    final items = _cat == _all ? menu : menu.where((m) => m.category == _cat).toList();
     // Aviso no topo só se a cozinha fechada afeta algo deste cardápio.
     final showKitchenBanner = kitchenBlockedItems(menu, kitchen).isNotEmpty;
     // Cozinha aberta mas fechando em ≤ 30 min (e o cardápio tem comida).
@@ -101,6 +105,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   pinned: true,
                   delegate: _CatBar(
                     cats: cats,
+                    allLabel: context.tr('menu.all'),
                     selected: _cat,
                     onTap: (c) => setState(() => _cat = c),
                   ),
@@ -129,7 +134,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                             child: Padding(
                               padding: const EdgeInsets.only(top: 48),
                               child: Center(
-                                child: Text('Cardápio em breve por aqui.',
+                                child: Text(context.tr('menu.comingSoon'),
                                     style: AppText.body(size: 14, color: AppColors.inkA(0.45))),
                               ),
                             ),
@@ -313,7 +318,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               children: [
                 Text(kitchen.closedLabel, style: AppText.body(size: 13, weight: FontWeight.w800)),
                 const SizedBox(height: 2),
-                Text('Pratos e porções indisponíveis agora. Bebidas seguem normais.',
+                Text(context.tr('menu.kitchenBannerHint'),
                     style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.55))),
               ],
             ),
@@ -407,7 +412,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(color: AppColors.inkA(0.1), borderRadius: BorderRadius.circular(999)),
-              child: Text('Fechada', style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.inkA(0.6))),
+              child: Text(context.tr('menu.kitchenClosedChip'), style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.inkA(0.6))),
             )
           else if (qty == 0)
             _circleBtn(36, AppColors.coral, Symbols.add, Colors.white,
@@ -500,11 +505,11 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Não foi possível carregar o cardápio.',
+            Text(context.tr('menu.loadError'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 15, weight: FontWeight.w700, color: AppColors.inkA(0.7))),
             const SizedBox(height: 6),
-            Text('Verifique sua conexão e tente de novo.',
+            Text(context.tr('menu.checkConnection'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 13, color: AppColors.inkA(0.45))),
             const SizedBox(height: 16),
@@ -513,7 +518,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                child: Text('Tentar de novo',
+                child: Text(context.tr('menu.retry'),
                     style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.dune)),
               ),
             ),
@@ -570,7 +575,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   ],
                 ),
                 Text(
-                  'Ver pedido · ${money(total)}',
+                  context.tr('menu.viewOrder', {'total': money(total)}),
                   style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.dune),
                 ),
               ],
@@ -585,10 +590,11 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
 /// Barra de categorias fixa (sticky) do cardápio.
 class _CatBar extends SliverPersistentHeaderDelegate {
   final List<String> cats;
+  final String allLabel; // rótulo do 1º item (sentinela "todas")
   final String selected;
   final ValueChanged<String> onTap;
 
-  _CatBar({required this.cats, required this.selected, required this.onTap});
+  _CatBar({required this.cats, required this.allLabel, required this.selected, required this.onTap});
 
   @override
   double get minExtent => 56;
@@ -609,7 +615,7 @@ class _CatBar extends SliverPersistentHeaderDelegate {
             for (var i = 0; i < cats.length; i++) ...[
               if (i > 0) const SizedBox(width: 8),
               FilterPill(
-                label: cats[i],
+                label: i == 0 ? allLabel : cats[i],
                 selected: cats[i] == selected,
                 onTap: () => onTap(cats[i]),
               ),
@@ -621,5 +627,5 @@ class _CatBar extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(_CatBar oldDelegate) => oldDelegate.selected != selected;
+  bool shouldRebuild(_CatBar oldDelegate) => oldDelegate.selected != selected || oldDelegate.allLabel != allLabel;
 }

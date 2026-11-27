@@ -11,6 +11,7 @@ import '../../../core/data/models.dart';
 import '../../../core/payments/tuna_threeds.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/i18n.dart';
 
 // 3DS da Tuna (débito) — parte com WebView. A lógica pura (HTML, parsing) fica
 // em core/payments/tuna_threeds.dart. Nunca logar JWT/token/URLs com dados.
@@ -367,11 +368,11 @@ class _TunaChallengeScreenState extends State<_TunaChallengeScreen> {
           elevation: 0,
           automaticallyImplyLeading: false,
           leading: IconButton(
-            tooltip: 'Fechar',
+            tooltip: context.tr('checkout.close'),
             icon: const Icon(Symbols.close, color: AppColors.ink),
             onPressed: () => unawaited(_close()),
           ),
-          title: Text('Confirmação do banco', style: AppText.display(size: 18)),
+          title: Text(context.tr('checkout.bankConfirmation'), style: AppText.display(size: 18)),
           centerTitle: false,
           bottom: _loading || _returned
               ? const PreferredSize(

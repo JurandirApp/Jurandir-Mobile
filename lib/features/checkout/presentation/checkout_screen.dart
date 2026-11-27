@@ -34,6 +34,7 @@ import 'card_sheet.dart';
 import 'three_ds_screen.dart';
 import 'tuna_fingerprint_collector.dart';
 import 'tuna_threeds_screen.dart';
+import '../../../l10n/i18n.dart';
 
 class _PayMethod {
   final String id;
@@ -95,8 +96,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           const _PayMethod('google_pay', 'Google Pay', Symbols.contactless, AppColors.ink)
         else if (!_applePayBlocked)
           const _PayMethod('apple_pay', 'Apple Pay', Symbols.contactless, AppColors.ink),
-      const _PayMethod('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
-      const _PayMethod('debito', 'Débito', Symbols.account_balance, AppColors.debit),
+      _PayMethod('credito', tr('checkout.credit'), Symbols.credit_card, AppColors.credit),
+      _PayMethod('debito', tr('checkout.debit'), Symbols.account_balance, AppColors.debit),
     ];
   }
 
@@ -199,7 +200,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final iOS = defaultTargetPlatform == TargetPlatform.iOS;
     if (iOS && _applePayBlocked) {
       // Defensivo (a opção nem aparece): nunca abre Apple Pay de bar na Tuna.
-      _toast('Apple Pay indisponível neste local. Use outro método.');
+      _toast(context.tr('checkout.applePayUnavailableHere'));
       return;
     }
     final provider = iOS ? PayProvider.apple_pay : PayProvider.google_pay;
@@ -211,7 +212,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       tunaMid = await ref.read(publicApiProvider).tunaGooglePayGatewayMerchantId();
       if (!mounted) return;
       if (tunaMid == null) {
-        _toast('Google Pay indisponível agora. Tente de novo ou use outro método.');
+        _toast(context.tr('checkout.googlePayUnavailableRetry'));
         return;
       }
     }
@@ -221,7 +222,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final client = Pay({provider: PaymentConfiguration.fromJsonString(config)});
     final items = [
       PaymentItem(
-        label: 'Total',
+        label: context.tr('checkout.total'),
         amount: grand.toStringAsFixed(2),
         status: PaymentItemStatus.final_price,
       ),
@@ -240,8 +241,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       // Cancelamento pelo usuário (fechou a folha): sem aviso.
       if (e.toString().toLowerCase().contains('cancel')) return;
       _toast(iOS
-          ? 'Apple Pay indisponível agora. Adicione um cartão no Wallet ou use outro método.'
-          : 'Google Pay indisponível agora. Use outro método.');
+          ? context.tr('checkout.applePayUnavailable')
+          : context.tr('checkout.googlePayUnavailable'));
     }
   }
 
@@ -297,7 +298,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       pagbankKey = await ref.read(publicApiProvider).pagbankPublicKey();
       if (!mounted) return;
       if (pagbankKey == null) {
-        _toast('Pagamento com cartão indisponível agora. Tente outro método.');
+        _toast(context.tr('checkout.cardUnavailable'));
         return;
       }
     }
@@ -327,7 +328,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        if (!_handleOrderError(e)) _toast(_orderFailMsg(e, 'Não foi possível iniciar o pedido. Tente de novo.'));
+        if (!_handleOrderError(e)) _toast(_orderFailMsg(e, context.tr('checkout.orderStartFailed')));
       }
       return;
     }
@@ -335,7 +336,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (id == null) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+        _toast(context.tr('checkout.orderStartFailed'));
       }
       return;
     }
@@ -415,7 +416,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       } else {
         // Recusa de fato (dados/antifraude) — deixa retentar com outro cartão.
         setState(() => _submitting = false);
-        _declineToast('Pagamento não aprovado. Confira os dados ou tente outro cartão.');
+        _declineToast(context.tr('checkout.declineCheckCard'));
       }
     } catch (_) {
       // Timeout/rede: a cobrança PODE ter ido. NÃO trava — vai pra tela de
@@ -449,15 +450,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (t == null) {
           setState(() => _submitting = false);
           _toast(card.tunaSavedCard
-              ? 'Não foi possível validar o cartão salvo. Confira o CVV ou use outro cartão.'
-              : 'Não foi possível validar o cartão. Confira os dados ou tente outro cartão.');
+              ? context.tr('checkout.savedCardValidateFailed')
+              : context.tr('checkout.cardValidateRetry'));
           return null;
         }
         return (token: t.token, brand: t.brand, sessionId: ds.sessionId, deviceKey: key, auth: t.auth);
       }
       if (card.tunaSavedCard) {
         setState(() => _submitting = false);
-        _toast('Pagamento com cartão indisponível agora. Tente outro método.');
+        _toast(context.tr('checkout.cardUnavailable'));
         return null;
       }
     }
@@ -467,14 +468,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (session == null || tokenize == null) {
       // 404/409/403/502: tanto faz o motivo pro cliente — usa outro método.
       setState(() => _submitting = false);
-      _toast('Pagamento com cartão indisponível agora. Tente outro método.');
+      _toast(context.tr('checkout.cardUnavailable'));
       return null;
     }
     final t = await tokenize(session.tokenUrl, session.sessionId, false, authCode);
     if (!mounted) return null;
     if (t == null) {
       setState(() => _submitting = false);
-      _toast('Não foi possível validar o cartão. Confira os dados ou tente outro cartão.');
+      _toast(context.tr('checkout.cardValidateRetry'));
       return null;
     }
     return (token: t.token, brand: t.brand, sessionId: session.sessionId, deviceKey: null, auth: t.auth);
@@ -520,10 +521,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         context.go('/pagamento', extra: CardWaitArgs(order: order));
       case TunaChallengeDeclined():
         setState(() => _submitting = false);
-        _declineToast('Pagamento não aprovado pelo banco. Tente de novo ou use outro cartão.');
+        _declineToast(context.tr('checkout.declineByBank'));
       case TunaChallengeCancelled():
         setState(() => _submitting = false);
-        _declineToast('Pagamento não confirmado com o banco. Tente de novo ou use outro método.');
+        _declineToast(context.tr('checkout.declineNotConfirmed'));
     }
   }
 
@@ -540,8 +541,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (session == null || raw == null || parts == null) {
       setState(() => _submitting = false);
       _toast(s.error == 'debitDisabled'
-          ? 'Débito indisponível no momento. Use crédito, Pix ou carteira.'
-          : 'Não foi possível iniciar o pagamento. Tente de novo.');
+          ? context.tr('checkout.debitUnavailable')
+          : context.tr('checkout.paymentStartFailed'));
       return null;
     }
     final outcome = await runThreeDs(
@@ -556,8 +557,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() => _submitting = false);
     _toast(switch (outcome) {
       ThreeDsNotSupported() || ThreeDsDenied() =>
-        'Esse cartão de débito não pode ser usado aqui. Pague com crédito, Pix ou carteira.',
-      _ => 'Não foi possível confirmar com o seu banco. Tente de novo.',
+        context.tr('checkout.debitCardNotSupported'),
+      _ => context.tr('checkout.bankConfirmFailed'),
     });
     return null;
   }
@@ -582,7 +583,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        if (!_handleOrderError(e)) _toast(_orderFailMsg(e, 'Não foi possível iniciar o pagamento. Tente de novo.'));
+        if (!_handleOrderError(e)) _toast(_orderFailMsg(e, context.tr('checkout.paymentStartFailed')));
       }
       return;
     }
@@ -596,7 +597,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final url = r.checkoutUrl ?? '';
     if (!r.ok || order == null || url.isEmpty) {
       setState(() => _submitting = false);
-      _toast('Não foi possível abrir o pagamento agora. Tente de novo ou use outro método.');
+      _toast(context.tr('checkout.hostedOpenFailed'));
       return;
     }
     final uri = Uri.tryParse(url);
@@ -690,7 +691,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (order == null) {
-      if (!_handleOrderError(err)) _toast(_orderFailMsg(err, 'Não foi possível gerar o Pix. Tente novamente.'));
+      if (!_handleOrderError(err)) _toast(_orderFailMsg(err, context.tr('checkout.pixGenerateFailed')));
       return;
     }
     final id = order.dbId;
@@ -731,7 +732,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       // Cozinha fechou (`kitchenClosed`): idem — avisa com a opção de tirar a comida.
       if (mounted) {
         setState(() => _submitting = false);
-        if (!_handleOrderError(e)) _toast('Não foi possível enviar o pedido. Tente de novo.');
+        if (!_handleOrderError(e)) _toast(context.tr('checkout.orderSendFailed'));
       }
       return;
     }
@@ -851,13 +852,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<void> _callWaiter() async {
     // Modo visualização: não dispara chamada real pros garçons do bar.
     if (ref.read(previewModeProvider)) {
-      _toast('Chamar garçom desativado no modo visualização');
+      _toast(context.tr('checkout.callWaiterPreview'));
       return;
     }
     if (_calling) return;
     final estId = _cartEst()?.id;
     if (estId == null) {
-      _toast('Abra o cardápio de um bar pra chamar o garçom.');
+      _toast(context.tr('checkout.callWaiterNoBar'));
       return;
     }
     var mesa = ref.read(selectedLocalProvider) ?? '';
@@ -876,18 +877,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
       if (!mounted) return;
       if (ok) {
-        _toast('Avisamos o garçom, ele já vem até a sua mesa 👍');
+        _toast(context.tr('checkout.callWaiterOk'));
         // Sucesso: mantém desabilitado por 60s.
         Future.delayed(const Duration(seconds: 60), () {
           if (mounted) setState(() => _calling = false);
         });
       } else {
-        _toast('Não foi possível chamar agora. Tente de novo.');
+        _toast(context.tr('checkout.callWaiterFailed'));
         setState(() => _calling = false);
       }
     } catch (_) {
       if (!mounted) return;
-      _toast('Não foi possível chamar agora. Tente de novo.');
+      _toast(context.tr('checkout.callWaiterFailed'));
       setState(() => _calling = false);
     }
   }
@@ -907,7 +908,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 Icon(Symbols.room_service, size: 16, color: _calling ? AppColors.inkA(0.4) : AppColors.dune),
                 const SizedBox(width: 6),
                 Text(
-                  _calling ? 'Garçom avisado ✓' : 'Chamar garçom',
+                  _calling ? context.tr('checkout.waiterNotified') : context.tr('checkout.callWaiter'),
                   style: AppText.body(
                       size: 12, weight: FontWeight.w700, color: _calling ? AppColors.inkA(0.45) : AppColors.dune),
                 ),
@@ -951,7 +952,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Pagamento não aprovado',
+                  Text(context.tr('checkout.paymentDeclined'),
                       style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.dune)),
                   const SizedBox(height: 2),
                   Text(_declineHint(msg),
@@ -970,7 +971,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         children: [
                           const Icon(Symbols.room_service, size: 15, color: Colors.white),
                           const SizedBox(width: 6),
-                          Text('Chamar garçom',
+                          Text(context.tr('checkout.callWaiter'),
                               style: AppText.body(size: 12, weight: FontWeight.w800, color: Colors.white)),
                         ],
                       ),
@@ -983,7 +984,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               onPressed: messenger.hideCurrentSnackBar,
               icon: Icon(Symbols.close, size: 18, color: AppColors.duneA(0.7)),
               visualDensity: VisualDensity.compact,
-              tooltip: 'Fechar',
+              tooltip: context.tr('checkout.close'),
             ),
           ],
         ),
@@ -994,7 +995,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Tira o "Pagamento não aprovado." do começo (já é o título) e deixa a dica.
   String _declineHint(String msg) {
     final hint = msg.replaceFirst(RegExp(r'^Pagamento não aprovado\.?\s*'), '').trim();
-    return hint.isEmpty ? 'Tente de novo ou escolha outro método.' : hint;
+    return hint.isEmpty ? context.tr('checkout.declineDefaultHint') : hint;
   }
 
   /// Mensagem do erro ao criar o pedido: bar fechado (`closed` do servidor)
@@ -1105,12 +1106,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Voltar',
+            child: Text(context.tr('checkout.back'),
                 style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Tirar a comida',
+            child: Text(context.tr('checkout.removeFood'),
                 style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
           ),
         ],
@@ -1199,10 +1200,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       payLabel = previewPaymentBlockedMsg;
       payBg = AppColors.inkA(0.25);
     } else if (isSplit) {
-      payLabel = 'Gerar Pix da divisão — ${money(grand)}';
+      payLabel = context.tr('checkout.generateSplitPix', {'value': money(grand)});
       payBg = AppColors.coral;
     } else {
-      payLabel = 'Pagar ${money(grand)}';
+      payLabel = context.tr('checkout.payValue', {'value': money(grand)});
       payBg = canPay ? AppColors.coral : AppColors.inkA(0.25);
     }
     // Cozinha fechada: botão apagado (tocar ainda reconfere e mostra o aviso).
@@ -1228,7 +1229,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         children: [
                           Icon(Symbols.arrow_back, size: 16, color: AppColors.inkA(0.55)),
                           const SizedBox(width: 6),
-                          Text('Voltar ao cardápio',
+                          Text(context.tr('checkout.backToMenu'),
                               style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
                         ],
                       ),
@@ -1238,7 +1239,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text('Confirmar pedido'.toUpperCase(), style: AppText.display(size: 22, letterSpacing: -0.5)),
+                Text(context.tr('checkout.confirmOrder').toUpperCase(), style: AppText.display(size: 22, letterSpacing: -0.5)),
                 const SizedBox(height: 14),
                 if (preview) ...[
                   const BackToPanelBar(),
@@ -1258,10 +1259,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    Text('Observação do pedido'.toUpperCase(),
+                    Text(context.tr('checkout.orderNote').toUpperCase(),
                         style: AppText.display(size: 13, color: AppColors.inkA(0.6))),
                     const SizedBox(width: 6),
-                    Text('(opcional)',
+                    Text(context.tr('checkout.optional'),
                         style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.35))),
                   ],
                 ),
@@ -1321,7 +1322,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           const Icon(Symbols.table_restaurant, size: 18, color: AppColors.coral),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(mesa.isEmpty ? 'Mesa: ainda não escolhida' : 'Mesa: $mesa',
+            child: Text(mesa.isEmpty ? context.tr('checkout.tableNotChosen') : context.tr('checkout.tableValue', {'table': mesa}),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppText.body(size: 13, weight: FontWeight.w700)),
@@ -1335,7 +1336,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-              child: Text('Ver mesas',
+              child: Text(context.tr('checkout.seeTables'),
                   style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.dune)),
             ),
           ),
@@ -1389,7 +1390,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          Text('Estes itens não podem ser pedidos agora: $names.',
+          Text(context.tr('checkout.kitchenBlockedItems', {'names': names}),
               style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.7))),
           const SizedBox(height: 10),
           GestureDetector(
@@ -1397,7 +1398,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-              child: Text('Tirar a comida do pedido',
+              child: Text(context.tr('checkout.removeFoodFromOrder'),
                   style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.dune)),
             ),
           ),
@@ -1515,11 +1516,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
             child: Column(
               children: [
-                _sumRow('Subtotal', money(total)),
+                _sumRow(context.tr('checkout.subtotal'), money(total)),
                 const SizedBox(height: 5),
-                _sumRow('Taxa Jurandir', money(fee)),
+                _sumRow(context.tr('checkout.jurandirFee'), money(fee)),
                 const SizedBox(height: 5),
-                _sumRow('Taxa de serviço', money(estFee)),
+                _sumRow(context.tr('checkout.serviceFee'), money(estFee)),
                 Container(
                   margin: const EdgeInsets.only(top: 5),
                   padding: const EdgeInsets.only(top: 5),
@@ -1529,7 +1530,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total', style: AppText.body(size: 15, weight: FontWeight.w800)),
+                      Text(context.tr('checkout.total'), style: AppText.body(size: 15, weight: FontWeight.w800)),
                       Text(money(grand), style: AppText.body(size: 15, weight: FontWeight.w800, color: AppColors.coralDeep)),
                     ],
                   ),
@@ -1573,7 +1574,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         maxLength: 140,
         style: AppText.body(size: 13, weight: FontWeight.w500),
         decoration: InputDecoration(
-          hintText: 'Ex: caipirinha sem açúcar, alergia a camarão…',
+          hintText: context.tr('checkout.noteHint'),
           hintStyle: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.4)),
           border: InputBorder.none,
           counterText: '',
@@ -1592,8 +1593,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
       child: Row(
         children: [
-          Expanded(child: _modeBtn('Pagar tudo', 'full', null)),
-          Expanded(child: _modeBtn('Dividir conta', 'split', Symbols.group)),
+          Expanded(child: _modeBtn(context.tr('checkout.payAll'), 'full', null)),
+          Expanded(child: _modeBtn(context.tr('checkout.splitBill'), 'split', Symbols.group)),
         ],
       ),
     );
@@ -1638,7 +1639,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!await _preChargeGates() || !mounted) return;
     final token = _walletToken(result);
     if (token == null) {
-      _toast('Não foi possível ler o pagamento da carteira.');
+      _toast(context.tr('checkout.walletReadFailed'));
       return;
     }
     // Débito na carteira (Tuna) → pedido DEBIT; o servidor cobra a carteira como débito.
@@ -1660,7 +1661,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        if (!_handleOrderError(e)) _toast(_orderFailMsg(e, 'Não foi possível iniciar o pedido. Tente de novo.'));
+        if (!_handleOrderError(e)) _toast(_orderFailMsg(e, context.tr('checkout.orderStartFailed')));
       }
       return;
     }
@@ -1668,7 +1669,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (id == null) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+        _toast(context.tr('checkout.orderStartFailed'));
       }
       return;
     }
@@ -1692,7 +1693,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         context.go('/pagamento', extra: CardWaitArgs(order: r.order ?? order));
       } else {
         setState(() => _submitting = false);
-        _declineToast('Pagamento não aprovado. Tente outro método.');
+        _declineToast(context.tr('checkout.declineTryOther'));
       }
     } catch (_) {
       // Timeout/rede: a cobrança PODE ter ido. NÃO trava — tela de processamento
@@ -1707,7 +1708,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Como você quer pagar?'.toUpperCase(),
+        Text(context.tr('checkout.howToPay').toUpperCase(),
             style: AppText.display(size: 13, color: AppColors.inkA(0.6))),
         const SizedBox(height: 10),
         for (final pm in _payMethods) ...[
@@ -1760,7 +1761,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 _fundingToggle(onPick: () => setState(() => _selPay = pm.id))
               else
                 Text(
-                  'Somente crédito',
+                  context.tr('checkout.creditOnly'),
                   style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.55)),
                 ),
               const SizedBox(width: 10),
@@ -1811,7 +1812,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         color: AppColors.inkA(0.06),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [seg('Crédito', false), seg('Débito', true)]),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [seg(context.tr('checkout.credit'), false), seg(context.tr('checkout.debit'), true)]),
     );
   }
 
@@ -1825,7 +1826,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Quantas pessoas?', style: AppText.body(size: 13, weight: FontWeight.w700)),
+              Text(context.tr('checkout.howManyPeople'), style: AppText.body(size: 13, weight: FontWeight.w700)),
               Row(
                 children: [
                   _stepBtn(Symbols.remove, AppColors.inkA(0.08), AppColors.ink, () => _setPeople(_people - 1)),
@@ -1843,9 +1844,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             TextSpan(
               style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5)),
               children: [
-                const TextSpan(text: 'Dividido igualmente · '),
+                TextSpan(text: context.tr('checkout.splitEqualPrefix')),
                 TextSpan(text: money(share), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.coralDeep)),
-                const TextSpan(text: ' por pessoa (com taxas)'),
+                TextSpan(text: context.tr('checkout.splitEqualSuffix')),
               ],
             ),
           ),
@@ -1864,8 +1865,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Geramos um Pix por pessoa. Você paga o seu e compartilha os '
-                    'outros no WhatsApp — o pedido vai pra cozinha quando todos pagarem.',
+                    context.tr('checkout.splitExplain'),
                     style: AppText.body(size: 11, weight: FontWeight.w600, height: 1.4, color: AppColors.inkA(0.7)),
                   ),
                 ),
@@ -1904,7 +1904,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (order == null || order.splits == null || order.splits!.isEmpty) {
-      if (!_handleOrderError(err)) _toast(_orderFailMsg(err, 'Não foi possível gerar as cobranças da divisão. Tente de novo.'));
+      if (!_handleOrderError(err)) _toast(_orderFailMsg(err, context.tr('checkout.splitGenerateFailed')));
       return;
     }
     final id = order.dbId;
@@ -2001,7 +2001,7 @@ class _CpfSheetState extends State<_CpfSheet> {
 
   void _confirm() {
     if (!isValidCpf(_ctrl.text)) {
-      setState(() => _err = 'CPF inválido — confira os números.');
+      setState(() => _err = context.tr('checkout.cpfInvalid'));
       return;
     }
     Navigator.pop(context, _ctrl.text.replaceAll(RegExp(r'\D'), ''));
@@ -2023,9 +2023,9 @@ class _CpfSheetState extends State<_CpfSheet> {
                 decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
           ),
           const SizedBox(height: 16),
-          Text('CPF do pagador', style: AppText.display(size: 20, letterSpacing: -0.3)),
+          Text(context.tr('checkout.cpfTitle'), style: AppText.display(size: 20, letterSpacing: -0.3)),
           const SizedBox(height: 6),
-          Text('Obrigatório para o pagamento. Pedimos só uma vez — depois fica salvo.',
+          Text(context.tr('checkout.cpfBody'),
               style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.55))),
           const SizedBox(height: 16),
           TextField(
@@ -2040,7 +2040,7 @@ class _CpfSheetState extends State<_CpfSheet> {
             },
             decoration: InputDecoration(
               counterText: '',
-              hintText: 'Somente números',
+              hintText: context.tr('checkout.digitsOnly'),
               hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.35)),
               filled: true,
               fillColor: Colors.white,
@@ -2083,7 +2083,7 @@ class _CpfContinueLabel extends StatelessWidget {
   const _CpfContinueLabel();
   @override
   Widget build(BuildContext context) =>
-      Text('Continuar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white));
+      Text(context.tr('checkout.continue'), style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white));
 }
 
 /// Celular com DDD, só dígitos: DDD (2 dígitos, sem 0 na frente) + número de
@@ -2114,7 +2114,7 @@ class _PhoneSheetState extends State<_PhoneSheet> {
   void _confirm() {
     final d = _ctrl.text.replaceAll(RegExp(r'\D'), '');
     if (!_isValidPhone(d)) {
-      setState(() => _err = 'Celular inválido — informe o DDD e o número.');
+      setState(() => _err = context.tr('checkout.phoneInvalid'));
       return;
     }
     Navigator.pop(context, d);
@@ -2136,9 +2136,9 @@ class _PhoneSheetState extends State<_PhoneSheet> {
                 decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
           ),
           const SizedBox(height: 16),
-          Text('Celular com DDD', style: AppText.display(size: 20, letterSpacing: -0.3)),
+          Text(context.tr('checkout.phoneTitle'), style: AppText.display(size: 20, letterSpacing: -0.3)),
           const SizedBox(height: 6),
-          Text('O seu banco pede o celular pra confirmar o débito. Pedimos só uma vez — depois fica salvo.',
+          Text(context.tr('checkout.phoneBody'),
               style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.55))),
           const SizedBox(height: 16),
           TextField(
@@ -2154,7 +2154,7 @@ class _PhoneSheetState extends State<_PhoneSheet> {
             },
             decoration: InputDecoration(
               counterText: '',
-              hintText: 'DDD + número, só números',
+              hintText: context.tr('checkout.phoneHint'),
               hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.35)),
               filled: true,
               fillColor: Colors.white,
@@ -2245,12 +2245,12 @@ class _TableSheetState extends State<_TableSheet> {
             child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
           ),
           const SizedBox(height: 16),
-          Text('Qual a sua mesa?', style: AppText.display(size: 20, letterSpacing: -0.3)),
+          Text(context.tr('checkout.whichTable'), style: AppText.display(size: 20, letterSpacing: -0.3)),
           const SizedBox(height: 6),
           Text(
             hasSpots
-                ? 'Escolha a sua mesa na lista — ou digite a sua.'
-                : 'Diga onde você está pra o pedido chegar no lugar certo.',
+                ? context.tr('checkout.whichTableWithSpots')
+                : context.tr('checkout.whichTableNoSpots'),
             style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.55)),
           ),
           const SizedBox(height: 14),
@@ -2262,7 +2262,7 @@ class _TableSheetState extends State<_TableSheet> {
             onSubmitted: (_) => _confirmTyped(),
             style: AppText.body(size: 15, weight: FontWeight.w600),
             decoration: InputDecoration(
-              hintText: hasSpots ? 'Buscar ou digitar a mesa' : 'Ex: Mesa 5, Guarda-sol 12',
+              hintText: hasSpots ? context.tr('checkout.tableSearchHint') : context.tr('checkout.tableTypeHint'),
               hintStyle: AppText.body(size: 15, weight: FontWeight.w500, color: AppColors.inkA(0.4)),
               prefixIcon: Icon(hasSpots ? Symbols.search : Symbols.edit_location_alt, size: 20, color: AppColors.inkA(0.4)),
               filled: true,
@@ -2274,14 +2274,14 @@ class _TableSheetState extends State<_TableSheet> {
           ),
           if (hasSpots) ...[
             const SizedBox(height: 12),
-            Text('MESAS DO BAR', style: AppText.body(size: 10, weight: FontWeight.w800, letterSpacing: 0.4, color: AppColors.inkA(0.4))),
+            Text(context.tr('checkout.barTables'), style: AppText.body(size: 10, weight: FontWeight.w800, letterSpacing: 0.4, color: AppColors.inkA(0.4))),
             const SizedBox(height: 7),
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.3),
               child: filtered.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Text('Nenhuma mesa com esse nome — toque em "Usar" pra criar.',
+                      child: Text(context.tr('checkout.noTableMatch'),
                           style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
                     )
                   : ListView.separated(
@@ -2306,7 +2306,7 @@ class _TableSheetState extends State<_TableSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   child: Center(
                     child: Text(
-                      canConfirm && hasSpots && !isExisting ? 'Usar "$typed"' : 'Confirmar',
+                      canConfirm && hasSpots && !isExisting ? context.tr('checkout.useTyped', {'value': typed}) : context.tr('checkout.confirm'),
                       style: AppText.body(size: 15, weight: FontWeight.w800, color: canConfirm ? Colors.white : AppColors.inkA(0.4)),
                     ),
                   ),

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'tuna_threeds.dart';
+import '../../l10n/i18n.dart';
 
 /// Cartão cru pro Token/Generate da Tuna — SÓ em memória, nunca logar/persistir.
 class TunaCard {
@@ -125,7 +126,7 @@ class TunaSavedCard {
   /// Ex.: "Mastercard •••• 2235 · 01/30".
   String get label {
     final b = switch ((brand ?? '').trim()) {
-      '' => 'Cartão',
+      '' => tr('payments.card'),
       'Master' => 'Mastercard',
       final x => x,
     };

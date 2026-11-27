@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/i18n.dart';
 import '../../auth/auth_controller.dart';
 
 /// Login: entra com a conta de estabelecimento ou admin (verificação real no
@@ -37,7 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final email = _email.text.trim().toLowerCase();
     final pass = _pass.text;
     if (email.isEmpty || pass.isEmpty) {
-      setState(() => _error = 'Informe e-mail e senha.');
+      setState(() => _error = context.tr('login.missingFields'));
       return;
     }
     setState(() {
@@ -69,11 +70,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.response?.statusCode == 401
-          ? 'E-mail ou senha inválidos.'
-          : 'Não foi possível conectar ao servidor.');
+          ? context.tr('login.invalidCredentials')
+          : context.tr('login.serverUnreachable'));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Não foi possível conectar ao servidor.');
+      setState(() => _error = context.tr('login.serverUnreachable'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -103,9 +104,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         const SizedBox(height: 28),
                         Text.rich(
-                          const TextSpan(children: [
-                            TextSpan(text: 'Uma conta,\n'),
-                            TextSpan(text: 'tudo dentro.', style: TextStyle(color: AppColors.coralDeep)),
+                          TextSpan(children: [
+                            TextSpan(text: '${context.tr('login.headline1')}\n'),
+                            TextSpan(text: context.tr('login.headline2'), style: const TextStyle(color: AppColors.coralDeep)),
                           ]),
                           textAlign: TextAlign.center,
                           style: AppText.display(size: 28, letterSpacing: -0.5, height: 1.03, color: Colors.white),
@@ -114,15 +115,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 300),
                           child: Text(
-                            'Entre com a conta do seu estabelecimento ou da administração.',
+                            context.tr('login.subtitle'),
                             textAlign: TextAlign.center,
                             style: AppText.body(size: 13.5, weight: FontWeight.w600, height: 1.5, color: AppColors.duneA(0.6)),
                           ),
                         ),
                         const SizedBox(height: 30),
-                        _field(controller: _email, hint: 'E-mail', icon: Symbols.mail, keyboardType: TextInputType.emailAddress),
+                        _field(controller: _email, hint: context.tr('login.email'), icon: Symbols.mail, keyboardType: TextInputType.emailAddress),
                         const SizedBox(height: 12),
-                        _field(controller: _pass, hint: 'Senha', icon: Symbols.lock, obscure: true),
+                        _field(controller: _pass, hint: context.tr('login.password'), icon: Symbols.lock, obscure: true),
                         if (_error != null) ...[
                           const SizedBox(height: 14),
                           Text(
@@ -149,7 +150,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           height: 20,
                                           child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
                                         )
-                                      : Text('Entrar', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
+                                      : Text(context.tr('login.signIn'), style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
                                 ),
                               ),
                             ),

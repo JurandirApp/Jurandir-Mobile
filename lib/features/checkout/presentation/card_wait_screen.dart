@@ -15,6 +15,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../cart/cart_controller.dart';
 import '../../done/presentation/done_screen.dart';
+import '../../../l10n/i18n.dart';
 
 /// Argumentos passados pelo Checkout via `go('/pagamento', extra: ...)`.
 /// `checkoutUrl` vazio/nulo = pagamento **in-app** já submetido (cartão/carteira
@@ -85,7 +86,7 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
     }
     if (!silent) {
       setState(() => _checking = false);
-      if (!_timedOut) _snack('Ainda processando o pagamento…');
+      if (!_timedOut) _snack(context.tr('checkout.stillProcessing'));
     }
   }
 
@@ -93,7 +94,7 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) _snack('Não foi possível abrir a página de pagamento.');
+    if (!ok && mounted) _snack(context.tr('checkout.cantOpenPaymentPage'));
   }
 
   void _snack(String msg) {
@@ -124,12 +125,12 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
           icon: const Icon(Symbols.arrow_back, color: AppColors.ink),
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: Text(inApp ? 'Processando pagamento' : 'Pagamento',
+        title: Text(inApp ? context.tr('checkout.processingPayment') : context.tr('checkout.payment'),
             style: AppText.display(size: 18)),
         centerTitle: false,
       ),
       body: args == null
-          ? Center(child: Text('Pedido não encontrado.', style: AppText.body(size: 14)))
+          ? Center(child: Text(context.tr('checkout.orderNotFound'), style: AppText.body(size: 14)))
           : SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -138,11 +139,11 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                   children: [
                     Column(
                       children: [
-                        Text('Valor', style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
+                        Text(context.tr('checkout.amount'), style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
                         const SizedBox(height: 2),
                         Text(money(order!.grand), style: AppText.display(size: 30, letterSpacing: -0.5)),
                         const SizedBox(height: 2),
-                        Text('Pedido ${order.code}', style: AppText.body(size: 12, color: AppColors.inkA(0.5)).copyWith(fontFamily: 'monospace')),
+                        Text(context.tr('checkout.orderCode', {'code': order.code}), style: AppText.body(size: 12, color: AppColors.inkA(0.5)).copyWith(fontFamily: 'monospace')),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -161,10 +162,10 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                           const SizedBox(height: 12),
                           Text(
                             _timedOut
-                                ? 'Está demorando um pouco mais que o normal. Assim que o pagamento confirmar, seu pedido aparece em "Pedidos" — você não precisa pagar de novo.'
+                                ? context.tr('checkout.waitTimedOut')
                                 : inApp
-                                    ? 'Estamos processando seu pagamento. Leva alguns segundos — a confirmação aparece aqui sozinha, não feche o app.'
-                                    : 'Abrimos a página segura de pagamento. Conclua lá (Pix ou cartão) e volte pro app — a confirmação chega aqui sozinha.',
+                                    ? context.tr('checkout.waitInApp')
+                                    : context.tr('checkout.waitExternal'),
                             textAlign: TextAlign.center,
                             style: AppText.body(size: 13, color: AppColors.inkA(0.65)),
                           ),
@@ -176,26 +177,26 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
                     const SizedBox(height: 20),
                     if (_timedOut) ...[
                       AppButton.primary(
-                        label: 'Ver meus pedidos',
+                        label: context.tr('checkout.seeMyOrders'),
                         icon: Symbols.receipt_long,
                         onPressed: () => context.go('/pedidos'),
                       ),
                       const SizedBox(height: 10),
                       AppButton.dark(
-                        label: 'Voltar ao início',
+                        label: context.tr('checkout.backHome'),
                         icon: Symbols.home,
                         onPressed: () => context.go('/home'),
                       ),
                     ] else ...[
                       if (!inApp)
                         AppButton.primary(
-                          label: 'Reabrir pagamento',
+                          label: context.tr('checkout.reopenPayment'),
                           icon: Symbols.open_in_new,
                           onPressed: () => _openCheckout(args.checkoutUrl ?? ''),
                         ),
                       if (!inApp) const SizedBox(height: 10),
                       AppButton.dark(
-                        label: _checking ? 'Verificando…' : 'Verificar agora',
+                        label: _checking ? context.tr('checkout.checking') : context.tr('checkout.checkNow'),
                         icon: Symbols.check_circle,
                         onPressed: (_checking || id == null) ? null : () => _check(id),
                       ),
@@ -218,7 +219,7 @@ class _CardWaitScreenState extends ConsumerState<CardWaitScreen> {
         ),
         const SizedBox(width: 10),
         Text(
-          'Aguardando confirmação',
+          context.tr('checkout.awaitingConfirmation'),
           style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.credit),
         ),
       ],

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/data/models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../l10n/i18n.dart';
 
 /// Uma opção escolhida de um adicional (snapshot pro carrinho e pro pedido).
 class SelectedOption {
@@ -191,22 +192,21 @@ Future<bool> addToCartGuarded(
     builder: (ctx) => AlertDialog(
       backgroundColor: AppColors.canvas,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text('Trocar de estabelecimento?',
+      title: Text(ctx.tr('cart.switchTitle'),
           style: AppText.display(size: 18, letterSpacing: -0.3)),
       content: Text(
-        'Seu carrinho tem itens de outro estabelecimento. Um pedido é de um '
-        'lugar só. Quer limpar o carrinho e começar um novo pedido aqui?',
+        ctx.tr('cart.switchBody'),
         style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.inkA(0.7)),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: Text('Cancelar',
+          child: Text(ctx.tr('cart.cancel'),
               style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text('Limpar e adicionar',
+          child: Text(ctx.tr('cart.clearAndAdd'),
               style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
         ),
       ],

@@ -10,6 +10,7 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/payments/threeds.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/i18n.dart';
 
 /// Tempo máximo da confirmação com o banco. Passou disso → falha (não cobra).
 const Duration _kThreeDsTimeout = Duration(minutes: 5);
@@ -235,18 +236,18 @@ class _ThreeDsScreenState extends State<_ThreeDsScreen> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.canvas,
-        title: Text('Confirmar pagamento?', style: AppText.display(size: 18)),
+        title: Text(context.tr('checkout.confirmPaymentQ'), style: AppText.display(size: 18)),
         content: request.message.trim().isEmpty
             ? null
             : Text(request.message, style: AppText.body(size: 14, color: AppColors.inkA(0.75))),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancelar', style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+            child: Text(context.tr('checkout.cancel'), style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Confirmar', style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
+            child: Text(context.tr('checkout.confirm'), style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
           ),
         ],
       ),
@@ -303,11 +304,11 @@ class _ThreeDsScreenState extends State<_ThreeDsScreen> {
           elevation: 0,
           automaticallyImplyLeading: false,
           leading: IconButton(
-            tooltip: 'Fechar',
+            tooltip: context.tr('checkout.close'),
             icon: const Icon(Symbols.close, color: AppColors.ink),
             onPressed: () => _finish(const ThreeDsCancelled()),
           ),
-          title: Text('Confirmação do banco', style: AppText.display(size: 18)),
+          title: Text(context.tr('checkout.bankConfirmation'), style: AppText.display(size: 18)),
           centerTitle: false,
           bottom: _loading
               ? const PreferredSize(

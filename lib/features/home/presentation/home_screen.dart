@@ -14,14 +14,16 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../../core/widgets/network_image.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../l10n/i18n.dart';
 
+// Chaves `home.cat.*` (rótulos traduzidos).
 const _homeCats = [
-  'Cervejas',
-  'Caipirinhas',
-  'Petiscos',
-  'Porções',
-  'Drinks',
-  'Sobremesas',
+  'beers',
+  'caipirinhas',
+  'snacks',
+  'portions',
+  'drinks',
+  'desserts',
 ];
 
 /// Home do cliente: header + "Hypados perto de você" + categorias +
@@ -37,7 +39,7 @@ class HomeScreen extends ConsumerWidget {
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColors.ink,
           content: Text(
-            'Filtro "$label" — em breve nesta prévia',
+            context.tr('home.filterSoon', {'label': label}),
             style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune),
           ),
         ),
@@ -59,26 +61,29 @@ class HomeScreen extends ConsumerWidget {
           children: [
             _header(context, ref.watch(userPlaceProvider).asData?.value),
             const SizedBox(height: 16),
-            _sectionHeader('Hypados perto de você', trailing: 'Ver todos', onTrailing: () => context.go('/buscar')),
+            _sectionHeader(context.tr('home.hypedNearYou'), trailing: context.tr('home.seeAll'), onTrailing: () => context.go('/buscar')),
             const SizedBox(height: 10),
             _hypadosSection(context, ref, estsAsync),
             const SizedBox(height: 14),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text('O que vai ser hoje?'.toUpperCase(), style: AppText.homeTitle),
+              child: Text(context.tr('home.whatToday').toUpperCase(), style: AppText.homeTitle),
             ),
             const SizedBox(height: 10),
             _hscroll(
               gap: 8,
               children: [
-                for (final c in _homeCats) FilterPill(label: c, onTap: () => _soon(context, c)),
+                for (final c in _homeCats)
+                  FilterPill(
+                      label: context.tr('home.cat.$c'),
+                      onTap: () => _soon(context, context.tr('home.cat.$c'))),
               ],
             ),
             const SizedBox(height: 16),
             _offersBlock(context, ref, offersAsync),
             Center(
               child: Text(
-                'Jurandir · seu garçom digital'.toUpperCase(),
+                context.tr('home.footer').toUpperCase(),
                 style: AppText.body(
                   size: 10,
                   weight: FontWeight.w700,
@@ -114,7 +119,7 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hasPlace ? 'Você está em' : 'Bares',
+                    hasPlace ? context.tr('home.youAreIn') : context.tr('home.bars'),
                     style: AppText.body(size: 12, color: AppColors.duneA(0.55)),
                   ),
                   const SizedBox(height: 2),
@@ -124,7 +129,7 @@ class HomeScreen extends ConsumerWidget {
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          hasPlace ? place : 'Perto de você',
+                          hasPlace ? place : context.tr('home.nearYou'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppText.display(size: 17, letterSpacing: -0.2, color: Colors.white),
@@ -150,7 +155,7 @@ class HomeScreen extends ConsumerWidget {
                   Icon(Symbols.search, size: 17, color: AppColors.duneA(0.6)),
                   const SizedBox(width: 10),
                   Text(
-                    'Buscar bar, quiosque ou produto…',
+                    context.tr('home.searchHint'),
                     style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.duneA(0.6)),
                   ),
                 ],
@@ -186,7 +191,7 @@ class HomeScreen extends ConsumerWidget {
   Widget _offersHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text('Ofertas do dia'.toUpperCase(), style: AppText.homeTitle),
+      child: Text(tr('home.offersOfDay').toUpperCase(), style: AppText.homeTitle),
     );
   }
 
@@ -276,7 +281,7 @@ class HomeScreen extends ConsumerWidget {
                       children: [
                         const Icon(Symbols.near_me, size: 13, color: AppColors.coral),
                         const SizedBox(width: 4),
-                        Text('a ${fmtDistance(distKm)}',
+                        Text(tr('home.distanceAway', {'distance': fmtDistance(distKm)}),
                             style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
                       ],
                     ),
@@ -301,7 +306,7 @@ class HomeScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        (open ? 'aberto' : 'fechado').toUpperCase(),
+        (open ? tr('home.open') : tr('home.closed')).toUpperCase(),
         style: AppText.body(
           size: 10,
           weight: FontWeight.w700,
@@ -409,10 +414,10 @@ class HomeScreen extends ConsumerWidget {
       if (async.isLoading) {
         return _hscroll(children: [for (var i = 0; i < 3; i++) _estCardSkeleton(w)]);
       }
-      return _inlineNote('Não foi possível carregar os bares.',
+      return _inlineNote(context.tr('home.loadBarsError'),
           onRetry: () => ref.invalidate(establishmentsProvider));
     }
-    if (data.isEmpty) return _inlineNote('Nenhum bar por aqui ainda.');
+    if (data.isEmpty) return _inlineNote(context.tr('home.noBars'));
     // Ordena por proximidade quando temos a posição do usuário.
     final ests = sortByDistance(data, userLoc).take(6).toList();
     return _hscroll(
@@ -468,7 +473,7 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(width: 10),
             GestureDetector(
               onTap: onRetry,
-              child: Text('Tentar de novo',
+              child: Text(tr('home.retry'),
                   style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.coralDeep)),
             ),
           ],

@@ -10,6 +10,7 @@ import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../l10n/i18n.dart';
 
 /// Scanner de QR REAL (câmera via mobile_scanner). Lê o QR da mesa/guarda-sol
 /// (`https://jurandir.app.br/?est=<slug>&local=<label>`), extrai o slug do
@@ -175,7 +176,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           _circleBtn(Symbols.arrow_back, () => context.go('/home')),
           Expanded(
             child: Center(
-              child: Text('Escanear QR'.toUpperCase(),
+              child: Text(context.tr('scanner.title').toUpperCase(),
                   style: AppText.display(size: 16, letterSpacing: 0, color: Colors.white)),
             ),
           ),
@@ -212,7 +213,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Text(
-                    'Aponte para o QR na sua mesa ou guarda-sol.',
+                    context.tr('scanner.pointAtQr'),
                     textAlign: TextAlign.center,
                     style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.duneA(0.75)),
                   ),
@@ -247,42 +248,42 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               const SizedBox(height: 18),
               Text(
                 permission
-                    ? 'Precisamos da câmera pra ler o QR da sua mesa'
-                    : 'Não foi possível acessar a câmera',
+                    ? context.tr('scanner.needCameraTitle')
+                    : context.tr('scanner.cameraErrorTitle'),
                 textAlign: TextAlign.center,
                 style: AppText.display(size: 20, letterSpacing: -0.3, color: Colors.white),
               ),
               const SizedBox(height: 10),
               Text(
                 permission
-                    ? 'Libere o acesso à câmera nas configurações do app e toque em "Tentar de novo".'
-                    : 'Feche outros apps que estejam usando a câmera e toque em "Tentar de novo".',
+                    ? context.tr('scanner.needCameraBody')
+                    : context.tr('scanner.cameraErrorBody'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 14, height: 1.45, color: AppColors.duneA(0.7)),
               ),
               const SizedBox(height: 26),
               if (permission) ...[
                 AppButton.primary(
-                  label: 'Abrir configurações',
+                  label: context.tr('scanner.openSettings'),
                   icon: Symbols.settings,
                   onPressed: _openSettings,
                 ),
                 const SizedBox(height: 10),
                 AppButton.dark(
-                  label: 'Tentar de novo',
+                  label: context.tr('scanner.retry'),
                   icon: Symbols.refresh,
                   onPressed: _retry,
                 ),
               ] else
                 AppButton.primary(
-                  label: 'Tentar de novo',
+                  label: context.tr('scanner.retry'),
                   icon: Symbols.refresh,
                   onPressed: _retry,
                 ),
               const SizedBox(height: 6),
               TextButton(
                 onPressed: () => context.go('/home'),
-                child: Text('Voltar',
+                child: Text(context.tr('scanner.back'),
                     style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.dune)),
               ),
             ],

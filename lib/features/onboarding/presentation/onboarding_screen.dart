@@ -8,29 +8,30 @@ import '../../../core/data/onboarding_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../l10n/i18n.dart';
 
 class _Slide {
   final IconData icon;
-  final String title;
-  final String desc;
+  final String title; // chave de tradução
+  final String desc; // chave de tradução
   const _Slide(this.icon, this.title, this.desc);
 }
 
 const _slides = <_Slide>[
   _Slide(
     Symbols.qr_code_scanner,
-    'Escaneie e pronto',
-    'Aponte a câmera pro QR da mesa ou do guarda-sol e o cardápio abre na hora — sem baixar nada, sem esperar garçom.',
+    'onboarding.slide1Title',
+    'onboarding.slide1Desc',
   ),
   _Slide(
     Symbols.restaurant,
-    'Peça do seu jeito',
-    'Fotos, observações e ofertas do dia. Seu pedido vai direto pra cozinha assim que o pagamento cair.',
+    'onboarding.slide2Title',
+    'onboarding.slide2Desc',
   ),
   _Slide(
     Symbols.group,
-    'Divida com a galera',
-    'Conta dividida em segundos: cada um paga a sua parte com Pix ou cartão.',
+    'onboarding.slide3Title',
+    'onboarding.slide3Desc',
   ),
 ];
 
@@ -80,7 +81,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: GestureDetector(
                   onTap: _finish,
                   child: Text(
-                    'Pular',
+                    context.tr('onboarding.skip'),
                     style: AppText.body(
                       size: 13,
                       weight: FontWeight.w700,
@@ -112,7 +113,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      slide.title.toUpperCase(),
+                      context.tr(slide.title).toUpperCase(),
                       textAlign: TextAlign.center,
                       style: AppText.onboardTitle.copyWith(color: Colors.white),
                     ),
@@ -120,7 +121,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 280),
                       child: Text(
-                        slide.desc,
+                        context.tr(slide.desc),
                         textAlign: TextAlign.center,
                         style: AppText.body(
                           size: 15,
@@ -156,7 +157,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   const SizedBox(height: 20),
                   AppButton.primary(
-                    label: isLast ? 'Começar' : 'Avançar',
+                    label: isLast ? context.tr('onboarding.start') : context.tr('onboarding.next'),
                     onPressed: _next,
                   ),
                 ],

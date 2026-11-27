@@ -12,6 +12,7 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../../core/widgets/network_image.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../l10n/i18n.dart';
 
 /// Buscar: header com busca + filtros de culinária + lista de estabelecimentos.
 class BuscarScreen extends ConsumerStatefulWidget {
@@ -22,7 +23,10 @@ class BuscarScreen extends ConsumerStatefulWidget {
 }
 
 class _BuscarScreenState extends ConsumerState<BuscarScreen> {
-  String _cat = 'Todos';
+  // Sentinela interna "todos" (o rótulo exibido é traduzido); as culinárias
+  // vêm do servidor e não são traduzidas.
+  static const _all = '__all__';
+  String _cat = _all;
   String _query = '';
 
   @override
@@ -46,10 +50,10 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
   }
 
   Widget _results(BuildContext context, List<Establishment> ests) {
-    final cuisines = <String>['Todos', ...{for (final e in ests) e.cuisine}];
+    final cuisines = <String>[_all, ...{for (final e in ests) e.cuisine}];
     final q = _query.trim().toLowerCase();
     final filtered = ests.where((e) {
-      final matchCat = _cat == 'Todos' || e.cuisine == _cat;
+      final matchCat = _cat == _all || e.cuisine == _cat;
       final matchQ = q.isEmpty ||
           '${e.name} ${e.location} ${e.cuisine}'.toLowerCase().contains(q);
       return matchCat && matchQ;
@@ -67,7 +71,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
                 for (var i = 0; i < cuisines.length; i++) ...[
                   if (i > 0) const SizedBox(width: 8),
                   FilterPill(
-                    label: cuisines[i],
+                    label: cuisines[i] == _all ? context.tr('buscar.all') : cuisines[i],
                     selected: cuisines[i] == _cat,
                     onTap: () => setState(() => _cat = cuisines[i]),
                   ),
@@ -79,7 +83,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
           child: Text(
-            '${filtered.length} ${filtered.length == 1 ? 'lugar' : 'lugares'} · ordenados por pedidos no app',
+            context.trn('buscar.resultsCount', filtered.length),
             style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5)),
           ),
         ),
@@ -88,7 +92,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
             padding: const EdgeInsets.symmetric(vertical: 32),
             child: Center(
               child: Text(
-                  ests.isEmpty ? 'Nenhum bar por aqui ainda.' : 'Nada encontrado por aqui.',
+                  ests.isEmpty ? context.tr('buscar.noBars') : context.tr('buscar.nothingFound'),
                   style: AppText.body(size: 14, color: AppColors.inkA(0.45))),
             ),
           )
@@ -161,10 +165,10 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Não foi possível carregar.',
+            Text(context.tr('buscar.loadError'),
                 style: AppText.body(size: 15, weight: FontWeight.w700, color: AppColors.inkA(0.7))),
             const SizedBox(height: 6),
-            Text('Verifique sua conexão e tente de novo.',
+            Text(context.tr('buscar.checkConnection'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 13, color: AppColors.inkA(0.45))),
             const SizedBox(height: 16),
@@ -173,7 +177,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                child: Text('Tentar de novo',
+                child: Text(context.tr('buscar.retry'),
                     style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.dune)),
               ),
             ),
@@ -194,7 +198,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Buscar'.toUpperCase(),
+          Text(context.tr('buscar.title').toUpperCase(),
               style: AppText.display(size: 24, letterSpacing: -0.5, color: Colors.white)),
           const SizedBox(height: 12),
           TextField(
@@ -204,7 +208,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
             decoration: InputDecoration(
               isDense: true,
               prefixIcon: Icon(Symbols.search, size: 18, color: AppColors.duneA(0.45)),
-              hintText: 'Bar, quiosque, praia ou produto…',
+              hintText: context.tr('buscar.searchHint'),
               hintStyle: AppText.body(size: 14, color: AppColors.duneA(0.45)),
               filled: true,
               fillColor: AppColors.duneA(0.1),
@@ -325,7 +329,7 @@ class _BuscarScreenState extends ConsumerState<BuscarScreen> {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        (open ? 'aberto' : 'fechado').toUpperCase(),
+        (open ? context.tr('buscar.open') : context.tr('buscar.closed')).toUpperCase(),
         style: AppText.body(size: 9, weight: FontWeight.w700, color: open ? AppColors.successText : AppColors.inkA(0.5)),
       ),
     );

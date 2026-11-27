@@ -11,6 +11,7 @@ import '../../../core/data/onboarding_controller.dart';
 import '../../auth/auth_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/i18n.dart';
 
 /// Splash: logo animado + tagline + barra de progresso; auto-avança em 2s.
 class SplashScreen extends ConsumerStatefulWidget {
@@ -112,7 +113,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               const SizedBox(height: 26),
               FadeTransition(
                 opacity: tag,
-                child: Text('SEU GARÇOM DIGITAL', style: AppText.splashTag),
+                child: Text(context.tr('splash.tagline'), style: AppText.splashTag),
               ),
               const SizedBox(height: 40),
               AnimatedBuilder(

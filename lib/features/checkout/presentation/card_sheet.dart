@@ -9,6 +9,7 @@ import '../../../core/payments/tuna_tokenizer.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
+import '../../../l10n/i18n.dart';
 
 /// Resultado da tela de cartão: o `card_token` + o endereço de cobrança
 /// (billing) resolvido do CEP — o antifraude do Pagar.me exige o billing.
@@ -139,17 +140,17 @@ class _CardSheetState extends State<_CardSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.canvas,
-        title: Text('Remover cartão?', style: AppText.display(size: 18)),
-        content: Text('${c.label} será apagado deste aparelho.',
+        title: Text(context.tr('checkout.removeCardQ'), style: AppText.display(size: 18)),
+        content: Text(context.tr('checkout.removeCardBody', {'card': c.label}),
             style: AppText.body(size: 14, color: AppColors.inkA(0.75))),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancelar', style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+            child: Text(context.tr('checkout.cancel'), style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Remover', style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
+            child: Text(context.tr('checkout.remove'), style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
           ),
         ],
       ),
@@ -165,7 +166,7 @@ class _CardSheetState extends State<_CardSheet> {
         if (_selected?.token == c.token) _selected = null;
         _err = null;
       } else {
-        _err = 'Não foi possível remover o cartão agora.';
+        _err = context.tr('checkout.removeCardFailed');
       }
     });
   }
@@ -174,7 +175,7 @@ class _CardSheetState extends State<_CardSheet> {
   /// com a sessão do aparelho (o CVV fica só dentro da função, em memória).
   void _paySaved(TunaSavedCard c) {
     final cvv = _cvv.text.trim();
-    if (cvv.length < 3) return setState(() => _err = 'CVV inválido.');
+    if (cvv.length < 3) return setState(() => _err = context.tr('checkout.cvvInvalid'));
     final CardSheetResult result = (
       token: '',
       billing: const <String, dynamic>{},
@@ -224,18 +225,18 @@ class _CardSheetState extends State<_CardSheet> {
     final cep = _cep.text.replaceAll(RegExp(r'\D'), '');
     final addrNum = _addrNum.text.trim();
 
-    if (!_luhnOk(num)) return setState(() => _err = 'Número do cartão inválido.');
-    if (name.isEmpty) return setState(() => _err = 'Informe o nome impresso no cartão.');
-    if (exp.length != 4) return setState(() => _err = 'Validade no formato MM/AA.');
+    if (!_luhnOk(num)) return setState(() => _err = context.tr('checkout.cardNumberInvalid'));
+    if (name.isEmpty) return setState(() => _err = context.tr('checkout.cardNameRequired'));
+    if (exp.length != 4) return setState(() => _err = context.tr('checkout.expFormat'));
     final mm = int.tryParse(exp.substring(0, 2)) ?? 0;
     final yy = int.tryParse(exp.substring(2)) ?? 0;
-    if (mm < 1 || mm > 12) return setState(() => _err = 'Mês da validade inválido.');
+    if (mm < 1 || mm > 12) return setState(() => _err = context.tr('checkout.expMonthInvalid'));
     final year = 2000 + yy;
     final now = DateTime.now();
     if (year < now.year || (year == now.year && mm < now.month)) {
-      return setState(() => _err = 'Cartão vencido.');
+      return setState(() => _err = context.tr('checkout.cardExpired'));
     }
-    if (cvv.length < 3) return setState(() => _err = 'CVV inválido.');
+    if (cvv.length < 3) return setState(() => _err = context.tr('checkout.cvvInvalid'));
     if (widget.tuna) {
       // Tuna: tokeniza depois, com a sessão do pedido. O cartão fica só dentro
       // da função (memória); nunca logar/persistir. Salvar (opt-in): com a
@@ -256,8 +257,8 @@ class _CardSheetState extends State<_CardSheet> {
       Navigator.pop(context, result);
       return;
     }
-    if (cep.length != 8) return setState(() => _err = 'CEP de cobrança inválido (8 dígitos).');
-    if (addrNum.isEmpty) return setState(() => _err = 'Informe o número do endereço de cobrança.');
+    if (cep.length != 8) return setState(() => _err = context.tr('checkout.cepInvalid'));
+    if (addrNum.isEmpty) return setState(() => _err = context.tr('checkout.addrNumberRequired'));
 
     setState(() {
       _busy = true;
@@ -277,7 +278,7 @@ class _CardSheetState extends State<_CardSheet> {
     if (token == null) {
       setState(() {
         _busy = false;
-        _err = 'Não foi possível validar o cartão. Confira os dados.';
+        _err = context.tr('checkout.cardValidateFailed');
       });
       return;
     }
@@ -287,7 +288,7 @@ class _CardSheetState extends State<_CardSheet> {
     if (via == null) {
       setState(() {
         _busy = false;
-        _err = 'Não encontramos esse CEP. Confira o endereço de cobrança.';
+        _err = context.tr('checkout.cepNotFound');
       });
       return;
     }
@@ -346,10 +347,10 @@ class _CardSheetState extends State<_CardSheet> {
                   decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
             ),
             const SizedBox(height: 16),
-            Text(widget.debit ? 'Cartão de débito' : 'Cartão de crédito',
+            Text(widget.debit ? context.tr('checkout.debitCard') : context.tr('checkout.creditCard'),
                 style: AppText.display(size: 20, letterSpacing: -0.3)),
             const SizedBox(height: 4),
-            Text('Seus dados são criptografados no celular e enviados direto pro processador do pagamento.',
+            Text(context.tr('checkout.cardEncryptedNote'),
                 style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 16),
             // Cartões salvos deste aparelho (Tuna). Carregando/falhou → nada
@@ -363,12 +364,12 @@ class _CardSheetState extends State<_CardSheet> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.inkA(0.4))),
                   const SizedBox(width: 8),
-                  Text('Buscando cartões salvos…',
+                  Text(context.tr('checkout.loadingSavedCards'),
                       style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                 ]),
               ),
             if (_saved.isNotEmpty) ...[
-              Text('Cartões salvos',
+              Text(context.tr('checkout.savedCards'),
                   style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
               const SizedBox(height: 8),
               for (final c in _saved) ...[
@@ -382,7 +383,7 @@ class _CardSheetState extends State<_CardSheet> {
                   _err = null;
                 }),
                 icon: Icons.add_card_rounded,
-                label: 'Usar um cartão novo',
+                label: context.tr('checkout.useNewCard'),
               ),
               const SizedBox(height: 14),
             ],
@@ -390,7 +391,7 @@ class _CardSheetState extends State<_CardSheet> {
             // "Escanear cartão" — número, nome e validade autopreenchem; o
             // cliente só digita o CVV (o CVV nunca é salvo, por segurança).
             if (_selected != null)
-              _field(_cvv, 'CVV do cartão salvo',
+              _field(_cvv, context.tr('checkout.savedCardCvv'),
                   keyboard: TextInputType.number,
                   formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
                   hint: '123',
@@ -400,23 +401,23 @@ class _CardSheetState extends State<_CardSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _field(_number, 'Número do cartão',
+                  _field(_number, context.tr('checkout.cardNumber'),
                       keyboard: TextInputType.number,
                       formatters: [_CardNumFormatter()],
                       hint: '0000 0000 0000 0000',
                       autofill: const [AutofillHints.creditCardNumber]),
                   const SizedBox(height: 10),
-                  _field(_name, 'Nome impresso no cartão',
+                  _field(_name, context.tr('checkout.cardName'),
                       textCap: TextCapitalization.characters,
-                      hint: 'COMO ESTÁ NO CARTÃO',
+                      hint: context.tr('checkout.cardNameHint'),
                       autofill: const [AutofillHints.creditCardName]),
                   const SizedBox(height: 10),
                   Row(children: [
                     Expanded(
-                      child: _field(_exp, 'Validade',
+                      child: _field(_exp, context.tr('checkout.expiry'),
                           keyboard: TextInputType.number,
                           formatters: [_ExpFormatter()],
-                          hint: 'MM/AA',
+                          hint: context.tr('checkout.expiryHint'),
                           autofill: const [AutofillHints.creditCardExpirationDate]),
                     ),
                     const SizedBox(width: 10),
@@ -446,7 +447,7 @@ class _CardSheetState extends State<_CardSheet> {
                     visualDensity: VisualDensity.compact,
                   ),
                   Expanded(
-                    child: Text('Salvar este cartão para as próximas compras',
+                    child: Text(context.tr('checkout.saveCard'),
                         style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.75))),
                   ),
                 ]),
@@ -455,13 +456,13 @@ class _CardSheetState extends State<_CardSheet> {
             // A Tuna não usa o endereço de cobrança — não pede.
             if (!widget.tuna) ...[
               const SizedBox(height: 14),
-              Text('Endereço de cobrança do cartão',
+              Text(context.tr('checkout.billingAddress'),
                   style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   flex: 2,
-                  child: _field(_cep, 'CEP',
+                  child: _field(_cep, context.tr('checkout.cep'),
                       keyboard: TextInputType.number,
                       formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
                       hint: '00000000',
@@ -470,7 +471,7 @@ class _CardSheetState extends State<_CardSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   flex: 1,
-                  child: _field(_addrNum, 'Número',
+                  child: _field(_addrNum, context.tr('checkout.addrNumber'),
                       keyboard: TextInputType.number,
                       formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
                       hint: '123'),
@@ -496,7 +497,7 @@ class _CardSheetState extends State<_CardSheet> {
                       child: _busy
                           ? const SizedBox(
                               width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                          : Text('Pagar ${money(widget.amount)}',
+                          : Text(context.tr('checkout.payValue', {'value': money(widget.amount)}),
                               style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
@@ -523,7 +524,7 @@ class _CardSheetState extends State<_CardSheet> {
         onPressed: _busy ? null : () => _remove(c),
         style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 32)),
-        child: Text('Remover', style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.coralDeep)),
+        child: Text(context.tr('checkout.remove'), style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.coralDeep)),
       ),
     );
   }

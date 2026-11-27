@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/dark_header.dart';
+import '../../../l10n/i18n.dart';
 import '../../shell/client_mode.dart';
 import '../resume_order.dart';
 
@@ -25,7 +26,7 @@ class PedidosScreen extends ConsumerWidget {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(title: 'Meus pedidos'),
+          DarkHeader(title: context.tr('pedidos.title')),
           Expanded(
             child: async.when(
               loading: () => const Center(
@@ -60,11 +61,11 @@ class PedidosScreen extends ConsumerWidget {
           children: [
             Icon(Symbols.receipt_long, size: 44, color: AppColors.inkA(0.4)),
             const SizedBox(height: 12),
-            Text('Nenhum pedido ainda.',
+            Text(context.tr('pedidos.empty'),
                 style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
             const SizedBox(height: 16),
             AppButton.primary(
-              label: 'Escanear e pedir',
+              label: context.tr('pedidos.scanAndOrder'),
               icon: Symbols.qr_code_scanner,
               expand: false,
               onPressed: () => context.go('/scanner'),
@@ -96,7 +97,7 @@ class PedidosScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(o.code, style: AppText.display(size: 15, letterSpacing: -0.2)),
-              _statusChip(o.status),
+              _statusChip(context, o.status),
             ],
           ),
           if (o.note.isNotEmpty) ...[
@@ -157,7 +158,7 @@ class PedidosScreen extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Total', style: AppText.body(size: 13, weight: FontWeight.w700)),
+                Text(context.tr('common.total'), style: AppText.body(size: 13, weight: FontWeight.w700)),
                 Text(money(o.grand),
                     style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
               ],
@@ -168,7 +169,7 @@ class PedidosScreen extends ConsumerWidget {
             AppButton.primary(
               // Modo visualização: o botão continua visível (é o que o cliente
               // vê), mas tocar só avisa que o pagamento está desativado.
-              label: ref.watch(previewModeProvider) ? previewPaymentBlockedMsg : 'Continuar pagamento',
+              label: ref.watch(previewModeProvider) ? previewPaymentBlockedMsg : context.tr('pedidos.resumePayment'),
               icon: Symbols.payments,
               onPressed: () => resumeOrderPayment(context, ref, o),
             ),
@@ -183,7 +184,7 @@ class PedidosScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
-                child: Text('Seu código de entrega: ${o.code4}',
+                child: Text(context.tr('pedidos.deliveryCode', {'code': o.code4}),
                     style: AppText.display(size: 16, letterSpacing: -0.2)),
               ),
             ),
@@ -194,11 +195,11 @@ class PedidosScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statusChip(String status) {
+  Widget _statusChip(BuildContext context, String status) {
     final (String label, Color bg, Color fg) = switch (status) {
-      'producao' => ('Em produção', AppColors.coral, Colors.white),
-      'entregue' => ('Entregue', AppColors.successBg, AppColors.successText),
-      _ => ('Aguardando pagamento', AppColors.amber, AppColors.ink),
+      'producao' => (context.tr('pedidos.statusProducao'), AppColors.coral, Colors.white),
+      'entregue' => (context.tr('pedidos.statusEntregue'), AppColors.successBg, AppColors.successText),
+      _ => (context.tr('pedidos.statusAguardando'), AppColors.amber, AppColors.ink),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
