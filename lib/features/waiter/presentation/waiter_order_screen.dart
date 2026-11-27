@@ -12,6 +12,7 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
 import '../data/waiter_models.dart';
+import 'waiter_back_button.dart';
 
 /// Detalhe do pedido pro garçom: mostra todas as linhas (prontas selecionáveis,
 /// preparando só informativas), o garçom marca as que está levando e confirma
@@ -162,6 +163,8 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
           DarkHeader(
             eyebrow: 'Garçom',
             title: order == null ? 'Pedido' : 'Entrega — ${order.mesa}',
+            // Volta pra fila (pop; se abriu sem histórico, vai direto pra fila).
+            leading: waiterBackButton(() => context.canPop() ? context.pop() : context.go('/waiter')),
           ),
           Expanded(child: order == null ? _goneState() : _body(order)),
         ],

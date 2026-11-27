@@ -11,6 +11,7 @@ import '../../../core/widgets/avatar.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
+import '../../shell/client_mode.dart';
 
 const _payMethods = [
   ('Pix', 'Aprovação na hora', Symbols.qr_code_2, AppColors.pix, true),
@@ -146,6 +147,14 @@ class _PerfilScreenState extends ConsumerState<PerfilScreen> {
               ],
             ),
           ),
+          // Equipe logada (estab/garçom) vendo como cliente → volta ao painel.
+          if (panelReturnFor(auth) case final ret?) ...[
+            const SizedBox(height: 16),
+            AppButton.dark(
+              label: auth.role == 'waiter' ? 'Voltar à fila do garçom' : 'Voltar ao painel do estabelecimento',
+              onPressed: () => context.go(ret.route),
+            ),
+          ],
           const SizedBox(height: 16),
           _h2('Conta'),
           BrutalCard(

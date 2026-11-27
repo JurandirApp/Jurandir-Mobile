@@ -56,6 +56,19 @@ bool _isClientGatedRoute(String location) {
   return !openPrefixes.any((p) => location.startsWith(p));
 }
 
+/// Telas do cliente que uma sessão de equipe (estab/garçom logado) pode abrir
+/// SEM o perfil local de cliente: só navegação, nada de pagar. É o "modo
+/// cliente" do dono (ver o próprio cardápio) e o "voltar" do garçom (Perfil).
+/// O checkout continua exigindo nome+telefone.
+const _staffBrowsePaths = ['/perfil', '/menu'];
+
+/// Precisa do perfil local de cliente pra abrir `location`?
+bool needsClientProfile(String location, {required bool staffSession}) {
+  if (!_isClientGatedRoute(location)) return false;
+  if (staffSession && _staffBrowsePaths.contains(location)) return false;
+  return true;
+}
+
 /// Rotas do app:
 /// - Splash / Onboarding: tela cheia.
 /// - Shell do cliente (bottom nav): /home, /buscar, /pedidos, /perfil.
@@ -83,7 +96,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
       final profile = ref.read(clientProfileProvider);
-      if (!profile.isComplete && _isClientGatedRoute(loc)) {
+      final auth = ref.read(authProvider);
+      final staff = auth.isAuthed && (auth.role == 'estab' || auth.role == 'waiter');
+      if (!profile.isComplete && needsClientProfile(loc, staffSession: staff)) {
         return '/profile-onboarding';
       }
       if (profile.isComplete && loc == '/profile-onboarding') {

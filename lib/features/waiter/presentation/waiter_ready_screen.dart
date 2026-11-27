@@ -14,6 +14,7 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
 import '../data/waiter_models.dart';
+import 'waiter_back_button.dart';
 
 /// Tela do garçom: fila de **pedidos** com algo pronto pra entregar. Tocar num
 /// pedido abre o detalhe (`/waiter/order`), onde ele seleciona os itens prontos
@@ -159,6 +160,10 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
           DarkHeader(
             eyebrow: 'Garçom',
             title: 'Fila do garçom',
+            // Voltar SEM deslogar: a fila é a raiz do garçom (o login usa go),
+            // então sem histórico volta pro Perfil — de onde ele entrou no
+            // login. A faixa "Voltar à fila do garçom" traz ele de volta.
+            leading: waiterBackButton(() => context.canPop() ? context.pop() : context.go('/perfil')),
             trailing: GestureDetector(
               onTap: _logout,
               behavior: HitTestBehavior.opaque,

@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import 'client_mode.dart';
 
 /// Shell do cliente: bottom nav (Início · Buscar · [FAB scan] · Pedidos ·
 /// Perfil) sobre as 4 abas (IndexedStack do go_router).
@@ -17,7 +18,11 @@ class ClientScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: navigationShell,
-      bottomNavigationBar: _navBar(context),
+      // Dono do bar em "modo cliente": atalho de volta ao painel acima da nav.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [const BackToPanelBar(), _navBar(context)],
+      ),
     );
   }
 
