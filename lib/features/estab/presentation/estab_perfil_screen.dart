@@ -10,6 +10,7 @@ import '../../../core/widgets/app_toggle.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/labeled_input.dart';
 import '../../auth/auth_controller.dart';
+import '../../shell/client_mode.dart';
 import 'estab_sub_header.dart';
 
 /// Estab · Perfil: dados que o cliente vê no cardápio (carrega e salva real).
@@ -84,6 +85,18 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
     } finally {
       if (mounted) setState(() => _savingWaiter = false);
     }
+  }
+
+  /// "Ver como cliente": abre o cardápio do próprio bar na experiência do
+  /// cliente SEM deslogar (a sessão do estabelecimento continua salva).
+  Future<void> _viewAsClient() async {
+    final slug = await resolveOwnSlug(ref);
+    if (!mounted) return;
+    if (slug == null) {
+      _toast('Não foi possível abrir o cardápio agora. Tente de novo.');
+      return;
+    }
+    enterClientMode(ref, context, slug);
   }
 
   List<List<Map<String, String>>> _parseWeekly(dynamic raw) {
@@ -233,6 +246,14 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 14),
+          AppButton.ghost(label: 'Ver como cliente', onPressed: _viewAsClient),
+          const SizedBox(height: 6),
+          Center(
+            child: Text('Abre seu cardápio como o cliente vê, sem sair da conta.',
+                textAlign: TextAlign.center,
+                style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
           ),
         ],
       ),

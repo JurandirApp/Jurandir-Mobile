@@ -15,6 +15,7 @@ import '../../../core/widgets/filter_pill.dart';
 import '../../../core/widgets/network_image.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../cart/cart_controller.dart';
+import '../../shell/client_mode.dart';
 import 'item_sheet.dart';
 
 /// Cardápio: header do estabelecimento, barra de categorias fixa (sticky),
@@ -62,6 +63,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: _header(context, est)),
+                // Dono do bar em "modo cliente" → atalho de volta ao painel.
+                const SliverToBoxAdapter(child: BackToPanelBar()),
                 if (openStatus.closedLabel != null)
                   SliverToBoxAdapter(child: _closedBanner(openStatus.closedLabel!)),
                 SliverPersistentHeader(
