@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/alert/kitchen_reminder.dart';
 import '../../../core/data/kitchen.dart';
 import '../../../core/data/models.dart';
 import '../../../core/data/public_api.dart';
@@ -63,10 +64,20 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     );
     // Aberto agora? Status fresco do servidor (GET /{slug}); sem ele, o da lista.
     final openStatus = ref.watch(barOpenStatusProvider(slug)).asData?.value ?? est.openStatus;
+    final barClosed = !openStatus.openNow;
     final cats = <String>['Todos', ...{for (final m in menu) m.category}];
     final items = _cat == 'Todos' ? menu : menu.where((m) => m.category == _cat).toList();
     // Aviso no topo só se a cozinha fechada afeta algo deste cardápio.
     final showKitchenBanner = kitchenBlockedItems(menu, kitchen).isNotEmpty;
+    // Cozinha aberta mas fechando em ≤ 30 min (e o cardápio tem comida).
+    final closesIn = kitchen.closesAt?.difference(DateTime.now()).inMinutes;
+    final kitchenClosingMin = (kitchen.openNow &&
+            closesIn != null &&
+            closesIn >= 0 &&
+            closesIn <= 30 &&
+            menu.any((m) => m.kitchen))
+        ? (closesIn < 1 ? 1 : closesIn)
+        : null;
     final count = cartCount(cart);
     final total = ctrl.total;
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
@@ -84,6 +95,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                 const SliverToBoxAdapter(child: BackToPanelBar()),
                 if (openStatus.closedLabel != null)
                   SliverToBoxAdapter(child: _closedBanner(openStatus.closedLabel!)),
+                if (kitchenClosingMin != null)
+                  SliverToBoxAdapter(child: _kitchenClosingBanner(kitchenClosingMin)),
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _CatBar(
@@ -130,8 +143,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                 i--;
                               }
                               final m = items[i];
-                              return _itemRow(m, ctrl.qtyOfItem(m.id), ctrl, slug,
+                              final row = _itemRow(m, ctrl.qtyOfItem(m.id), ctrl, slug,
                                   blocked: itemBlockedByKitchen(m, kitchen), kitchen: kitchen);
+                              // Bar fechado → cardápio "apagado" (ainda dá pra pedir).
+                              return barClosed ? Opacity(opacity: 0.5, child: row) : row;
                             },
                           ),
                   ),
@@ -208,9 +223,54 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     );
   }
 
-  /// Aviso de bar fechado (horário de funcionamento). O cliente ainda vê o
-  /// cardápio, mas o checkout bloqueia o pagamento.
+  /// Aviso de bar fechado (horário de funcionamento). Forte de propósito: o
+  /// cardápio continua visível (apagado) e dá pra pedir com confirmação no
+  /// checkout — o aviso não pode deixar dúvida.
   Widget _closedBanner(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFB91C1C),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.ink, width: 2),
+          boxShadow: const [BoxShadow(color: AppColors.ink, offset: Offset(3, 3))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
+              child: const Icon(Symbols.door_front, size: 22, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('ESTABELECIMENTO FECHADO',
+                      style: AppText.display(size: 15, color: Colors.white, letterSpacing: 0.2)),
+                  if (label.contains('·')) ...[
+                    const SizedBox(height: 2),
+                    Text(label.split('·').last.trim(),
+                        style: AppText.body(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                  ],
+                  const SizedBox(height: 3),
+                  Text('Fora do horário de funcionamento. O pedido pode não ser atendido agora.',
+                      style: AppText.body(size: 11, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.85))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Última chamada: a cozinha fecha em [min] minutos.
+  Widget _kitchenClosingBanner(int min) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
       child: Container(
@@ -222,19 +282,11 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Symbols.schedule, size: 20, color: AppColors.warningText),
+            const Icon(Symbols.timer, size: 20, color: AppColors.warningText),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.warningText)),
-                  const SizedBox(height: 2),
-                  Text('Dá pra ver o cardápio, mas os pedidos só são aceitos com o bar aberto.',
-                      style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.6))),
-                ],
-              ),
+              child: Text(kitchenClosingMsg(min),
+                  style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.warningText)),
             ),
           ],
         ),

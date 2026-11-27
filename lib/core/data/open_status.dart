@@ -35,7 +35,7 @@ String? closedLabelFor({required bool openNow, String? nextOpenLabel}) {
 String closedCheckoutMessage(String? nextOpenLabel) {
   final next = nextOpenLabel?.trim();
   final tail = (next == null || next.isEmpty) ? '' : ' $next.';
-  return 'Este bar está fechado agora e não está aceitando pedidos.$tail';
+  return 'Este estabelecimento está fechado agora (fora do horário). Se continuar, o pedido pode não ser atendido agora.$tail';
 }
 
 /// True se o corpo de erro do servidor indica bar fechado (`{error: "closed"}`).

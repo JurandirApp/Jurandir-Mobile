@@ -25,7 +25,11 @@ class KitchenStatus {
   /// Rótulo de quando reabre (ex.: "abre às 18:00"), já formatado pelo servidor.
   final String? nextOpenLabel;
 
-  const KitchenStatus({this.openNow = true, this.nextOpenLabel});
+  /// Quando a cozinha (aberta agora) fecha — `est.kitchenClosesAt` (ISO). Null
+  /// = sem config, fechada, cozinha 24h ou servidor antigo.
+  final DateTime? closesAt;
+
+  const KitchenStatus({this.openNow = true, this.nextOpenLabel, this.closesAt});
 
   /// Sem info (servidor antigo / ainda carregando): cozinha aberta.
   static const open = KitchenStatus();
@@ -33,10 +37,12 @@ class KitchenStatus {
   factory KitchenStatus.fromEst(Object? est) {
     if (est is! Map) return open;
     final label = est['kitchenNextOpenLabel'];
+    final closes = est['kitchenClosesAt'];
     return KitchenStatus(
       // Só `false` explícito fecha; ausente/nulo/outro tipo = aberta.
       openNow: est['kitchenOpenNow'] != false,
       nextOpenLabel: label is String && label.trim().isNotEmpty ? label.trim() : null,
+      closesAt: closes is String ? DateTime.tryParse(closes) : null,
     );
   }
 
@@ -54,10 +60,14 @@ class MenuData {
   /// Bar aberto agora (`est.openNow`/`nextOpenLabel`). Sem campos = aberto.
   final BarOpenStatus open;
 
+  /// Nome do bar (`est.name`) — usado no aviso "cozinha finalizando".
+  final String? estName;
+
   const MenuData({
     required this.items,
     this.kitchen = KitchenStatus.open,
     this.open = const BarOpenStatus(),
+    this.estName,
   });
 
   factory MenuData.fromJson(Map<String, dynamic> j) {
@@ -69,6 +79,7 @@ class MenuData {
           .toList(),
       kitchen: KitchenStatus.fromEst(est),
       open: BarOpenStatus.fromJson(est is Map<String, dynamic> ? est : null),
+      estName: est is Map && est['name'] is String ? est['name'] as String : null,
     );
   }
 }

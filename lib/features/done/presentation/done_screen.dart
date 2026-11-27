@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../core/alert/kitchen_reminder.dart';
+import '../../../core/data/public_api.dart';
+import '../../cart/cart_controller.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -14,8 +19,30 @@ class DoneArgs {
 }
 
 /// Pedido confirmado: status (pago / falta gente pagar), código e ações.
-class DoneScreen extends StatelessWidget {
+class DoneScreen extends ConsumerStatefulWidget {
   const DoneScreen({super.key});
+
+  @override
+  ConsumerState<DoneScreen> createState() => _DoneScreenState();
+}
+
+class _DoneScreenState extends ConsumerState<DoneScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Pediu neste bar → agenda "Horário da cozinha está finalizando em X
+    // minutos" (30 e 10 min antes). Best-effort, não segura a tela.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleKitchenReminders());
+  }
+
+  Future<void> _scheduleKitchenReminders() async {
+    final slug = ref.read(cartEstablishmentProvider) ?? ref.read(selectedSlugProvider);
+    if (slug == null) return;
+    try {
+      final data = await ref.read(menuDataProvider(slug).future);
+      await KitchenReminder.scheduleFor(slug: slug, closesAt: data.kitchen.closesAt, barName: data.estName);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {

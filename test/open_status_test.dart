@@ -76,8 +76,9 @@ void main() {
 
     test('mensagem do checkout', () {
       expect(closedCheckoutMessage('Abre amanhã às 11:00'),
-          'Este bar está fechado agora e não está aceitando pedidos. Abre amanhã às 11:00.');
-      expect(closedCheckoutMessage(null), 'Este bar está fechado agora e não está aceitando pedidos.');
+          'Este estabelecimento está fechado agora (fora do horário). Se continuar, o pedido pode não ser atendido agora. Abre amanhã às 11:00.');
+      expect(closedCheckoutMessage(null),
+          'Este estabelecimento está fechado agora (fora do horário). Se continuar, o pedido pode não ser atendido agora.');
     });
 
     test('isClosedError', () {

@@ -1018,19 +1018,51 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
     }
     if (!mounted) return false;
-    if (_blockIfClosed(fresh?.open)) return false;
+    if (!await _confirmIfClosed(fresh?.open) || !mounted) return false;
     return _kitchenGate(fresh?.kitchen);
   }
 
+  /// Cliente já confirmou "continuar mesmo fechado" nesta tela.
+  bool _closedAck = false;
+
   /// Bar do carrinho fechado AGORA? (status fresco do servidor; sem ele, o da
-  /// lista). Fechado → avisa e devolve true (bloqueia).
-  bool _blockIfClosed(BarOpenStatus? fresh) {
+  /// lista). Fechado → pergunta se quer continuar com o pagamento mesmo assim
+  /// (uma vez por tela). Devolve true se pode seguir.
+  Future<bool> _confirmIfClosed(BarOpenStatus? fresh) async {
     final est = _cartEst();
-    if (est == null) return false; // demo / bares carregando: o servidor decide
+    if (est == null) return true; // demo / bares carregando: o servidor decide
     final status = fresh ?? est.openStatus;
-    if (status.openNow) return false;
-    if (mounted) _toast(closedCheckoutMessage(status.nextOpenLabel));
-    return true;
+    if (status.openNow || _closedAck) return true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.canvas,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Symbols.door_front, size: 34, color: AppColors.warningText),
+        title: Text('O estabelecimento está fechado',
+            textAlign: TextAlign.center, style: AppText.display(size: 19, letterSpacing: -0.3)),
+        content: Text(
+            'Ele está fora do horário de funcionamento e o pedido pode não ser atendido agora.'
+            '${status.nextOpenLabel == null ? '' : ' (${status.nextOpenLabel})'}\n\n'
+            'Realmente gostaria de continuar com o pagamento?',
+            style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.inkA(0.7))),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Voltar', style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.coral),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Sim, continuar',
+                style: AppText.body(size: 14, weight: FontWeight.w800, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) _closedAck = true;
+    return ok == true;
   }
 
   /// Slug do bar do carrinho (mesma regra do [_cartEst]).
@@ -1147,7 +1179,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final grand = total + fee + estFee;
     final isSplit = _payMode == 'split';
     final share = _people == 0 ? 0.0 : grand / _people;
-    // Bar fechado agora (horário) → bloqueia o pagamento com aviso claro.
+    // Bar fechado agora (horário) → aviso forte; pagar pede confirmação.
     final openStatus = (est.slug != null
             ? ref.watch(barOpenStatusProvider(est.slug!)).asData?.value
             : null) ??
@@ -1155,7 +1187,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final closed = !openStatus.openNow;
     // Modo visualização: tudo de pagamento fica apagado (só navegação).
     final preview = ref.watch(previewModeProvider);
-    final canPay = !preview && !closed && (isSplit ? true : _selPay != null);
+    final canPay = !preview && (isSplit ? true : _selPay != null);
     final topSafe = MediaQuery.paddingOf(context).top;
     unawaited(_maybeStartFingerprint()); // idempotente (só roda uma vez)
     final kitchen = selSlug == null ? KitchenStatus.open : ref.watch(kitchenStatusProvider(selSlug));
@@ -1165,9 +1197,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final Color payBg;
     if (preview) {
       payLabel = previewPaymentBlockedMsg;
-      payBg = AppColors.inkA(0.25);
-    } else if (closed) {
-      payLabel = 'Bar fechado agora';
       payBg = AppColors.inkA(0.25);
     } else if (isSplit) {
       payLabel = 'Gerar Pix da divisão — ${money(grand)}';
@@ -1221,9 +1250,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   _closedNotice(openStatus.nextOpenLabel),
                   const SizedBox(height: 14),
                 ],
-                // Bar fechado já bloqueia tudo: o aviso da cozinha só aparece
-                // com o bar aberto.
-                if (!closed && kitchenBlocked.isNotEmpty) ...[
+                if (kitchenBlocked.isNotEmpty) ...[
                   _kitchenWarning(kitchen, kitchenBlocked),
                   const SizedBox(height: 14),
                 ],
@@ -1379,7 +1406,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  /// Aviso de bar fechado no checkout (o botão de pagar fica travado).
+  /// Aviso de bar fechado no checkout (pagar pede confirmação).
   Widget _closedNotice(String? nextOpenLabel) {
     return Container(
       width: double.infinity,
