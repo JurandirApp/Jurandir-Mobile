@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/app_toggle.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/labeled_input.dart';
 import '../../auth/auth_controller.dart';
@@ -31,6 +33,9 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
   List<List<Map<String, String>>> _weekly = List.generate(7, (_) => []);
   bool _loaded = false;
   bool _saving = false;
+  // Botão de entrega (módulo do garçom): null = ainda não lido do servidor.
+  bool? _waiterModule;
+  bool _savingWaiter = false;
 
   // Ordem de exibição começando na segunda; rótulos indexados por dia (0 = Dom).
   static const _order = [1, 2, 3, 4, 5, 6, 0];
@@ -51,6 +56,34 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
     _whatsapp.text = (m['whatsapp'] as String?) ?? '';
     _instagram.text = (m['instagram'] as String?) ?? '';
     _weekly = _parseWeekly(m['weeklyHours']);
+    // Servidor antigo não manda `waiterModuleEnabled` → usa o flag do login.
+    _waiterModule = (m['waiterModuleEnabled'] as bool?) ?? ref.read(authProvider).waiterModule;
+  }
+
+  /// Liga/desliga o botão de entrega. UI otimista: troca na hora e reverte se
+  /// o servidor recusar.
+  Future<void> _toggleWaiterModule(bool next) async {
+    if (_savingWaiter) return;
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    final prev = _waiterModule ?? false;
+    setState(() {
+      _waiterModule = next;
+      _savingWaiter = true;
+    });
+    try {
+      final confirmed = await ref.read(publicApiProvider).setWaiterModule(token, next);
+      if (!mounted) return;
+      setState(() => _waiterModule = confirmed);
+      ref.read(authProvider.notifier).setWaiterModule(confirmed); // gates de UI do painel
+      _toast(confirmed ? 'Botão de entrega ligado.' : 'Botão de entrega desligado.');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _waiterModule = prev);
+      _toast('Não foi possível alterar o botão de entrega. Tente de novo.');
+    } finally {
+      if (mounted) setState(() => _savingWaiter = false);
+    }
   }
 
   List<List<Map<String, String>>> _parseWeekly(dynamic raw) {
@@ -172,6 +205,8 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
           Text('O que o cliente vê ao abrir seu cardápio.',
               style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
           const SizedBox(height: 14),
+          _waiterModuleCard(),
+          const SizedBox(height: 14),
           BrutalCard(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -198,6 +233,39 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _waiterModuleCard() {
+    final on = _waiterModule ?? false;
+    return BrutalCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const Icon(Symbols.room_service, size: 20, color: AppColors.coralDeep),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Botão de entrega (módulo do garçom)',
+                    style: AppText.body(size: 13, weight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                    on
+                        ? 'Ligado: os garçons confirmam a entrega de cada pedido pelo app.'
+                        : 'Desligado: os pedidos não passam pela entrega do garçom.',
+                    style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Opacity(
+            opacity: _savingWaiter ? 0.5 : 1,
+            child: AppToggle(value: on, onChanged: _toggleWaiterModule),
           ),
         ],
       ),

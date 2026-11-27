@@ -116,5 +116,17 @@ void main() {
     test('createOrder: outro erro propaga como DioException', () async {
       await expectLater(_api(500, {'error': 'boom'}).api.createOrder(const {}), throwsA(isA<DioException>()));
     });
+
+    test('setWaiterModule envia {enabled} e devolve o confirmado', () async {
+      final t = _api(200, {'ok': true, 'enabled': false});
+      expect(await t.api.setWaiterModule('tok', false), isFalse);
+      expect(t.fake.last?.path, '/establishment/waiter-module');
+      expect(t.fake.last?.data, {'enabled': false});
+      expect(t.fake.last?.headers['Authorization'], 'Bearer tok');
+    });
+
+    test('setWaiterModule: ok=false → lança', () async {
+      await expectLater(_api(200, {'ok': false}).api.setWaiterModule('tok', true), throwsA(anything));
+    });
   });
 }

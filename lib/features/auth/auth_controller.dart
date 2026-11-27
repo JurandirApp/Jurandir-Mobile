@@ -93,6 +93,12 @@ class AuthController extends Notifier<AuthState> {
     state = const AuthState();
   }
 
+  /// Atualiza o flag do módulo do garçom (após ligar/desligar no perfil).
+  void setWaiterModule(bool enabled) {
+    state = state.copyWith(waiterModule: enabled);
+    _persist();
+  }
+
   void setName(String name) {
     state = state.copyWith(name: name);
     _persist();

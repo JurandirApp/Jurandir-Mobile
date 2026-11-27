@@ -595,6 +595,22 @@ class PublicApi {
     );
   }
 
+  /// Liga/desliga o botão de entrega (módulo do garçom) do estabelecimento
+  /// logado (POST /establishment/waiter-module `{enabled}` → `{ok, enabled}`).
+  /// Devolve o valor confirmado pelo servidor; lança em erro (a tela reverte).
+  Future<bool> setWaiterModule(String token, bool enabled) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/establishment/waiter-module',
+      data: {'enabled': enabled},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    final d = res.data;
+    if (d == null || d['ok'] != true) {
+      throw StateError((d?['error'] as String?) ?? 'waiter-module falhou');
+    }
+    return (d['enabled'] as bool?) ?? enabled;
+  }
+
   /// Rastreio por mesa de um dia (GET /establishment/tracking?day=YYYY-MM-DD).
   Future<List<TrackedTable>> establishmentTracking(String token, String day) async {
     final res = await _dio.get<Map<String, dynamic>>(
