@@ -247,6 +247,21 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
               ),
             ],
           ),
+          if (o.waiterName != null) ...[
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                const Icon(Symbols.badge, size: 12, color: AppColors.coral),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text('Garçom: ${o.waiterName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+                ),
+              ],
+            ),
+          ],
           if (o.note != null && o.note!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(

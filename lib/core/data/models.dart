@@ -407,6 +407,8 @@ class PanelOrder {
   final String pay; // pix | credito | debito | usdc
   final List<PanelOrderLine> items;
   final PanelSplit? split;
+  /// Garçom que atendeu/entregou (opcional — servidor antigo não manda).
+  final String? waiterName;
 
   const PanelOrder({
     required this.id,
@@ -420,6 +422,7 @@ class PanelOrder {
     this.pay = 'pix',
     required this.items,
     this.split,
+    this.waiterName,
   });
 
   double get total => items.fold(0.0, (s, i) => s + i.qty * i.price);
@@ -464,6 +467,9 @@ class PanelOrder {
               people: (splits['people'] as num).toInt(),
               paid: (splits['paid'] as num).toInt(),
             ),
+      waiterName: (j['waiterName'] is String && (j['waiterName'] as String).trim().isNotEmpty)
+          ? (j['waiterName'] as String).trim()
+          : null,
     );
   }
 }
