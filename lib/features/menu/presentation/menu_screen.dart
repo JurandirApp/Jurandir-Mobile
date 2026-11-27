@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/data/kitchen.dart';
 import '../../../core/data/models.dart';
 import '../../../core/data/public_api.dart';
 import '../../../core/data/seed_data.dart'; // só o slug padrão (kDemoSlug)
@@ -35,6 +36,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     final ctrl = ref.read(cartProvider.notifier);
     final slug = ref.watch(selectedSlugProvider) ?? kDemoSlug;
     final menuAsync = ref.watch(menuProvider(slug));
+    final kitchen = ref.watch(kitchenStatusProvider(slug));
     final menu = menuAsync.asData?.value ?? const <MenuItem>[];
     final ests = ref.watch(establishmentsProvider).asData?.value ?? const <Establishment>[];
     // Estabelecimento aberto pelo cliente; placeholder neutro (sem mock) até
@@ -47,6 +49,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     );
     final cats = <String>['Todos', ...{for (final m in menu) m.category}];
     final items = _cat == 'Todos' ? menu : menu.where((m) => m.category == _cat).toList();
+    // Aviso no topo só se a cozinha fechada afeta algo deste cardápio.
+    final showKitchenBanner = kitchenBlockedItems(menu, kitchen).isNotEmpty;
     final count = cartCount(cart);
     final total = ctrl.total;
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
@@ -84,7 +88,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     error: (_, _) => SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 40),
-                        child: _errorState(() => ref.invalidate(menuProvider(slug))),
+                        child: _errorState(() => ref.invalidate(menuDataProvider(slug))),
                       ),
                     ),
                     data: (_) => items.isEmpty
@@ -98,11 +102,16 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                             ),
                           )
                         : SliverList.separated(
-                            itemCount: items.length,
+                            itemCount: items.length + (showKitchenBanner ? 1 : 0),
                             separatorBuilder: (_, _) => const SizedBox(height: 10),
                             itemBuilder: (_, i) {
+                              if (showKitchenBanner) {
+                                if (i == 0) return _kitchenBanner(kitchen);
+                                i--;
+                              }
                               final m = items[i];
-                              return _itemRow(m, ctrl.qtyOfItem(m.id), ctrl, slug);
+                              return _itemRow(m, ctrl.qtyOfItem(m.id), ctrl, slug,
+                                  blocked: itemBlockedByKitchen(m, kitchen), kitchen: kitchen);
                             },
                           ),
                   ),
@@ -179,10 +188,43 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     );
   }
 
-  Widget _itemRow(MenuItem m, int qty, CartController ctrl, String slug) {
+  /// Faixa no topo da lista: cozinha fechada (bebidas seguem disponíveis).
+  Widget _kitchenBanner(KitchenStatus kitchen) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.duneA(0.45),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.inkA(0.15)),
+      ),
+      child: Row(
+        children: [
+          Icon(Symbols.skillet, size: 20, color: AppColors.inkA(0.7)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(kitchen.closedLabel, style: AppText.body(size: 13, weight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text('Pratos e porções indisponíveis agora. Bebidas seguem normais.',
+                    style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.55))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _itemRow(MenuItem m, int qty, CartController ctrl, String slug,
+      {bool blocked = false, KitchenStatus kitchen = KitchenStatus.open}) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => showItemSheet(context, m, slug: slug),
+      child: Opacity(
+      // Item de cozinha com a cozinha fechada: apagado, mas ainda abre o detalhe.
+      opacity: blocked ? 0.6 : 1,
       child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -242,11 +284,26 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     ),
                   ],
                 ),
+                if (blocked) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    kitchen.closedLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body(size: 10, weight: FontWeight.w800, color: AppColors.inkA(0.6)),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 12),
-          if (qty == 0)
+          if (blocked && qty == 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: AppColors.inkA(0.1), borderRadius: BorderRadius.circular(999)),
+              child: Text('Fechada', style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.inkA(0.6))),
+            )
+          else if (qty == 0)
             _circleBtn(36, AppColors.coral, Symbols.add, Colors.white,
                 () => m.hasGroups
                     ? showItemSheet(context, m, slug: slug)
@@ -264,7 +321,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     style: AppText.body(size: 14, weight: FontWeight.w800),
                   ),
                 ),
-                _circleBtn(30, AppColors.coral, Symbols.add, Colors.white, () => ctrl.addSimple(m)),
+                // Cozinha fechada: só deixa tirar, não somar.
+                blocked
+                    ? _circleBtn(30, AppColors.inkA(0.15), Symbols.add, Colors.white, () {})
+                    : _circleBtn(30, AppColors.coral, Symbols.add, Colors.white, () => ctrl.addSimple(m)),
               ],
             )
           else
@@ -278,13 +338,15 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   decoration: BoxDecoration(color: AppColors.duneA(0.4), borderRadius: BorderRadius.circular(999)),
                   child: Text('$qty', style: AppText.body(size: 13, weight: FontWeight.w800)),
                 ),
-                const SizedBox(width: 8),
-                _circleBtn(36, AppColors.coral, Symbols.add, Colors.white, () => showItemSheet(context, m, slug: slug)),
+                if (!blocked) ...[
+                  const SizedBox(width: 8),
+                  _circleBtn(36, AppColors.coral, Symbols.add, Colors.white, () => showItemSheet(context, m, slug: slug)),
+                ],
               ],
             ),
         ],
       ),
-    ));
+    )));
   }
 
   Widget _itemRowSkeleton() {

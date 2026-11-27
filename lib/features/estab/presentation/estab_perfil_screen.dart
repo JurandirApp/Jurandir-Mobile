@@ -8,7 +8,9 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/labeled_input.dart';
 import '../../auth/auth_controller.dart';
+import 'estab_kitchen_card.dart';
 import 'estab_sub_header.dart';
+import 'weekly_hours_editor.dart';
 
 /// Estab · Perfil: dados que o cliente vê no cardápio (carrega e salva real).
 /// O horário usa o editor ESTRUTURADO por dia (`weeklyHours`) — mesma fonte da
@@ -31,10 +33,6 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
   List<List<Map<String, String>>> _weekly = List.generate(7, (_) => []);
   bool _loaded = false;
   bool _saving = false;
-
-  // Ordem de exibição começando na segunda; rótulos indexados por dia (0 = Dom).
-  static const _order = [1, 2, 3, 4, 5, 6, 0];
-  static const _labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   @override
   void dispose() {
@@ -69,27 +67,6 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
       }
     }
     return week;
-  }
-
-  String _fmt(TimeOfDay t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-
-  TimeOfDay _parse(String hhmm) {
-    final p = hhmm.split(':');
-    return TimeOfDay(hour: int.tryParse(p.first) ?? 0, minute: int.tryParse(p.length > 1 ? p[1] : '0') ?? 0);
-  }
-
-  Future<void> _pickTime(int day, int win, String key) async {
-    final current = _parse(_weekly[day][win][key] ?? '00:00');
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: current,
-      builder: (ctx, child) => MediaQuery(
-        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
-    if (picked == null || !mounted) return;
-    setState(() => _weekly[day][win][key] = _fmt(picked));
   }
 
   void _toast(String msg) {
@@ -199,6 +176,9 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 18),
+          // Horário da cozinha: salva à parte (endpoint próprio).
+          const EstabKitchenCard(),
         ],
       ),
     );
@@ -214,105 +194,8 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
         Text('Define quando o bar aparece como "Aberto" pro cliente.',
             style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
         const SizedBox(height: 8),
-        for (final d in _order) _dayRow(d),
+        WeeklyHoursEditor(week: _weekly, onChanged: () => setState(() {})),
       ],
-    );
-  }
-
-  Widget _dayRow(int day) {
-    final windows = _weekly[day];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 40,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(_labels[day], style: AppText.body(size: 14, weight: FontWeight.w800)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: windows.isEmpty
-                ? Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text('Fechado',
-                            style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
-                      ),
-                      const Spacer(),
-                      _smallBtn('Abrir', () => setState(() => windows.add({'o': '18:00', 'c': '23:00'}))),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var w = 0; w < windows.length; w++) _windowRow(day, w),
-                      if (windows.length < 2)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: _smallBtn('+ 2º turno', () => setState(() => windows.add({'o': '18:00', 'c': '23:00'}))),
-                        ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _windowRow(int day, int win) {
-    final w = _weekly[day][win];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          _timeChip(w['o'] ?? '00:00', () => _pickTime(day, win, 'o')),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text('–', style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
-          ),
-          _timeChip(w['c'] ?? '00:00', () => _pickTime(day, win, 'c')),
-          const Spacer(),
-          GestureDetector(
-            onTap: () => setState(() => _weekly[day].removeAt(win)),
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: Icon(Icons.close, size: 18, color: AppColors.inkA(0.45)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _timeChip(String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.ink, width: 1.5),
-        ),
-        child: Text(label, style: AppText.body(size: 15, weight: FontWeight.w800)),
-      ),
-    );
-  }
-
-  Widget _smallBtn(String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(color: AppColors.duneA(0.6), borderRadius: BorderRadius.circular(999)),
-        child: Text(label, style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.ink)),
-      ),
     );
   }
 }

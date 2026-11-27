@@ -12,6 +12,7 @@ import 'package:pay/pay.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/client_profile.dart';
+import '../../../core/data/kitchen.dart';
 import '../../../core/data/models.dart';
 import '../../../core/data/orders_controller.dart';
 import '../../../core/data/public_api.dart';
@@ -143,6 +144,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Future<void> _pay(double grand) async {
     if (_submitting) return;
+    // Cozinha fechada com comida no carrinho: avisa e não deixa seguir.
+    if (!await _kitchenGate() || !mounted) return;
     if (_payMode == 'split') {
       _paySplit();
       return;
@@ -306,10 +309,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final ClientOrder order;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+        if (!_handleOrderError(e)) _toast('Não foi possível iniciar o pedido. Tente de novo.');
       }
       return;
     }
@@ -560,10 +563,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     ({bool ok, String? checkoutUrl, ClientOrder? order}) r;
     try {
       r = await ref.read(publicApiProvider).createCardCheckout(payload);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pagamento. Tente de novo.');
+        if (!_handleOrderError(e)) _toast('Não foi possível iniciar o pagamento. Tente de novo.');
       }
       return;
     }
@@ -660,15 +663,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() => _submitting = true);
     await _replacePending(); // descarta um Pix anterior deste carrinho, se houver
     ClientOrder? order;
+    Object? err;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       order = null;
+      err = e;
     }
     if (!mounted) return;
     setState(() => _submitting = false);
     if (order == null) {
-      _toast('Não foi possível gerar o Pix. Tente novamente.');
+      if (!_handleOrderError(err)) _toast('Não foi possível gerar o Pix. Tente novamente.');
       return;
     }
     final id = order.dbId;
@@ -947,6 +952,74 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return hint.isEmpty ? 'Tente de novo ou escolha outro método.' : hint;
   }
 
+  /// Slug do bar do carrinho (mesma regra do [_cartEst]).
+  String? get _cartSlug => ref.read(cartEstablishmentProvider) ?? ref.read(selectedSlugProvider);
+
+  /// Antes de cobrar: se o carrinho tem comida, confere a cozinha com dado
+  /// FRESCO (o cardápio pode ter sido carregado antes do fechamento). Fechada →
+  /// avisa e devolve false. Sem rede, usa o último status conhecido (o servidor
+  /// barra de qualquer jeito com `kitchenClosed`).
+  Future<bool> _kitchenGate() async {
+    final slug = _cartSlug;
+    final items = ref.read(cartProvider.notifier).lines.map((l) => l.item).toList();
+    if (slug == null || !items.any((i) => i.kitchen)) return true;
+    KitchenStatus kitchen;
+    try {
+      kitchen = (await ref.refresh(menuDataProvider(slug).future)).kitchen;
+    } catch (_) {
+      kitchen = ref.read(kitchenStatusProvider(slug));
+    }
+    if (!mounted) return false;
+    if (kitchenBlockedItems(items, kitchen).isEmpty) return true;
+    await _showKitchenClosed(kitchen);
+    return false;
+  }
+
+  /// Erro ao criar o pedido: se for o `kitchenClosed` do servidor, atualiza o
+  /// status da cozinha e mostra o aviso amigável. Devolve true se tratou.
+  bool _handleOrderError(Object? e) {
+    if (!isKitchenClosedError(e)) return false;
+    final slug = _cartSlug;
+    if (slug != null) ref.invalidate(menuDataProvider(slug));
+    unawaited(_showKitchenClosed(const KitchenStatus(openNow: false)));
+    return true;
+  }
+
+  /// Aviso de cozinha fechada com a opção de tirar a comida do carrinho.
+  Future<void> _showKitchenClosed(KitchenStatus kitchen) async {
+    final remove = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.canvas,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(kitchen.closedLabel, style: AppText.display(size: 18, letterSpacing: -0.3)),
+        content: Text(kKitchenClosedMsg,
+            style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.inkA(0.7))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Voltar',
+                style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Tirar a comida',
+                style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
+          ),
+        ],
+      ),
+    );
+    if (remove == true && mounted) _removeKitchenLines();
+  }
+
+  /// Tira do carrinho as linhas de cozinha (bebidas ficam).
+  void _removeKitchenLines() {
+    final ctrl = ref.read(cartProvider.notifier);
+    for (final l in ctrl.lines.where((l) => l.item.kitchen).toList()) {
+      ctrl.removeLine(l.lineId);
+    }
+  }
+
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -1002,6 +1075,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final canPay = isSplit ? true : _selPay != null;
     final topSafe = MediaQuery.paddingOf(context).top;
     unawaited(_maybeStartFingerprint()); // idempotente (só roda uma vez)
+    final kitchen = selSlug == null ? KitchenStatus.open : ref.watch(kitchenStatusProvider(selSlug));
+    final kitchenBlocked = kitchenBlockedItems(ctrl.lines.map((l) => l.item), kitchen);
 
     final String payLabel;
     final Color payBg;
@@ -1012,6 +1087,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       payLabel = 'Pagar ${money(grand)}';
       payBg = canPay ? AppColors.coral : AppColors.inkA(0.25);
     }
+    // Cozinha fechada: botão apagado (tocar ainda reconfere e mostra o aviso).
+    final payBgFinal = kitchenBlocked.isEmpty ? payBg : AppColors.inkA(0.25);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -1045,6 +1122,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 12),
                 Text('Confirmar pedido'.toUpperCase(), style: AppText.display(size: 22, letterSpacing: -0.5)),
                 const SizedBox(height: 14),
+                if (kitchenBlocked.isNotEmpty) ...[
+                  _kitchenWarning(kitchen, kitchenBlocked),
+                  const SizedBox(height: 14),
+                ],
                 _summary(ctrl.lines, est, total, fee, estFee, grand),
                 const SizedBox(height: 18),
                 Row(
@@ -1072,7 +1153,48 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: _payBar(context, payLabel, payBg, canPay, grand),
+            child: _payBar(context, payLabel, payBgFinal, canPay, grand),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Aviso no checkout: comida no carrinho com a cozinha fechada.
+  Widget _kitchenWarning(KitchenStatus kitchen, List<MenuItem> blocked) {
+    final names = {for (final i in blocked) i.name}.join(', ');
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.coral.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.coralDeep, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Symbols.skillet, size: 18, color: AppColors.coralDeep),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(kitchen.closedLabel,
+                    style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('Estes itens não podem ser pedidos agora: $names.',
+              style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.7))),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: _removeKitchenLines,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
+              child: Text('Tirar a comida do pedido',
+                  style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.dune)),
+            ),
           ),
         ],
       ),
@@ -1305,10 +1427,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final ClientOrder order;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+        if (!_handleOrderError(e)) _toast('Não foi possível iniciar o pedido. Tente de novo.');
       }
       return;
     }
@@ -1541,15 +1663,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() => _submitting = true);
     await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
     ClientOrder? order;
+    Object? err;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       order = null;
+      err = e;
     }
     if (!mounted) return;
     setState(() => _submitting = false);
     if (order == null || order.splits == null || order.splits!.isEmpty) {
-      _toast('Não foi possível gerar as cobranças da divisão. Tente de novo.');
+      if (!_handleOrderError(err)) _toast('Não foi possível gerar as cobranças da divisão. Tente de novo.');
       return;
     }
     final id = order.dbId;
