@@ -14,6 +14,7 @@ import '../payments/tuna_fingerprint.dart';
 import '../payments/tuna_threeds.dart';
 import 'models.dart';
 import 'onboarding_controller.dart';
+import 'open_status.dart';
 
 /// Camada de API pública — dados reais do Neon via backend Next.js
 /// (`/api/public/...`).
@@ -48,6 +49,19 @@ class PublicApi {
     }
   }
 
+  /// Status "aberto agora" do bar, fresco (o `est` do GET /{slug}). Usado no
+  /// cardápio e no checkout — a lista da home pode estar em cache (stale).
+  /// Falha de rede → null (a tela cai no valor da lista).
+  Future<BarOpenStatus?> barOpenStatus(String slug) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/$slug');
+      final est = res.data?['est'];
+      return BarOpenStatus.fromJson(est is Map<String, dynamic> ? est : null);
+    } on DioException {
+      return null;
+    }
+  }
+
   /// "Bairro, Cidade" a partir das coordenadas do GPS (pro header "Você está
   /// em…"). Null se o backend não conseguir resolver.
   Future<String?> reverseGeocode(double lat, double lng) async {
@@ -70,9 +84,25 @@ class PublicApi {
       (await offersRaw()).map(Offer.fromJson).toList();
 
   /// Cria um pedido real (POST /orders). Devolve o pedido já no formato do app.
+  /// Bar fechado (erro `closed` do servidor) → lança [BarClosedException].
   Future<ClientOrder> createOrder(Map<String, dynamic> payload) async {
-    final res = await _dio.post<Map<String, dynamic>>('/orders', data: payload);
+    final res = await _closedGuard(() => _dio.post<Map<String, dynamic>>('/orders', data: payload));
     return ClientOrder.fromJson(res.data!['order'] as Map<String, dynamic>);
+  }
+
+  /// Converte a recusa "bar fechado" (`{error: "closed"}`) em
+  /// [BarClosedException]; demais erros propagam como estão.
+  Future<Response<Map<String, dynamic>>> _closedGuard(
+      Future<Response<Map<String, dynamic>>> Function() call) async {
+    try {
+      return await call();
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      if (isClosedError(body)) {
+        throw BarClosedException(body is Map ? body['nextOpenLabel'] as String? : null);
+      }
+      rethrow;
+    }
   }
 
   /// Cancela um pedido ainda não pago (DELETE /orders?id=). Best-effort: usado
@@ -259,7 +289,7 @@ class PublicApi {
   Future<({bool ok, String? checkoutUrl, ClientOrder? order})> createCardCheckout(
     Map<String, dynamic> order,
   ) async {
-    final res = await _dio.post<Map<String, dynamic>>('/orders/checkout', data: order);
+    final res = await _closedGuard(() => _dio.post<Map<String, dynamic>>('/orders/checkout', data: order));
     final d = res.data!;
     return (
       ok: (d['ok'] as bool?) ?? false,
@@ -853,6 +883,12 @@ class _EstablishmentsCache extends AsyncNotifier<List<Establishment>> {
 
 final establishmentsProvider =
     AsyncNotifierProvider<_EstablishmentsCache, List<Establishment>>(_EstablishmentsCache.new);
+
+/// Status "aberto agora" fresco de um bar (null = indisponível → usar a lista).
+final barOpenStatusProvider =
+    FutureProvider.autoDispose.family<BarOpenStatus?, String>((ref, slug) async {
+  return ref.watch(publicApiProvider).barOpenStatus(slug);
+});
 
 /// Cardápio de um estabelecimento — dados reais da API. Erros propagam.
 final menuProvider = FutureProvider.family<List<MenuItem>, String>((ref, slug) async {

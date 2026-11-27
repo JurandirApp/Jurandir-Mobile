@@ -1,3 +1,5 @@
+import 'open_status.dart';
+
 // Modelos de domínio do app (lado do cliente).
 //
 // Por ora populados pelo seed de demonstração do design (seed_data.dart);
@@ -21,6 +23,11 @@ class Establishment {
   final bool walletPay; // aceita Apple/Google Pay (crédito via Pagar.me)
   /// Gateway por método (pix/credit/debit/applePay/googlePay → "PAGARME", "PAGBANK"…).
   final Map<String, String> gateways;
+  /// Aberto AGORA pelo horário de funcionamento (servidor calcula). Servidor
+  /// antigo não manda → assume aberto (comportamento anterior).
+  final bool openNow;
+  /// Texto pronto do próximo horário (ex.: "Abre hoje às 18:00"). Opcional.
+  final String? nextOpenLabel;
 
   const Establishment({
     required this.id,
@@ -39,7 +46,19 @@ class Establishment {
     this.cover,
     this.walletPay = false,
     this.gateways = const {},
+    this.openNow = true,
+    this.nextOpenLabel,
   });
+
+  /// Aceita pedido agora: ativo (`open`) E dentro do horário (`openNow`).
+  bool get isOpenNow => open && openNow;
+
+  /// Status pronto pro banner/checkout (a partir dos dados da lista).
+  BarOpenStatus get openStatus => BarOpenStatus(openNow: isOpenNow, nextOpenLabel: nextOpenLabel);
+
+  /// Texto do aviso de fechado: "Fechado agora · Abre hoje às 18:00" (ou só
+  /// "Fechado agora" sem previsão). Null quando está aberto.
+  String? get closedLabel => closedLabelFor(openNow: isOpenNow, nextOpenLabel: nextOpenLabel);
 
   /// Gateway configurado pro método. Sem info do backend assume Pagar.me (o
   /// comportamento antigo do app).
@@ -70,6 +89,8 @@ class Establishment {
     walletPay: (j['walletPay'] as bool?) ?? false,
     gateways: ((j['gateways'] as Map?) ?? const {})
         .map((k, v) => MapEntry(k.toString(), v.toString())),
+    openNow: (j['openNow'] as bool?) ?? true,
+    nextOpenLabel: j['nextOpenLabel'] as String?,
   );
 }
 

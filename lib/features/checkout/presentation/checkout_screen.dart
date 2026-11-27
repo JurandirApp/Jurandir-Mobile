@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/client_profile.dart';
 import '../../../core/data/models.dart';
+import '../../../core/data/open_status.dart';
 import '../../../core/data/orders_controller.dart';
 import '../../../core/data/public_api.dart';
 import '../../../core/theme/app_colors.dart';
@@ -143,6 +144,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Future<void> _pay(double grand) async {
     if (_submitting) return;
+    // Bar fechado (horário de funcionamento) → nem abre o pagamento.
+    if (await _blockIfClosed() || !mounted) return;
     if (_payMode == 'split') {
       _paySplit();
       return;
@@ -306,10 +309,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final ClientOrder order;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+        _toast(_orderFailMsg(e, 'Não foi possível iniciar o pedido. Tente de novo.'));
       }
       return;
     }
@@ -560,10 +563,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     ({bool ok, String? checkoutUrl, ClientOrder? order}) r;
     try {
       r = await ref.read(publicApiProvider).createCardCheckout(payload);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pagamento. Tente de novo.');
+        _toast(_orderFailMsg(e, 'Não foi possível iniciar o pagamento. Tente de novo.'));
       }
       return;
     }
@@ -660,15 +663,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() => _submitting = true);
     await _replacePending(); // descarta um Pix anterior deste carrinho, se houver
     ClientOrder? order;
+    Object? err;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       order = null;
+      err = e;
     }
     if (!mounted) return;
     setState(() => _submitting = false);
     if (order == null) {
-      _toast('Não foi possível gerar o Pix. Tente novamente.');
+      _toast(_orderFailMsg(err, 'Não foi possível gerar o Pix. Tente novamente.'));
       return;
     }
     final id = order.dbId;
@@ -694,7 +699,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (_submitting) return;
     setState(() => _submitting = true);
     await _replacePending();
-    final order = await _submitOrder();
+    final ClientOrder? order;
+    try {
+      order = await _submitOrder();
+    } on BarClosedException catch (e) {
+      // Bar fechou: não finge confirmação (o pedido não foi criado).
+      if (mounted) {
+        setState(() => _submitting = false);
+        _toast(e.message);
+      }
+      return;
+    }
     if (!mounted) return;
     _markPending(null);
     ref.read(cartProvider.notifier).clear();
@@ -709,6 +724,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final id = order.dbId;
       if (id != null) await ref.read(myOrderIdsProvider.notifier).add(id);
       return order;
+    } on BarClosedException {
+      rethrow;
     } catch (_) {
       return null;
     }
@@ -947,6 +964,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return hint.isEmpty ? 'Tente de novo ou escolha outro método.' : hint;
   }
 
+  /// Mensagem do erro ao criar o pedido: bar fechado (`closed` do servidor)
+  /// vira o aviso amigável; o resto usa a mensagem genérica do fluxo.
+  String _orderFailMsg(Object? e, String fallback) =>
+      e is BarClosedException ? e.message : fallback;
+
+  /// Confere se o bar do carrinho está aberto AGORA (status fresco do servidor;
+  /// sem resposta, usa o da lista). Fechado → avisa e devolve true (bloqueia).
+  Future<bool> _blockIfClosed() async {
+    final est = _cartEst();
+    if (est == null) return false; // demo / bares carregando: o servidor decide
+    BarOpenStatus status = est.openStatus;
+    final slug = est.slug;
+    if (slug != null) {
+      final fresh = await ref.read(publicApiProvider).barOpenStatus(slug);
+      if (fresh != null) status = fresh;
+    }
+    if (status.openNow) return false;
+    if (mounted) _toast(closedCheckoutMessage(status.nextOpenLabel));
+    return true;
+  }
+
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -999,13 +1037,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final grand = total + fee + estFee;
     final isSplit = _payMode == 'split';
     final share = _people == 0 ? 0.0 : grand / _people;
-    final canPay = isSplit ? true : _selPay != null;
+    // Bar fechado agora (horário) → bloqueia o pagamento com aviso claro.
+    final openStatus = (est.slug != null
+            ? ref.watch(barOpenStatusProvider(est.slug!)).asData?.value
+            : null) ??
+        est.openStatus;
+    final closed = !openStatus.openNow;
+    final canPay = !closed && (isSplit ? true : _selPay != null);
     final topSafe = MediaQuery.paddingOf(context).top;
     unawaited(_maybeStartFingerprint()); // idempotente (só roda uma vez)
 
     final String payLabel;
     final Color payBg;
-    if (isSplit) {
+    if (closed) {
+      payLabel = 'Bar fechado agora';
+      payBg = AppColors.inkA(0.25);
+    } else if (isSplit) {
       payLabel = 'Gerar Pix da divisão — ${money(grand)}';
       payBg = AppColors.coral;
     } else {
@@ -1045,6 +1092,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 12),
                 Text('Confirmar pedido'.toUpperCase(), style: AppText.display(size: 22, letterSpacing: -0.5)),
                 const SizedBox(height: 14),
+                if (closed) ...[
+                  _closedNotice(openStatus.nextOpenLabel),
+                  const SizedBox(height: 14),
+                ],
                 _summary(ctrl.lines, est, total, fee, estFee, grand),
                 const SizedBox(height: 18),
                 Row(
@@ -1073,6 +1124,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             right: 0,
             bottom: 0,
             child: _payBar(context, payLabel, payBg, canPay, grand),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Aviso de bar fechado no checkout (o botão de pagar fica travado).
+  Widget _closedNotice(String? nextOpenLabel) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.warningBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.ink, width: 2),
+      ),
+      child: Row(
+        children: [
+          const Icon(Symbols.schedule, size: 20, color: AppColors.warningText),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(closedCheckoutMessage(nextOpenLabel),
+                style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.warningText)),
           ),
         ],
       ),
@@ -1284,6 +1358,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// (POST /orders/wallet → Pagar.me). Aprovado → confirmação "em produção".
   Future<void> _onWallet(Map<String, dynamic> result) async {
     if (_submitting) return;
+    if (await _blockIfClosed() || !mounted) return;
     final token = _walletToken(result);
     if (token == null) {
       _toast('Não foi possível ler o pagamento da carteira.');
@@ -1305,10 +1380,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final ClientOrder order;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        _toast('Não foi possível iniciar o pedido. Tente de novo.');
+        _toast(_orderFailMsg(e, 'Não foi possível iniciar o pedido. Tente de novo.'));
       }
       return;
     }
@@ -1541,15 +1616,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() => _submitting = true);
     await _replacePending(); // descarta um pedido anterior deste carrinho, se houver
     ClientOrder? order;
+    Object? err;
     try {
       order = await ref.read(publicApiProvider).createOrder(payload);
-    } catch (_) {
+    } catch (e) {
       order = null;
+      err = e;
     }
     if (!mounted) return;
     setState(() => _submitting = false);
     if (order == null || order.splits == null || order.splits!.isEmpty) {
-      _toast('Não foi possível gerar as cobranças da divisão. Tente de novo.');
+      _toast(_orderFailMsg(err, 'Não foi possível gerar as cobranças da divisão. Tente de novo.'));
       return;
     }
     final id = order.dbId;

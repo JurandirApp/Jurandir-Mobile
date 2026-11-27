@@ -45,6 +45,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         id: '', slug: slug, name: '', location: '', cuisine: '', orders: 0, rating: 0, open: true,
       ),
     );
+    // Aberto agora? Status fresco do servidor (GET /{slug}); sem ele, o da lista.
+    final openStatus = ref.watch(barOpenStatusProvider(slug)).asData?.value ?? est.openStatus;
     final cats = <String>['Todos', ...{for (final m in menu) m.category}];
     final items = _cat == 'Todos' ? menu : menu.where((m) => m.category == _cat).toList();
     final count = cartCount(cart);
@@ -60,6 +62,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: _header(context, est)),
+                if (openStatus.closedLabel != null)
+                  SliverToBoxAdapter(child: _closedBanner(openStatus.closedLabel!)),
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _CatBar(
@@ -175,6 +179,40 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Aviso de bar fechado (horário de funcionamento). O cliente ainda vê o
+  /// cardápio, mas o checkout bloqueia o pagamento.
+  Widget _closedBanner(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.warningBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.ink, width: 2),
+        ),
+        child: Row(
+          children: [
+            const Icon(Symbols.schedule, size: 20, color: AppColors.warningText),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.warningText)),
+                  const SizedBox(height: 2),
+                  Text('Dá pra ver o cardápio, mas os pedidos só são aceitos com o bar aberto.',
+                      style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.6))),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

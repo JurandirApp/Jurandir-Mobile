@@ -240,7 +240,7 @@ class HomeScreen extends ConsumerWidget {
                           errorWidget: _estImgPlaceholder(),
                         ),
                 ),
-                Positioned(top: 8, left: 8, child: _openChip(e.open)),
+                Positioned(top: 8, left: 8, child: _openChip(e.isOpenNow)),
               ],
             ),
             Padding(
@@ -261,6 +261,15 @@ class HomeScreen extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5)),
                   ),
+                  if (e.closedLabel != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      e.closedLabel!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(size: 10.5, weight: FontWeight.w700, color: AppColors.coralDeep),
+                    ),
+                  ],
                   if (distKm != null) ...[
                     const SizedBox(height: 7),
                     Row(
