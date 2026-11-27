@@ -8,6 +8,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
+import '../spot_labels.dart';
+import 'estab_spots_batch_sheet.dart';
 
 /// Estab · QR Codes reais: cada ponto (mesa/guarda-sol) abre o cardápio já
 /// identificado. Criar/excluir persistem no backend.
@@ -75,6 +77,15 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
     } finally {
       if (mounted) setState(() => _adding = false);
     }
+  }
+
+  /// "Adicionar várias": folha de lote → recarrega a lista e resume o resultado.
+  Future<void> _addBatch() async {
+    FocusScope.of(context).unfocus();
+    final r = await showSpotsBatchSheet(context);
+    if (r == null || !mounted) return;
+    ref.invalidate(establishmentQrProvider);
+    _toast(spotsBatchSummary(r.created, r.skipped));
   }
 
   Future<void> _delete(String id) async {
@@ -187,6 +198,27 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        // Cadastro em lote: sequência (Mesa 1→30) ou lista colada.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: GestureDetector(
+            onTap: _addBatch,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Symbols.library_add, size: 15, color: AppColors.dune),
+                  const SizedBox(width: 6),
+                  Text('Adicionar várias',
+                      style: AppText.body(size: 12.5, weight: FontWeight.w800, color: AppColors.dune)),
+                ],
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 14),
         if (spots.isEmpty)

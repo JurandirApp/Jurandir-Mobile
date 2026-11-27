@@ -540,6 +540,25 @@ class PublicApi {
     );
   }
 
+  /// Cadastro de mesas/pontos EM LOTE ("Adicionar várias").
+  /// [CONTRACT] POST /establishment/spots/batch `{labels}` →
+  /// `{ok, created, skipped, spots}` — `skipped` = nomes que já existiam.
+  Future<({int created, int skipped, List<String> spots})> addSpotsBatch(
+      String token, List<String> labels) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/establishment/spots/batch',
+      data: {'labels': labels},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    final d = res.data ?? const <String, dynamic>{};
+    if (d['ok'] != true) throw Exception('spots-batch-failed');
+    return (
+      created: (d['created'] as num?)?.toInt() ?? 0,
+      skipped: (d['skipped'] as num?)?.toInt() ?? 0,
+      spots: ((d['spots'] as List?) ?? const []).map((e) => '$e').toList(),
+    );
+  }
+
   /// Visão geral da plataforma (Admin) — alimenta Dashboard/Cadastros/Backlog.
   Future<AdminOverview> adminOverview(String token) async {
     final res = await _dio.get<Map<String, dynamic>>(

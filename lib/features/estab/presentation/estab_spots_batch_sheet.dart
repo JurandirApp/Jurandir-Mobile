@@ -1,0 +1,261 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../core/data/public_api.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/app_toggle.dart';
+import '../../../core/widgets/segmented_control.dart';
+import '../../auth/auth_controller.dart';
+import '../spot_labels.dart';
+
+/// Resultado do cadastro em lote (pra tela mostrar "X criadas, Y já existiam").
+typedef SpotsBatchResult = ({int created, int skipped});
+
+/// Abre a folha "Adicionar várias" mesas. Devolve o resultado do servidor, ou
+/// null se o usuário fechou sem cadastrar.
+Future<SpotsBatchResult?> showSpotsBatchSheet(BuildContext context) {
+  return showModalBottomSheet<SpotsBatchResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.canvas,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (_) => const _SpotsBatchSheet(),
+  );
+}
+
+class _SpotsBatchSheet extends ConsumerStatefulWidget {
+  const _SpotsBatchSheet();
+
+  @override
+  ConsumerState<_SpotsBatchSheet> createState() => _SpotsBatchSheetState();
+}
+
+class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
+  int _mode = 0; // 0 = faixa, 1 = lista colada
+  final _prefix = TextEditingController(text: 'Mesa');
+  final _from = TextEditingController(text: '1');
+  final _to = TextEditingController(text: '30');
+  final _list = TextEditingController();
+  bool _zeroPad = false;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final c in [_prefix, _from, _to, _list]) {
+      c.addListener(_refresh);
+    }
+  }
+
+  void _refresh() => setState(() => _error = null);
+
+  @override
+  void dispose() {
+    for (final c in [_prefix, _from, _to, _list]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  /// Nomes que serão cadastrados + motivo de bloqueio (null = pode cadastrar).
+  ({List<String> labels, String? problem}) _build() {
+    if (_mode == 0) {
+      final from = int.tryParse(_from.text.trim());
+      final to = int.tryParse(_to.text.trim());
+      if (from == null || to == null) return (labels: const [], problem: 'Informe os números de início e fim.');
+      // Conta antes de gerar: evita montar uma lista gigante por engano.
+      if (rangeCount(from, to) > maxSpotBatch) {
+        return (labels: const [], problem: 'Máximo de $maxSpotBatch mesas por vez.');
+      }
+      final labels = rangeSpotLabels(prefix: _prefix.text, from: from, to: to, zeroPad: _zeroPad);
+      return (labels: labels, problem: labels.isEmpty ? 'Nenhuma mesa pra criar.' : null);
+    }
+    final labels = parseSpotList(_list.text);
+    if (labels.isEmpty) return (labels: labels, problem: 'Cole os nomes, um por linha.');
+    if (labels.length > maxSpotBatch) return (labels: labels, problem: 'Máximo de $maxSpotBatch mesas por vez.');
+    return (labels: labels, problem: null);
+  }
+
+  Future<void> _submit(List<String> labels) async {
+    if (_saving) return;
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final r = await ref.read(publicApiProvider).addSpotsBatch(token, labels);
+      if (!mounted) return;
+      Navigator.pop<SpotsBatchResult>(context, (created: r.created, skipped: r.skipped));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'Não foi possível cadastrar as mesas. Tente de novo.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final built = _build();
+    final problem = _error ?? built.problem;
+    final canSubmit = built.problem == null && !_saving;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom + MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 18, 20, 18 + bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Adicionar várias'.toUpperCase(), style: AppText.display(size: 20, letterSpacing: -0.4)),
+            const SizedBox(height: 4),
+            Text('Cadastre várias mesas de uma vez. Nomes que já existem são ignorados.',
+                style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
+            const SizedBox(height: 14),
+            SegmentedControl(
+              segments: const ['Sequência', 'Colar lista'],
+              selected: _mode,
+              onChanged: (i) => setState(() {
+                _mode = i;
+                _error = null;
+              }),
+            ),
+            const SizedBox(height: 14),
+            if (_mode == 0) _rangeForm() else _listForm(),
+            const SizedBox(height: 14),
+            _previewBox(built.labels),
+            if (problem != null) ...[
+              const SizedBox(height: 10),
+              Text(problem, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.dangerText)),
+            ],
+            const SizedBox(height: 14),
+            AppButton.primary(
+              label: _saving
+                  ? 'Cadastrando…'
+                  : built.labels.isEmpty || built.problem != null
+                      ? 'Criar mesas'
+                      : 'Criar ${built.labels.length} ${built.labels.length == 1 ? 'mesa' : 'mesas'}',
+              icon: Symbols.add,
+              onPressed: canSubmit ? () => _submit(built.labels) : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rangeForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _field('Nome', _prefix, hint: 'Ex: Mesa, Guarda-sol'),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _field('De', _from, numeric: true)),
+            const SizedBox(width: 10),
+            Expanded(child: _field('Até', _to, numeric: true)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Completar com zero (Mesa 01)',
+                  style: AppText.body(size: 13, weight: FontWeight.w700)),
+            ),
+            AppToggle(value: _zeroPad, onChanged: (v) => setState(() => _zeroPad = v)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _listForm() => _field('Uma mesa por linha', _list,
+      hint: 'Mesa VIP\nGuarda-sol 1\nGuarda-sol 2', maxLines: 7);
+
+  Widget _field(String label, TextEditingController c,
+      {String? hint, bool numeric = false, int maxLines = 1}) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(maxLines > 1 ? 14 : 999),
+      borderSide: const BorderSide(color: AppColors.ink, width: 2),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(),
+            style: AppText.body(size: 11, weight: FontWeight.w800, letterSpacing: 0.5, color: AppColors.inkA(0.5))),
+        const SizedBox(height: 5),
+        TextField(
+          controller: c,
+          maxLines: maxLines,
+          minLines: maxLines > 1 ? 4 : 1,
+          keyboardType: numeric ? TextInputType.number : (maxLines > 1 ? TextInputType.multiline : TextInputType.text),
+          inputFormatters: numeric ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)] : null,
+          style: AppText.body(size: 13, weight: FontWeight.w600),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: hint,
+            hintStyle: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.35)),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            enabledBorder: border,
+            focusedBorder: border,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Prévia dos nomes (até 40 chips + "+N").
+  Widget _previewBox(List<String> labels) {
+    const shown = 40;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.inkA(0.12), width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Prévia · ${labels.length} ${labels.length == 1 ? 'nome' : 'nomes'}',
+              style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.inkA(0.6))),
+          const SizedBox(height: 8),
+          if (labels.isEmpty)
+            Text('—', style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.4)))
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final l in labels.take(shown)) _chip(l),
+                if (labels.length > shown) _chip('+${labels.length - shown}', muted: true),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String text, {bool muted = false}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: muted ? AppColors.inkA(0.06) : AppColors.duneA(0.5),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(text, style: AppText.body(size: 11.5, weight: FontWeight.w700, color: AppColors.inkA(0.8))),
+      );
+}
