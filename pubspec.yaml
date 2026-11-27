@@ -30,6 +30,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Textos dos widgets Material/Cupertino (seletor de data/hora, OK/Cancelar)
+  # em pt/en/es. Vem do SDK (sem download).
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

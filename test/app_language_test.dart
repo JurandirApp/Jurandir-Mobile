@@ -9,12 +9,14 @@ void main() {
     expect(parseAppLanguage('en'), AppLanguage.en);
     expect(parseAppLanguage('pt'), AppLanguage.pt);
     expect(parseAppLanguage(null), AppLanguage.pt);
-    expect(parseAppLanguage('es'), AppLanguage.pt);
+    expect(parseAppLanguage('es'), AppLanguage.es);
+    expect(parseAppLanguage('fr'), AppLanguage.pt);
   });
 
   test('locale de cada idioma', () {
     expect(AppLanguage.pt.locale.toLanguageTag(), 'pt-BR');
     expect(AppLanguage.en.locale.languageCode, 'en');
+    expect(AppLanguage.es.locale.languageCode, 'es');
   });
 
   test('carrega do SharedPreferences e persiste a troca', () async {

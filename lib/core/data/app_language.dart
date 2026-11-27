@@ -1,11 +1,7 @@
 // Idioma do app (preferência do aparelho, não da conta).
 //
-// Hoje o app é só em português (sem infraestrutura de i18n — ver
-// docs/app-i18n-plano.md). Esta preferência já fica guardada e chega no
-// `MaterialApp.locale`, pra quando as telas forem traduzidas bastar ler o
-// [appLanguageProvider]. Sem `flutter_localizations` no projeto, o Flutter
-// resolve qualquer locale pro padrão dele (en_US) nos widgets Material — o que
-// já era o comportamento antes.
+// Guardada no aparelho e ligada em `MaterialApp.locale` + no sistema de
+// tradução do app (`lib/l10n/`, ver docs/app-i18n.md). Português é o padrão.
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +10,8 @@ import 'onboarding_controller.dart';
 
 enum AppLanguage {
   pt('pt', 'Português', Locale('pt', 'BR')),
-  en('en', 'English', Locale('en'));
+  en('en', 'English', Locale('en')),
+  es('es', 'Español', Locale('es'));
 
   final String code;
   final String label; // sempre no próprio idioma (padrão de seletor de idioma)
