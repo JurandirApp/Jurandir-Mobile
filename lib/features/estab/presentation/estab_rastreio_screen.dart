@@ -10,6 +10,7 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../auth/auth_controller.dart';
 import '../data/tracking_models.dart';
 import 'estab_sub_header.dart';
+import '../../../l10n/i18n.dart';
 
 /// Estab · Conta → Rastreio: grid de mesas do dia (resumo). Tocar numa mesa
 /// abre a tela dedicada dela (`/estab/conta/rastreio/mesa`), com os pedidos
@@ -23,7 +24,7 @@ class EstabRastreioScreen extends ConsumerStatefulWidget {
 }
 
 class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
-  static const _diasSemana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  static const _diasSemana = ['estabStats.w1', 'estabStats.w2', 'estabStats.w3', 'estabStats.w4', 'estabStats.w5', 'estabStats.w6', 'estabStats.w7'];
   late DateTime _day = _brToday();
   List<TrackedTable>? _tables;
   bool _loading = true;
@@ -100,7 +101,7 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const EstabSubHeader(title: 'Rastreio'),
+          EstabSubHeader(title: tr('estabStats.tracking')),
           _dayBar(),
           Expanded(child: _body()),
         ],
@@ -109,9 +110,9 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
   }
 
   Widget _dayBar() {
-    final wd = _diasSemana[(_day.weekday - 1) % 7];
+    final wd = tr(_diasSemana[(_day.weekday - 1) % 7]);
     final label = _isToday
-        ? 'Hoje · ${_day.day.toString().padLeft(2, '0')}/${_day.month.toString().padLeft(2, '0')}'
+        ? tr('estabStats.todayDate', {'date': '${_day.day.toString().padLeft(2, '0')}/${_day.month.toString().padLeft(2, '0')}'})
         : '$wd · ${_day.day.toString().padLeft(2, '0')}/${_day.month.toString().padLeft(2, '0')}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
@@ -166,7 +167,7 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
       return Center(
         child: GestureDetector(
           onTap: _load,
-          child: Text('Erro ao carregar. Toque para tentar de novo.',
+          child: Text(tr('estab.loadErrorTap'),
               style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
         ),
       );
@@ -174,7 +175,7 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
     final tables = _tables ?? const <TrackedTable>[];
     if (tables.isEmpty) {
       return Center(
-        child: Text('Nenhuma mesa cadastrada ainda.',
+        child: Text(tr('estabStats.noTables'),
             style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
       );
     }
@@ -195,8 +196,8 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
   Widget _tableCard(TrackedTable t) {
     final empty = t.orderCount == 0;
     final sub = empty
-        ? 'Sem pedidos'
-        : '${t.customers} ${t.customers == 1 ? 'cliente' : 'clientes'} · ${t.orderCount} ${t.orderCount == 1 ? 'pedido' : 'pedidos'} · ${_brl(t.revenue)}';
+        ? tr('estabStats.noOrders')
+        : '${trn('estab.customers', t.customers)} · ${trn('estab.ordersCount', t.orderCount)} · ${_brl(t.revenue)}';
     return BrutalCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       onTap: empty ? null : () => _openTable(t),
@@ -216,7 +217,7 @@ class _EstabRastreioScreenState extends ConsumerState<EstabRastreioScreen> {
                     style: AppText.body(size: 12.5, weight: FontWeight.w700, color: empty ? AppColors.inkA(0.4) : AppColors.successText)),
                 if (!empty && t.lastOrderAt != null) ...[
                   const SizedBox(height: 2),
-                  Text('Último pedido ${_hhmm(t.lastOrderAt!)} · ${_ago(t.lastOrderAt!)}',
+                  Text(tr('estabStats.lastOrder', {'time': _hhmm(t.lastOrderAt!), 'ago': _ago(t.lastOrderAt!)}),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
@@ -240,12 +241,12 @@ String _hhmm(DateTime d) {
 /// "há 12 min" / "há 2 h" / "há 3 dias" desde o último pedido.
 String _ago(DateTime d) {
   final min = DateTime.now().toUtc().difference(d.toUtc()).inMinutes;
-  if (min < 1) return 'agora';
-  if (min < 60) return 'há $min min';
+  if (min < 1) return tr('estabStats.now');
+  if (min < 60) return tr('estabStats.agoMinS', {'min': min});
   final h = min ~/ 60;
-  if (h < 24) return 'há $h h';
+  if (h < 24) return tr('estabStats.agoHS', {'h': h});
   final days = h ~/ 24;
-  return 'há $days ${days == 1 ? 'dia' : 'dias'}';
+  return trn('estabStats.agoDays', days);
 }
 
 /// "R$ 1.234,50" (pt-BR simples, sem intl).

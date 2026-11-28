@@ -13,11 +13,12 @@ import '../../../core/widgets/donut_chart.dart';
 import '../../../core/widgets/segmented_control.dart';
 import '../../auth/auth_controller.dart';
 import 'estab_kpis_logic.dart';
+import '../../../l10n/i18n.dart';
 
 const _payMeta = [
-  ('pix', 'Pix', Symbols.qr_code_2, AppColors.pix),
-  ('credito', 'Crédito', Symbols.credit_card, AppColors.credit),
-  ('debito', 'Débito', Symbols.account_balance_wallet, AppColors.debit),
+  ('pix', 'estabStats.mPix', Symbols.qr_code_2, AppColors.pix),
+  ('credito', 'estabStats.mCredit', Symbols.credit_card, AppColors.credit),
+  ('debito', 'estabStats.mDebit', Symbols.account_balance_wallet, AppColors.debit),
 ];
 
 /// Estab · Resumo (KPIs) com dados reais: calcula faturamento, categorias,
@@ -36,13 +37,13 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
   Widget build(BuildContext context) {
     final ordersAsync = ref.watch(establishmentOrdersProvider);
     final menu = ref.watch(establishmentMenuProvider).asData?.value ?? const <PanelMenuItem>[];
-    final estName = ref.watch(authProvider).name ?? 'Estabelecimento';
+    final estName = ref.watch(authProvider).name ?? context.tr('estab.venue');
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          DarkHeader(eyebrow: estName, title: 'Resumo'),
+          DarkHeader(eyebrow: estName, title: context.tr('estabStats.summary')),
           Expanded(
             child: ordersAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
@@ -63,7 +64,7 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar o resumo.',
+              Text(tr('estabStats.loadSummaryError'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
               GestureDetector(
@@ -71,7 +72,7 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(tr('estab.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -101,17 +102,17 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
     final topSellers = kpis.topSellers;
 
     final stats = [
-      ('Faturamento', money(faturamento), AppColors.coralDeep),
-      ('Pedidos', pedidos.toString(), AppColors.ink),
-      ('Ticket médio', money(ticket), AppColors.oceanDeep),
-      ('Em produção', emProducao.toString(), AppColors.warningText),
+      (tr('estabStats.revenue'), money(faturamento), AppColors.coralDeep),
+      (tr('estabStats.orders'), pedidos.toString(), AppColors.ink),
+      (tr('estabStats.avgTicket'), money(ticket), AppColors.oceanDeep),
+      (tr('estabStats.inProduction'), emProducao.toString(), AppColors.warningText),
     ];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
       children: [
         SegmentedControl(
-          segments: const ['Hoje', '7 dias', '30 dias'],
+          segments: [tr('estabStats.today'), tr('estabStats.days7'), tr('estabStats.days30')],
           selected: _period,
           onChanged: (i) => setState(() => _period = i),
         ),
@@ -124,18 +125,18 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
-              child: Text('Sem pedidos neste período.',
+              child: Text(tr('estabStats.noOrdersPeriod'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
             ),
           )
         else ...[
-          _h2('Vendas por categoria'),
+          _h2(tr('estabStats.byCategory')),
           _donutCard(sortedCats, catTot),
           const SizedBox(height: 22),
-          _h2('Vendas por método'),
+          _h2(tr('estabStats.byMethod')),
           _methodCard(byPay, faturamento),
           const SizedBox(height: 22),
-          _h2('Mais vendidos'),
+          _h2(tr('estabStats.topSellers')),
           _topCard(topSellers),
         ],
       ],
@@ -177,7 +178,7 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
             center: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Vendas',
+                Text(tr('estabStats.sales'),
                     style: AppText.body(size: 8, weight: FontWeight.w700, letterSpacing: 0.4, color: AppColors.inkA(0.45))),
                 Text(centerStr, style: AppText.display(size: 12, height: 1.1)),
               ],
@@ -237,7 +238,8 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
   }
 
   Widget _methodRow((String, String, IconData, Color) pm, double value, double total, double maxV) {
-    final (_, label, icon, color) = pm;
+    final (_, labelKey, icon, color) = pm;
+    final label = tr(labelKey);
     final pct = total == 0 ? 0 : (value / total * 100).round();
     final w = maxV == 0 ? 0.0 : value / maxV;
     return Column(
@@ -302,7 +304,7 @@ class _EstabKpisScreenState extends ConsumerState<EstabKpisScreen> {
               ]), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 8),
-            Text('${row.value} un', style: AppText.body(size: 13, weight: FontWeight.w800)),
+            Text(tr('estabStats.units', {'n': row.value}), style: AppText.body(size: 13, weight: FontWeight.w800)),
           ],
         ),
         const SizedBox(height: 4),

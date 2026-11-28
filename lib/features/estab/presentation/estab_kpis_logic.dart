@@ -1,4 +1,5 @@
 import '../../../core/data/models.dart';
+import '../../../l10n/i18n.dart';
 
 /// Resultado dos KPIs do estabelecimento (só cálculo, sem UI).
 class EstabKpis {
@@ -51,8 +52,8 @@ EstabKpis computeEstabKpis({
   final byCat = <String, double>{};
   for (final o in orders) {
     for (final it in o.items) {
-      var c = catOf[it.name] ?? 'Outros';
-      if (c.isEmpty) c = 'Outros';
+      var c = catOf[it.name] ?? tr('estabStats.others');
+      if (c.isEmpty) c = tr('estabStats.others');
       byCat[c] = (byCat[c] ?? 0) + it.qty * it.price;
     }
   }

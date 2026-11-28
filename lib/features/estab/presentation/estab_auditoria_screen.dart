@@ -10,27 +10,28 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/filter_pill.dart';
 import 'estab_sub_header.dart';
+import '../../../l10n/i18n.dart';
 
 const _methodFilters = [
-  ('todos', 'Todos'),
-  ('pix', 'Pix'),
-  ('credito', 'Crédito'),
-  ('debito', 'Débito'),
+  ('todos', 'estabStats.all'),
+  ('pix', 'estabStats.mPix'),
+  ('credito', 'estabStats.mCredit'),
+  ('debito', 'estabStats.mDebit'),
 ];
 
 const _methodLabel = {
-  'pix': 'Pix',
-  'credito': 'Crédito',
-  'debito': 'Débito',
+  'pix': 'estabStats.mPix',
+  'credito': 'estabStats.mCredit',
+  'debito': 'estabStats.mDebit',
   'usdc': 'USDC',
-  'split': 'Dividido',
+  'split': 'estabStats.mSplit',
 };
 const _gwRate = {'pix': 0.99, 'credito': 3.49, 'debito': 1.99};
 
 String _relTime(int ts) {
   final min = ((DateTime.now().millisecondsSinceEpoch - ts) / 60000).floor();
-  if (min < 1) return 'agora';
-  return min < 60 ? 'há ${min}min' : 'há ${(min / 60).floor()}h';
+  if (min < 1) return tr('estabStats.now');
+  return min < 60 ? tr('estabStats.agoMin', {'min': min}) : tr('estabStats.agoH', {'h': (min / 60).floor()});
 }
 
 /// Estab · Auditoria: vendas REAIS do estabelecimento logado (pra conferência).
@@ -53,7 +54,7 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const EstabSubHeader(title: 'Auditoria'),
+          EstabSubHeader(title: tr('estabStats.audit')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral)),
@@ -78,7 +79,7 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         children: [
-          Text('Vendas confirmadas, para conferência.',
+          Text(tr('estabStats.auditHint'),
               style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
           const SizedBox(height: 14),
           SizedBox(
@@ -90,7 +91,7 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
                   for (var i = 0; i < _methodFilters.length; i++) ...[
                     if (i > 0) const SizedBox(width: 8),
                     FilterPill(
-                      label: _methodFilters[i].$2,
+                      label: tr(_methodFilters[i].$2),
                       selected: _methodFilters[i].$1 == _method,
                       onTap: () => setState(() => _method = _methodFilters[i].$1),
                     ),
@@ -104,7 +105,7 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
-                child: Text('Nenhuma venda registrada ainda.',
+                child: Text(tr('estabStats.noSales'),
                     style: AppText.body(size: 14, color: AppColors.inkA(0.45))),
               ),
             )
@@ -119,7 +120,7 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Total (${rows.length})',
+                Text(tr('estabStats.totalN', {'n': rows.length}),
                     style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.dune)),
                 Text(money(total), style: AppText.display(size: 16, letterSpacing: 0, color: AppColors.dune)),
               ],
@@ -137,12 +138,12 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Não foi possível carregar as vendas.',
+            Text(tr('estabStats.loadSalesError'),
                 textAlign: TextAlign.center, style: AppText.body(size: 14, color: AppColors.inkA(0.6))),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => ref.invalidate(establishmentOrdersProvider),
-              child: Text('Tentar de novo',
+              child: Text(tr('estab.retry'),
                   style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.coral)),
             ),
           ],
@@ -180,7 +181,7 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
                     const Icon(Symbols.location_on, size: 12, color: AppColors.coral),
                     const SizedBox(width: 4),
                     Flexible(
-                      child: Text('${o.loc} · ${_methodLabel[o.pay] ?? o.pay}',
+                      child: Text('${o.loc} · ${_methodLabel[o.pay] == null ? o.pay : (_methodLabel[o.pay]!.contains('.') ? tr(_methodLabel[o.pay]!) : _methodLabel[o.pay]!)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.6))),
@@ -194,7 +195,7 @@ class _EstabAuditoriaScreenState extends ConsumerState<EstabAuditoriaScreen> {
           ),
           if (rate > 0) ...[
             const SizedBox(height: 4),
-            Text('Taxa gateway (est.): ${money(fee)} ($rateStr%)',
+            Text(tr('estabStats.gatewayFee', {'fee': money(fee), 'rate': rateStr}),
                 style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
           ],
         ],
