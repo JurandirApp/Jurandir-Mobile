@@ -10,6 +10,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import 'admin_faturamento_screen.dart' show statCell;
 import 'admin_sub_header.dart';
+import '../../../l10n/i18n.dart';
 
 /// Admin · Repasse Débito: débito (Pagar.me e PagBank) pago a repassar (Pix) por
 /// bar e gateway, por período. Mesma lógica da web — valor a repassar = total menos a taxa Jurandir.
@@ -23,10 +24,10 @@ class AdminRepasseDebitoScreen extends ConsumerStatefulWidget {
 class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
   // (valor da API, rótulo do pill)
   static const _periods = [
-    ('hoje', 'Hoje'),
-    ('7d', '7 dias'),
-    ('30d', '30 dias'),
-    ('tudo', 'Tudo'),
+    ('hoje', 'admin.pToday'),
+    ('7d', 'admin.p7'),
+    ('30d', 'admin.p30'),
+    ('tudo', 'admin.pAll'),
   ];
   String _period = 'hoje';
 
@@ -37,11 +38,11 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const AdminSubHeader(title: 'Repasse Débito'),
+          AdminSubHeader(title: tr('admin.debitPayoutShort')),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
             child: Text(
-              'Débitos pagos no período, por gateway. Valor a repassar por bar = total menos a taxa Jurandir.',
+              tr('admin.payoutHint'),
               style: AppText.body(size: 12, weight: FontWeight.w600, height: 1.4, color: AppColors.inkA(0.5)),
             ),
           ),
@@ -52,7 +53,7 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
-                for (final p in _periods) ...[_pill(p.$1, p.$2), const SizedBox(width: 8)],
+                for (final p in _periods) ...[_pill(p.$1, tr(p.$2)), const SizedBox(width: 8)],
               ],
             ),
           ),
@@ -90,7 +91,7 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
   Widget _error() => Center(
         child: GestureDetector(
           onTap: () => ref.invalidate(adminDebitPayoutProvider(_period)),
-          child: Text('Erro ao carregar. Toque para tentar de novo.',
+          child: Text(tr('admin.loadErrorTap'),
               style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
         ),
       );
@@ -105,7 +106,7 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
             children: [
               Icon(Symbols.payments, size: 40, color: AppColors.inkA(0.35)),
               const SizedBox(height: 12),
-              Text('Nenhum débito no período.',
+              Text(tr('admin.noDebits'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             ],
           ),
@@ -124,7 +125,7 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
               const Icon(Symbols.account_balance_wallet, size: 22, color: AppColors.amber),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('Total a repassar (Pix)',
+                child: Text(tr('admin.totalPayout'),
                     style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.duneA(0.85))),
               ),
               Text(money(total), style: AppText.display(size: 18, letterSpacing: 0, color: AppColors.dune)),
@@ -160,17 +161,17 @@ class _AdminRepasseDebitoState extends ConsumerState<AdminRepasseDebitoScreen> {
                     style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.coralDeep)),
                 const SizedBox(width: 8),
               ],
-              Text('${r.qtd} déb.', style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
+              Text(tr('admin.debitsN', {'n': r.qtd}), style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: statCell('Bruto', money(r.bruto))),
+              Expanded(child: statCell(tr('admin.gross'), money(r.bruto))),
               const SizedBox(width: 6),
-              Expanded(child: statCell('Taxa Jurandir', money(r.taxa), color: AppColors.coralDeep)),
+              Expanded(child: statCell(tr('admin.jurandirFee'), money(r.taxa), color: AppColors.coralDeep)),
               const SizedBox(width: 6),
-              Expanded(child: statCell('A repassar', money(r.aRepassar), color: AppColors.successText)),
+              Expanded(child: statCell(tr('admin.toPayout'), money(r.aRepassar), color: AppColors.successText)),
             ],
           ),
         ],

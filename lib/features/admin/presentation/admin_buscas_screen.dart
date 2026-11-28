@@ -9,8 +9,9 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/filter_pill.dart';
+import '../../../l10n/i18n.dart';
 
-const _dims = [('city', 'Cidade'), ('bairro', 'Bairro'), ('culinaria', 'Culinária'), ('tipo', 'Tipo')];
+const _dims = [('city', 'admin.dCity'), ('bairro', 'admin.dNeighborhood'), ('culinaria', 'admin.dCuisine'), ('tipo', 'admin.dType')];
 
 class AdminBuscasScreen extends ConsumerStatefulWidget {
   const AdminBuscasScreen({super.key});
@@ -29,14 +30,14 @@ class _AdminBuscasScreenState extends ConsumerState<AdminBuscasScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Plataforma', title: 'Buscas'),
+          DarkHeader(eyebrow: tr('admin.platform'), title: tr('admin.tabSearches')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
               error: (_, _) => Center(
                 child: GestureDetector(
                   onTap: () => ref.invalidate(adminSearchesProvider),
-                  child: Text('Erro ao carregar. Toque para tentar de novo.',
+                  child: Text(tr('admin.loadErrorTap'),
                       style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
                 ),
               ),
@@ -59,9 +60,9 @@ class _AdminBuscasScreenState extends ConsumerState<AdminBuscasScreen> {
       children: [
         Text.rich(
           TextSpan(children: [
-            const TextSpan(text: 'O que os visitantes filtram — '),
+            TextSpan(text: tr('admin.searchesPre')),
             TextSpan(text: groupThousands(total), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
-            const TextSpan(text: ' buscas registradas.'),
+            TextSpan(text: tr('admin.searchesPost')),
           ]),
           style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5)),
         ),
@@ -74,7 +75,7 @@ class _AdminBuscasScreenState extends ConsumerState<AdminBuscasScreen> {
               children: [
                 for (var i = 0; i < _dims.length; i++) ...[
                   if (i > 0) const SizedBox(width: 8),
-                  FilterPill(label: _dims[i].$2, selected: _dims[i].$1 == _dim, onTap: () => setState(() => _dim = _dims[i].$1)),
+                  FilterPill(label: tr(_dims[i].$2), selected: _dims[i].$1 == _dim, onTap: () => setState(() => _dim = _dims[i].$1)),
                 ],
               ],
             ),
@@ -85,7 +86,7 @@ class _AdminBuscasScreenState extends ConsumerState<AdminBuscasScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
-              child: Text('Sem buscas registradas nesta dimensão.',
+              child: Text(tr('admin.noSearches'),
                   textAlign: TextAlign.center,
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
             ),

@@ -10,22 +10,23 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/filter_pill.dart';
+import '../../../l10n/i18n.dart';
 
 const _mFilters = [
-  ('todos', 'Todos'),
-  ('pix', 'Pix'),
-  ('credito', 'Crédito'),
-  ('debito', 'Débito'),
-  ('usdc', 'USDC'),
-  ('split', 'Dividido'),
+  ('todos', 'admin.all'),
+  ('pix', 'admin.mPix'),
+  ('credito', 'admin.mCredit'),
+  ('debito', 'admin.mDebit'),
+  ('usdc', 'admin.mUsdc'),
+  ('split', 'admin.mSplit'),
 ];
 
-const _mLbl = {'pix': 'Pix', 'credito': 'Crédito', 'debito': 'Débito', 'usdc': 'USDC', 'split': 'Dividido'};
+const _mLbl = {'pix': 'admin.mPix', 'credito': 'admin.mCredit', 'debito': 'admin.mDebit', 'usdc': 'admin.mUsdc', 'split': 'admin.mSplit'};
 
 String _relTime(int ts) {
   final min = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ts)).inMinutes;
   if (min < 1) return 'agora';
-  return min < 60 ? 'há ${min}min' : 'há ${(min / 60).floor()}h';
+  return min < 60 ? tr('admin.agoMin', {'min': min}) : tr('admin.agoH', {'h': (min / 60).floor()});
 }
 
 class AdminBacklogScreen extends ConsumerStatefulWidget {
@@ -46,7 +47,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Plataforma', title: 'Backlog'),
+          DarkHeader(eyebrow: tr('admin.platform'), title: tr('admin.tabBacklog')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
@@ -67,7 +68,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar o backlog.',
+              Text(tr('admin.backlogLoadError'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
               GestureDetector(
@@ -75,7 +76,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(tr('admin.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -91,7 +92,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       children: [
-        Text('Compras de toda a plataforma. Cartão sempre mascarado.',
+        Text(tr('admin.backlogHint'),
             style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
         const SizedBox(height: 14),
         SizedBox(
@@ -103,7 +104,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
                 for (var i = 0; i < _mFilters.length; i++) ...[
                   if (i > 0) const SizedBox(width: 8),
                   FilterPill(
-                    label: _mFilters[i].$2,
+                    label: tr(_mFilters[i].$2),
                     selected: _mFilters[i].$1 == _method,
                     onTap: () => setState(() => _method = _mFilters[i].$1),
                   ),
@@ -117,7 +118,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
-              child: Text('Nenhuma compra neste filtro.',
+              child: Text(tr('admin.noPurchases'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
             ),
           )
@@ -129,7 +130,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Total (${rows.length} compra${rows.length == 1 ? '' : 's'})',
+                Text(trn('admin.totalPurchases', rows.length),
                     style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.dune)),
                 Text(money(total), style: AppText.display(size: 16, letterSpacing: 0, color: AppColors.dune)),
               ],
@@ -141,7 +142,7 @@ class _AdminBacklogScreenState extends ConsumerState<AdminBacklogScreen> {
   }
 
   Widget _row(AdminBacklogOrder r) {
-    final meta = '${r.city} · ${_relTime(r.ts)} · ${_mLbl[r.method] ?? r.method}${r.card.isNotEmpty ? ' · ${r.card}' : ''}';
+    final meta = '${r.city} · ${_relTime(r.ts)} · ${_mLbl[r.method] == null ? r.method : tr(_mLbl[r.method]!)}${r.card.isNotEmpty ? ' · ${r.card}' : ''}';
     return BrutalCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(

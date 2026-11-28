@@ -9,6 +9,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
+import '../../../l10n/i18n.dart';
 
 /// Admin · Faturamento por estabelecimento (real, todo o período).
 class AdminFaturamentoScreen extends ConsumerWidget {
@@ -21,7 +22,7 @@ class AdminFaturamentoScreen extends ConsumerWidget {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Plataforma', title: 'Faturamento'),
+          DarkHeader(eyebrow: tr('admin.platform'), title: tr('admin.tabRevenue')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
@@ -32,7 +33,7 @@ class AdminFaturamentoScreen extends ConsumerWidget {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
                   children: [
-                    Text('Faturamento e fees por estabelecimento.',
+                    Text(tr('admin.revenueHint'),
                         style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                     const SizedBox(height: 12),
                     for (final e in ests) ...[_card(e), const SizedBox(height: 10)],
@@ -54,7 +55,7 @@ class AdminFaturamentoScreen extends ConsumerWidget {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar o faturamento.',
+              Text(tr('admin.revenueLoadError'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
               GestureDetector(
@@ -62,7 +63,7 @@ class AdminFaturamentoScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(tr('admin.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -97,11 +98,11 @@ class AdminFaturamentoScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: statCell('Faturamento', money(e.gmv))),
+              Expanded(child: statCell(tr('admin.revenue'), money(e.gmv))),
               const SizedBox(width: 6),
-              Expanded(child: statCell('Pedidos', groupThousands(e.orders))),
+              Expanded(child: statCell(tr('admin.orders'), groupThousands(e.orders))),
               const SizedBox(width: 6),
-              Expanded(child: statCell('Fee (${e.feePct}%)', money(e.fees), color: AppColors.successText)),
+              Expanded(child: statCell(tr('admin.feePct', {'pct': e.feePct}), money(e.fees), color: AppColors.successText)),
             ],
           ),
         ],
@@ -116,7 +117,7 @@ Widget _ativoBadge(bool active) => Container(
         color: active ? AppColors.successBg : AppColors.inkA(0.1),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(active ? 'Ativo' : 'Inativo',
+      child: Text(active ? tr('admin.active') : tr('admin.inactive'),
           style: AppText.body(size: 10, weight: FontWeight.w700, color: active ? AppColors.successText : AppColors.inkA(0.5))),
     );
 

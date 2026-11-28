@@ -10,6 +10,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../auth/auth_controller.dart';
 import 'admin_sub_header.dart';
+import '../../../l10n/i18n.dart';
 
 /// Admin · Taxas: fee (%) editável por estabelecimento (salva no backend).
 class AdminTaxasScreen extends ConsumerWidget {
@@ -22,14 +23,14 @@ class AdminTaxasScreen extends ConsumerWidget {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const AdminSubHeader(title: 'Taxas'),
+          AdminSubHeader(title: tr('admin.fees')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
               error: (_, _) => Center(
                 child: GestureDetector(
                   onTap: () => ref.invalidate(adminOverviewProvider),
-                  child: Text('Erro ao carregar. Toque para tentar de novo.',
+                  child: Text(tr('admin.loadErrorTap'),
                       style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
                 ),
               ),
@@ -38,7 +39,7 @@ class AdminTaxasScreen extends ConsumerWidget {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                   children: [
-                    Text('Fee do Jurandir sobre cada venda, por estabelecimento. Edite e salve.',
+                    Text(tr('admin.feesHint'),
                         style: AppText.body(size: 12, weight: FontWeight.w600, height: 1.4, color: AppColors.inkA(0.5))),
                     const SizedBox(height: 12),
                     for (final e in ests) ...[_FeeRow(est: e), const SizedBox(height: 10)],
@@ -97,7 +98,7 @@ class _FeeRowState extends ConsumerState<_FeeRow> {
         ..showSnackBar(SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColors.ink,
-          content: Text('Fee de ${widget.est.name} salvo: $pct%',
+          content: Text(tr('admin.feeSaved', {'name': widget.est.name, 'pct': pct}),
               style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
         ));
     } catch (_) {
@@ -107,7 +108,7 @@ class _FeeRowState extends ConsumerState<_FeeRow> {
           ..showSnackBar(SnackBar(
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.ink,
-            content: Text('Não foi possível salvar',
+            content: Text(tr('admin.saveErrorShort'),
                 style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
           ));
       }
@@ -131,7 +132,7 @@ class _FeeRowState extends ConsumerState<_FeeRow> {
                     style: AppText.display(size: 14, weight: FontWeight.w700, letterSpacing: 0)),
                 const SizedBox(height: 1),
                 Text.rich(TextSpan(children: [
-                  const TextSpan(text: 'Fees acumulados: '),
+                  TextSpan(text: tr('admin.feesAccum')),
                   TextSpan(text: money(e.fees), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.successText)),
                 ]), style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               ],
