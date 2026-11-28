@@ -127,7 +127,8 @@ const adminStrings = I18nNamespace(
     'dType': 'Tipo',
     'searchesPre': 'O que os visitantes filtram — ',
     'searchesPost': ' buscas registradas.',
-    'noSearches': 'Sem buscas registradas nesta dimensão.',  },
+    'noSearches': 'Sem buscas registradas nesta dimensão.',
+  },
   en: {
     'tabDashboard': 'Dashboard',
     'tabRevenue': 'Revenue',
@@ -252,7 +253,8 @@ const adminStrings = I18nNamespace(
     'dType': 'Type',
     'searchesPre': 'What visitors filter by — ',
     'searchesPost': ' searches recorded.',
-    'noSearches': 'No searches recorded for this dimension.',  },
+    'noSearches': 'No searches recorded for this dimension.',
+  },
   es: {
     'tabDashboard': 'Panel',
     'tabRevenue': 'Facturación',
@@ -377,5 +379,6 @@ const adminStrings = I18nNamespace(
     'dType': 'Tipo',
     'searchesPre': 'Lo que filtran los visitantes — ',
     'searchesPost': ' búsquedas registradas.',
-    'noSearches': 'Sin búsquedas registradas en esta dimensión.',  },
+    'noSearches': 'Sin búsquedas registradas en esta dimensión.',
+  },
 );

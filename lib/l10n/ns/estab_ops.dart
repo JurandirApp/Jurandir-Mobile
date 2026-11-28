@@ -83,7 +83,8 @@ const estabOpsStrings = I18nNamespace(
     'd5': 'Sex',
     'd6': 'Sáb',
     'open': 'Abrir',
-    'secondShift': '+ 2º turno',  },
+    'secondShift': '+ 2º turno',
+  },
   en: {
     'waiters': 'Waiters',
     'newWaiter': 'New waiter',
@@ -164,7 +165,8 @@ const estabOpsStrings = I18nNamespace(
     'd5': 'Fri',
     'd6': 'Sat',
     'open': 'Open',
-    'secondShift': '+ 2nd shift',  },
+    'secondShift': '+ 2nd shift',
+  },
   es: {
     'waiters': 'Meseros',
     'newWaiter': 'Nuevo mesero',
@@ -245,5 +247,6 @@ const estabOpsStrings = I18nNamespace(
     'd5': 'Vie',
     'd6': 'Sáb',
     'open': 'Abrir',
-    'secondShift': '+ 2º turno',  },
+    'secondShift': '+ 2º turno',
+  },
 );

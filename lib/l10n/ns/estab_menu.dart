@@ -63,7 +63,8 @@ const estabMenuStrings = I18nNamespace(
     'cancel': 'Cancelar',
     'apply': 'Aplicar ajuste',
     'preview': 'Ver prévia',
-    'addonName': 'adicional: {name}',  },
+    'addonName': 'adicional: {name}',
+  },
   en: {
     'couldNotUpdate': 'Couldn\'t update',
     'itemDeleted': 'Item deleted',
@@ -124,7 +125,8 @@ const estabMenuStrings = I18nNamespace(
     'cancel': 'Cancel',
     'apply': 'Apply adjustment',
     'preview': 'Preview',
-    'addonName': 'add-on: {name}',  },
+    'addonName': 'add-on: {name}',
+  },
   es: {
     'couldNotUpdate': 'No fue posible actualizar',
     'itemDeleted': 'Ítem eliminado',
@@ -185,5 +187,6 @@ const estabMenuStrings = I18nNamespace(
     'cancel': 'Cancelar',
     'apply': 'Aplicar ajuste',
     'preview': 'Ver vista previa',
-    'addonName': 'adicional: {name}',  },
+    'addonName': 'adicional: {name}',
+  },
 );

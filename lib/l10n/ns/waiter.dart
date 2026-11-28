@@ -37,7 +37,8 @@ const waiterStrings = I18nNamespace(
     'queueError': 'Não foi possível carregar a fila.',
     'retry': 'Tentar de novo',
     'pushTitle': '🔔 Chamado',
-    'pushBody': 'Cliente precisa de ajuda',  },
+    'pushBody': 'Cliente precisa de ajuda',
+  },
   en: {
     'back': 'Back',
     'codeDigits': 'Enter the 4-digit code',
@@ -72,7 +73,8 @@ const waiterStrings = I18nNamespace(
     'queueError': 'Couldn\'t load the queue.',
     'retry': 'Try again',
     'pushTitle': '🔔 Call',
-    'pushBody': 'Customer needs help',  },
+    'pushBody': 'Customer needs help',
+  },
   es: {
     'back': 'Volver',
     'codeDigits': 'Ingresa los 4 dígitos del código',
@@ -107,5 +109,6 @@ const waiterStrings = I18nNamespace(
     'queueError': 'No fue posible cargar la fila.',
     'retry': 'Intentar de nuevo',
     'pushTitle': '🔔 Llamado',
-    'pushBody': 'El cliente necesita ayuda',  },
+    'pushBody': 'El cliente necesita ayuda',
+  },
 );

@@ -1,4 +1,5 @@
 import 'open_status.dart';
+import '../../l10n/i18n.dart';
 
 // Modelos de domínio do app (lado do cliente).
 //
@@ -243,10 +244,10 @@ class ClientOrderItem {
   String get statusLabel {
     final preparing = qty - (ready + outForDelivery + delivered);
     final parts = <String>[
-      if (delivered > 0) '$delivered entregue${delivered > 1 ? 's' : ''}',
-      if (outForDelivery > 0) '$outForDelivery a caminho',
-      if (ready > 0) '$ready pronto${ready > 1 ? 's' : ''}',
-      if (preparing > 0) '$preparing preparando',
+      if (delivered > 0) trn('data.stDelivered', delivered),
+      if (outForDelivery > 0) tr('data.stOnTheWay', {'n': outForDelivery}),
+      if (ready > 0) trn('data.stReady', ready),
+      if (preparing > 0) tr('data.stPreparing', {'n': preparing}),
     ];
     return parts.join(' · ');
   }

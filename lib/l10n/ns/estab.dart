@@ -52,7 +52,8 @@ const estabStrings = I18nNamespace(
     'customer': 'Cliente',
     'orderAt': 'Pedido {time}',
     'notDelivered': 'Não entregue',
-    'deliveredAt': 'Entregue {time}',  },
+    'deliveredAt': 'Entregue {time}',
+  },
   en: {
     'fAll': 'All',
     'fWaiting': 'Waiting',
@@ -102,7 +103,8 @@ const estabStrings = I18nNamespace(
     'customer': 'Customer',
     'orderAt': 'Ordered {time}',
     'notDelivered': 'Not delivered',
-    'deliveredAt': 'Delivered {time}',  },
+    'deliveredAt': 'Delivered {time}',
+  },
   es: {
     'fAll': 'Todos',
     'fWaiting': 'En espera',
@@ -152,5 +154,6 @@ const estabStrings = I18nNamespace(
     'customer': 'Cliente',
     'orderAt': 'Pedido {time}',
     'notDelivered': 'No entregado',
-    'deliveredAt': 'Entregado {time}',  },
+    'deliveredAt': 'Entregado {time}',
+  },
 );

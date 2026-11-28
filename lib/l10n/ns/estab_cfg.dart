@@ -62,7 +62,8 @@ const estabCfgStrings = I18nNamespace(
     'account': 'Conta',
     'language': 'Idioma',
     'signOut': 'Sair da conta',
-    'backToClient': 'Voltar ao modo cliente',  },
+    'backToClient': 'Voltar ao modo cliente',
+  },
   en: {
     'gwMp': 'Pix, credit, debit',
     'gwPagarme': 'Split + recipients',
@@ -122,7 +123,8 @@ const estabCfgStrings = I18nNamespace(
     'account': 'Account',
     'language': 'Language',
     'signOut': 'Sign out',
-    'backToClient': 'Back to customer mode',  },
+    'backToClient': 'Back to customer mode',
+  },
   es: {
     'gwMp': 'Pix, crédito, débito',
     'gwPagarme': 'Split + receptores',
@@ -182,5 +184,6 @@ const estabCfgStrings = I18nNamespace(
     'account': 'Cuenta',
     'language': 'Idioma',
     'signOut': 'Cerrar sesión',
-    'backToClient': 'Volver al modo cliente',  },
+    'backToClient': 'Volver al modo cliente',
+  },
 );

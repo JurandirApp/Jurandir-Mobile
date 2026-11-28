@@ -49,7 +49,8 @@ const estabStatsStrings = I18nNamespace(
     'todayDate': 'Hoje · {date}',
     'noTables': 'Nenhuma mesa cadastrada ainda.',
     'noOrders': 'Sem pedidos',
-    'lastOrder': 'Último pedido {time} · {ago}',  },
+    'lastOrder': 'Último pedido {time} · {ago}',
+  },
   en: {
     'mPix': 'Pix',
     'mCredit': 'Credit',
@@ -96,7 +97,8 @@ const estabStatsStrings = I18nNamespace(
     'todayDate': 'Today · {date}',
     'noTables': 'No tables registered yet.',
     'noOrders': 'No orders',
-    'lastOrder': 'Last order {time} · {ago}',  },
+    'lastOrder': 'Last order {time} · {ago}',
+  },
   es: {
     'mPix': 'Pix',
     'mCredit': 'Crédito',
@@ -143,5 +145,6 @@ const estabStatsStrings = I18nNamespace(
     'todayDate': 'Hoy · {date}',
     'noTables': 'Todavía no hay mesas registradas.',
     'noOrders': 'Sin pedidos',
-    'lastOrder': 'Último pedido {time} · {ago}',  },
+    'lastOrder': 'Último pedido {time} · {ago}',
+  },
 );
