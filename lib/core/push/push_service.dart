@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../alert/alert_service.dart';
+import '../../l10n/i18n.dart';
 
 /// Push FCM: só o garçom chama. Listeners são configurados UMA vez (sem vazar);
 /// o callback de registro é sempre o mais recente (bearer atual). Best-effort.
@@ -16,7 +17,7 @@ class PushService {
         FirebaseMessaging.instance.onTokenRefresh.listen((t) { _register?.call(t).catchError((_) {}); });
         FirebaseMessaging.onMessage.listen((m) {
           final n = m.notification;
-          AlertService.ring(title: n?.title ?? '🔔 Chamado', body: n?.body ?? 'Cliente precisa de ajuda');
+          AlertService.ring(title: n?.title ?? tr('waiter.pushTitle'), body: n?.body ?? tr('waiter.pushBody'));
         });
       }
       final token = await FirebaseMessaging.instance.getToken();

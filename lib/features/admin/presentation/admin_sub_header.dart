@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/i18n.dart';
 
 /// Header das sub-telas do admin (Cadastros/Taxas): back "← Conta" + eyebrow +
 /// título.
@@ -32,7 +33,7 @@ class AdminSubHeader extends StatelessWidget {
               children: [
                 Icon(Symbols.arrow_back, size: 16, color: AppColors.duneA(0.7)),
                 const SizedBox(width: 6),
-                Text('Conta', style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.duneA(0.7))),
+                Text(context.tr('admin.account'), style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.duneA(0.7))),
               ],
             ),
           ),
@@ -44,7 +45,7 @@ class AdminSubHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Plataforma'.toUpperCase(), style: AppText.eyebrow),
+                    Text(context.tr('admin.platform').toUpperCase(), style: AppText.eyebrow),
                     const SizedBox(height: 3),
                     Text(title.toUpperCase(), style: AppText.pageTitle.copyWith(color: AppColors.dune)),
                   ],

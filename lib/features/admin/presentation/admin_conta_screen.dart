@@ -9,6 +9,7 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
+import '../../../l10n/i18n.dart';
 
 /// Admin · Conta: card da conta + menu (Cadastros/Taxas) + sair.
 class AdminContaScreen extends ConsumerWidget {
@@ -17,17 +18,17 @@ class AdminContaScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menu = [
-      (Symbols.storefront, 'Cadastros de estabelecimentos', '/admin/conta/cadastros'),
-      (Symbols.percent, 'Taxas por estabelecimento', '/admin/conta/taxas'),
-      (Symbols.credit_card, 'Pagamentos (gateways)', '/admin/conta/pagamentos'),
-      (Symbols.payments, 'Repasse de débito (Pix)', '/admin/conta/repasse-debito'),
+      (Symbols.storefront, context.tr('admin.venueSignups'), '/admin/conta/cadastros'),
+      (Symbols.percent, context.tr('admin.feesByVenue'), '/admin/conta/taxas'),
+      (Symbols.credit_card, context.tr('admin.paymentsGw'), '/admin/conta/pagamentos'),
+      (Symbols.payments, context.tr('admin.debitPayout'), '/admin/conta/repasse-debito'),
     ];
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(title: 'Conta'),
+          DarkHeader(title: context.tr('admin.account')),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -49,7 +50,7 @@ class AdminContaScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Administração Jurandir',
+                              Text(context.tr('admin.adminTitle'),
                                   style: AppText.display(size: 16, weight: FontWeight.w700, letterSpacing: 0)),
                               const SizedBox(height: 1),
                               Text(ref.watch(authProvider).email ?? 'admin@jurandir.app',
@@ -73,14 +74,14 @@ class AdminContaScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   AppButton.dark(
-                    label: 'Sair da conta',
+                    label: context.tr('admin.signOut'),
                     onPressed: () {
                       ref.read(authProvider.notifier).logout();
                       context.go('/home');
                     },
                   ),
                   const SizedBox(height: 10),
-                  AppButton.ghost(label: 'Voltar ao modo cliente', onPressed: () => context.go('/home')),
+                  AppButton.ghost(label: context.tr('admin.backToClient'), onPressed: () => context.go('/home')),
                 ],
               ),
             ),

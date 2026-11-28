@@ -13,6 +13,7 @@ import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
 import '../data/waiter_models.dart';
 import 'waiter_back_button.dart';
+import '../../../l10n/i18n.dart';
 
 /// Detalhe do pedido pro garçom: mostra todas as linhas (prontas selecionáveis,
 /// preparando só informativas), o garçom marca as que está levando e confirma
@@ -116,7 +117,7 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
     if (order == null || _busy) return;
     final code = _code.text.trim();
     if (code.length != 4) {
-      setState(() => _codeError = 'Digite os 4 dígitos do código');
+      setState(() => _codeError = tr('waiter.codeDigits'));
       return;
     }
     final token = ref.read(authProvider).token;
@@ -135,7 +136,7 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
     if (!mounted) return;
 
     if (r.ok) {
-      _toast(r.orderDone ? '✅ ENTREGUE — pedido concluído' : '✅ ENTREGUE', bg: AppColors.success, fg: Colors.white);
+      _toast(r.orderDone ? tr('waiter.deliveredDone') : tr('waiter.delivered'), bg: AppColors.success, fg: Colors.white);
       await Future.delayed(const Duration(milliseconds: 700));
       if (!mounted) return;
       context.pop();
@@ -144,12 +145,12 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
 
     setState(() => _busy = false);
     if (r.error == 'code') {
-      setState(() => _codeError = 'Código inválido, confira com o cliente');
+      setState(() => _codeError = tr('waiter.codeInvalid'));
     } else if (r.error == 'qty') {
-      _toast('Algum item mudou. Confira a seleção.', bg: AppColors.danger, fg: Colors.white);
+      _toast(tr('waiter.itemsChanged'), bg: AppColors.danger, fg: Colors.white);
       _refresh();
     } else {
-      _toast('Não foi possível confirmar. Tente de novo.', bg: AppColors.danger, fg: Colors.white);
+      _toast(tr('waiter.confirmError'), bg: AppColors.danger, fg: Colors.white);
     }
   }
 
@@ -161,8 +162,8 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
       body: Column(
         children: [
           DarkHeader(
-            eyebrow: 'Garçom',
-            title: order == null ? 'Pedido' : 'Entrega — ${order.mesa}',
+            eyebrow: tr('waiter.waiter'),
+            title: order == null ? tr('waiter.order') : tr('waiter.deliveryAt', {'table': order.mesa}),
             // Volta pra fila (pop; se abriu sem histórico, vai direto pra fila).
             leading: waiterBackButton(() => context.canPop() ? context.pop() : context.go('/waiter')),
           ),
@@ -181,13 +182,13 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
           children: [
             Icon(Symbols.check_circle, size: 44, color: AppColors.inkA(0.35)),
             const SizedBox(height: 12),
-            Text('Pedido concluído ou não disponível.',
+            Text(tr('waiter.orderUnavailable'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 14),
             SizedBox(
               height: 56,
-              child: AppButton.dark(label: 'VOLTAR PARA A FILA', onPressed: () => context.pop()),
+              child: AppButton.dark(label: tr('waiter.backToQueue'), onPressed: () => context.pop()),
             ),
           ],
         ),
@@ -214,19 +215,19 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
                     Icon(Symbols.person, size: 16, color: AppColors.inkA(0.5)),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(order.cliente.isEmpty ? 'Cliente' : order.cliente,
+                      child: Text(order.cliente.isEmpty ? tr('waiter.customer') : order.cliente,
                           style: AppText.body(size: 15, weight: FontWeight.w700)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 if (ready.isNotEmpty) ...[
-                  _label('Prontos — toque pra selecionar'),
+                  _label(tr('waiter.readyTap')),
                   for (final it in ready) _readyRow(it),
                 ],
                 if (preparing.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  _label('Ainda preparando'),
+                  _label(tr('waiter.stillPreparing')),
                   for (final it in preparing) _preparingRow(it),
                 ],
                 const SizedBox(height: 8),
@@ -286,7 +287,7 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text('Quantidade a entregar',
+            child: Text(tr('waiter.qtyToDeliver'),
                 style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
           ),
           _stepBtn(Symbols.remove, n <= 1 ? null : () => _setQty(item, n - 1)),
@@ -356,7 +357,7 @@ class _WaiterOrderScreenState extends ConsumerState<WaiterOrderScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CÓDIGO DO CLIENTE · $count ${count == 1 ? 'item' : 'itens'}', style: AppText.sectionTitle),
+          Text(trn('waiter.customerCode', count), style: AppText.sectionTitle),
           const SizedBox(height: 8),
           Row(
             children: [

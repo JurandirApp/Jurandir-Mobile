@@ -15,6 +15,7 @@ import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
 import '../data/waiter_models.dart';
 import 'waiter_back_button.dart';
+import '../../../l10n/i18n.dart';
 
 /// Tela do garçom: fila de **pedidos** com algo pronto pra entregar. Tocar num
 /// pedido abre o detalhe (`/waiter/order`), onde ele seleciona os itens prontos
@@ -72,7 +73,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
         if (!mounted) return;
         setState(() => _calls = calls);
         if (!_firstCallLoad && novos.isNotEmpty) {
-          AlertService.ring(title: '🔔 Chamado na mesa', body: '${novos.first.locationLabel} precisa de ajuda com o pagamento');
+          AlertService.ring(title: tr('waiter.callTitle'), body: tr('waiter.callBody', {'table': novos.first.locationLabel}));
         }
         _firstCallLoad = false; // só vira após um fetch de calls bem-sucedido
       } catch (_) {}
@@ -88,14 +89,14 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text('Sair da conta?', style: AppText.display(size: 17, letterSpacing: -0.2)),
-        content: Text('Você volta pra tela de login.',
+        title: Text(tr('waiter.signOutQ'), style: AppText.display(size: 17, letterSpacing: -0.2)),
+        content: Text(tr('waiter.signOutBody'),
             style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.6))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('waiter.cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Sair', style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.danger)),
+            child: Text(tr('waiter.signOut'), style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.danger)),
           ),
         ],
       ),
@@ -126,7 +127,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
                 const Icon(Symbols.notifications_active, size: 20, color: Colors.white),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('${c.locationLabel} — precisa de ajuda com o pagamento',
+                  child: Text(tr('waiter.callNeedsHelp', {'table': c.locationLabel}),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: Colors.white)),
                 ),
                 TextButton(
@@ -137,7 +138,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text('Atendido', style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.danger)),
+                  child: Text(tr('waiter.attended'), style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.danger)),
                 ),
               ],
             ),
@@ -158,8 +159,8 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
       body: Column(
         children: [
           DarkHeader(
-            eyebrow: 'Garçom',
-            title: 'Fila do garçom',
+            eyebrow: tr('waiter.waiter'),
+            title: tr('waiter.queue'),
             // Voltar SEM deslogar: a fila é a raiz do garçom (o login usa go),
             // então sem histórico volta pro Perfil — de onde ele entrou no
             // login. A faixa "Voltar à fila do garçom" traz ele de volta.
@@ -219,7 +220,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
           Row(
             children: [
               Expanded(
-                child: Text(order.cliente.isEmpty ? 'Cliente' : order.cliente,
+                child: Text(order.cliente.isEmpty ? tr('waiter.customer') : order.cliente,
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.display(size: 20, letterSpacing: -0.4)),
               ),
               Icon(Symbols.chevron_right, size: 24, color: AppColors.inkA(0.4)),
@@ -248,7 +249,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
                 const Icon(Symbols.check_circle, size: 16, color: AppColors.successText),
                 const SizedBox(width: 6),
                 Text(
-                  ready == 1 ? '1 item pronto' : '$ready de $total itens prontos',
+                  ready == 1 ? tr('waiter.oneReady') : tr('waiter.nReady', {'ready': ready, 'total': total}),
                   style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.successText),
                 ),
               ],
@@ -276,7 +277,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
                   children: [
                     Icon(Symbols.task_alt, size: 44, color: AppColors.inkA(0.35)),
                     const SizedBox(height: 12),
-                    Text('Nenhum pedido na fila agora',
+                    Text(tr('waiter.queueEmpty'),
                         style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
                   ],
                 ),
@@ -297,7 +298,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
           children: [
             Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
             const SizedBox(height: 12),
-            Text('Não foi possível carregar a fila.',
+            Text(tr('waiter.queueError'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 14),
@@ -306,7 +307,7 @@ class _WaiterReadyScreenState extends ConsumerState<WaiterReadyScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                child: Text('Tentar de novo',
+                child: Text(tr('waiter.retry'),
                     style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
               ),
             ),
