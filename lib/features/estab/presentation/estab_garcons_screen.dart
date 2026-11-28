@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../auth/auth_controller.dart';
 import '../../../core/widgets/brutal_card.dart';
 import 'estab_sub_header.dart';
+import '../../../l10n/i18n.dart';
 
 /// Estab · Garções: cadastra/edita/remove garçons e mostra, por garçom, quantas
 /// entregas e quantos produtos ele já entregou (do OrderEvent DELIVERED).
@@ -21,7 +22,7 @@ class EstabGarconsScreen extends ConsumerWidget {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const EstabSubHeader(title: 'Garções'),
+          EstabSubHeader(title: context.tr('estabOps.waiters')),
           Expanded(
             child: async.when(
               loading: () => const Center(
@@ -45,7 +46,7 @@ class EstabGarconsScreen extends ConsumerWidget {
                             children: [
                               const Icon(Symbols.person_add, size: 18, color: Colors.white),
                               const SizedBox(width: 8),
-                              Text('Novo garçom',
+                              Text(context.tr('estabOps.newWaiter'),
                                   style: AppText.body(
                                       size: 15, weight: FontWeight.w800, color: Colors.white)),
                             ],
@@ -62,7 +63,7 @@ class EstabGarconsScreen extends ConsumerWidget {
                         children: [
                           Icon(Symbols.badge, size: 40, color: AppColors.inkA(0.3)),
                           const SizedBox(height: 10),
-                          Text('Nenhum garçom cadastrado ainda.',
+                          Text(context.tr('estabOps.noWaiters'),
                               style: AppText.body(
                                   size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                         ],
@@ -90,7 +91,7 @@ class EstabGarconsScreen extends ConsumerWidget {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar os garçons.',
+              Text(tr('estabOps.loadWaitersError'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
               GestureDetector(
@@ -98,7 +99,7 @@ class EstabGarconsScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(tr('estabOps.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -147,9 +148,9 @@ class EstabGarconsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _stat('Entregas', '${w.deliveries}')),
+              Expanded(child: _stat(context.tr('estabOps.deliveries'), '${w.deliveries}')),
               const SizedBox(width: 8),
-              Expanded(child: _stat('Produtos entregues', '${w.products}')),
+              Expanded(child: _stat(context.tr('estabOps.productsDelivered'), '${w.products}')),
             ],
           ),
         ],
@@ -188,14 +189,14 @@ class EstabGarconsScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text('Excluir garçom?', style: AppText.display(size: 17, letterSpacing: -0.2)),
-        content: Text('${w.name} perderá o acesso ao app do garçom. Esta ação não pode ser desfeita.',
+        title: Text(tr('estabOps.deleteWaiterQ'), style: AppText.display(size: 17, letterSpacing: -0.2)),
+        content: Text(tr('estabOps.deleteWaiterBody', {'name': w.name}),
             style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.inkA(0.6))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('estabOps.cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Excluir', style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.danger)),
+            child: Text(tr('estabOps.delete'), style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.danger)),
           ),
         ],
       ),
@@ -208,11 +209,11 @@ class EstabGarconsScreen extends ConsumerWidget {
       ref.invalidate(estabWaitersProvider);
       messenger
         ..clearSnackBars()
-        ..showSnackBar(garconsSnack('Garçom removido'));
+        ..showSnackBar(garconsSnack(tr('estabOps.waiterRemoved')));
     } catch (_) {
       messenger
         ..clearSnackBars()
-        ..showSnackBar(garconsSnack('Não foi possível remover'));
+        ..showSnackBar(garconsSnack(tr('estabOps.couldNotRemove')));
     }
   }
 
@@ -267,11 +268,11 @@ class _WaiterFormSheetState extends ConsumerState<_WaiterFormSheet> {
     final nm = _name.text.trim();
     final lg = _login.text.trim();
     if (nm.isEmpty || lg.isEmpty) {
-      setState(() => _err = 'Preencha nome e login.');
+      setState(() => _err = tr('estabOps.fillNameLogin'));
       return;
     }
     if (!_isEdit && _pass.text.trim().length < 6) {
-      setState(() => _err = 'Senha: mínimo 6 caracteres.');
+      setState(() => _err = tr('estabOps.pwMin'));
       return;
     }
     final token = ref.read(authProvider).token;
@@ -293,12 +294,12 @@ class _WaiterFormSheetState extends ConsumerState<_WaiterFormSheet> {
       if (mounted) nav.pop();
       messenger
         ..clearSnackBars()
-        ..showSnackBar(garconsSnack(_isEdit ? 'Garçom atualizado' : 'Garçom criado'));
+        ..showSnackBar(garconsSnack(_isEdit ? tr('estabOps.waiterUpdated') : tr('estabOps.waiterCreated')));
     } catch (_) {
       if (mounted) {
         setState(() {
           _saving = false;
-          _err = 'Não foi possível salvar (login pode já estar em uso).';
+          _err = tr('estabOps.waiterSaveError');
         });
       }
     }
@@ -321,14 +322,14 @@ class _WaiterFormSheetState extends ConsumerState<_WaiterFormSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(_isEdit ? 'Editar garçom' : 'Novo garçom',
+            Text(_isEdit ? context.tr('estabOps.editWaiter') : context.tr('estabOps.newWaiter'),
                 style: AppText.display(size: 20, letterSpacing: -0.3)),
             const SizedBox(height: 16),
-            _field(_name, 'Nome'),
+            _field(_name, context.tr('estabOps.fName')),
             const SizedBox(height: 10),
-            _field(_login, 'Login (usuário ou e-mail)', keyboard: TextInputType.emailAddress),
+            _field(_login, context.tr('estabOps.fLogin'), keyboard: TextInputType.emailAddress),
             const SizedBox(height: 10),
-            _field(_pass, _isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
+            _field(_pass, _isEdit ? context.tr('estabOps.fNewPwKeep') : context.tr('estabOps.fPw'), obscure: true),
             if (_err != null) ...[
               const SizedBox(height: 10),
               Text(_err!, style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.danger)),
@@ -349,7 +350,7 @@ class _WaiterFormSheetState extends ConsumerState<_WaiterFormSheet> {
                           ? const SizedBox(
                               width: 20, height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                          : Text(_isEdit ? 'Salvar' : 'Criar garçom',
+                          : Text(_isEdit ? context.tr('estabOps.save') : context.tr('estabOps.createWaiter'),
                               style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),

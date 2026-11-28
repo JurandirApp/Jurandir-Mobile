@@ -11,6 +11,7 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../auth/auth_controller.dart';
 import 'weekly_hours_editor.dart';
+import '../../../l10n/i18n.dart';
 
 /// Categorias distintas do cardápio do bar (na ordem em que aparecem), mais as
 /// já marcadas como cozinha que não existem mais no cardápio — pra não sumirem
@@ -70,12 +71,12 @@ class _EstabKitchenCardState extends ConsumerState<EstabKitchenCard> {
       await ref.read(publicApiProvider).saveEstablishmentKitchen(token, next);
       if (!mounted) return;
       setState(() => _saved = next);
-      _toast('Horário da cozinha salvo!');
+      _toast(tr('estabOps.kitchenSaved'));
     } catch (_) {
       if (!mounted) return;
       // Rollback: a tela volta a mostrar o que está de fato no servidor.
       setState(() => _load(saved));
-      _toast('Não foi possível salvar o horário da cozinha');
+      _toast(tr('estabOps.kitchenSaveError'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -106,7 +107,7 @@ class _EstabKitchenCardState extends ConsumerState<EstabKitchenCard> {
         children: [
           const Icon(Symbols.skillet, size: 18, color: AppColors.coralDeep),
           const SizedBox(width: 8),
-          Text('HORÁRIO DA COZINHA',
+          Text(context.tr('estabOps.kitchenTitle'),
               style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.inkA(0.55), letterSpacing: 0.4)),
         ],
       );
@@ -117,12 +118,12 @@ class _EstabKitchenCardState extends ConsumerState<EstabKitchenCard> {
       children: [
         _title(),
         const SizedBox(height: 8),
-        Text('Não foi possível carregar o horário da cozinha agora.',
+        Text(context.tr('estabOps.kitchenLoadError'),
             style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
         const SizedBox(height: 10),
         GestureDetector(
           onTap: () => ref.invalidate(establishmentKitchenProvider),
-          child: Text('Tentar de novo',
+          child: Text(context.tr('estabOps.retry'),
               style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.coralDeep)),
         ),
       ],
@@ -135,15 +136,14 @@ class _EstabKitchenCardState extends ConsumerState<EstabKitchenCard> {
       children: [
         _title(),
         const SizedBox(height: 4),
-        Text('Fora deste horário, os itens das categorias de cozinha aparecem como '
-            '"Cozinha fechada". Bebidas continuam liberadas.',
+        Text(context.tr('estabOps.kitchenHint'),
             style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
         const SizedBox(height: 12),
-        Text('Categorias de cozinha',
+        Text(context.tr('estabOps.kitchenCats'),
             style: AppText.body(size: 13, weight: FontWeight.w800)),
         const SizedBox(height: 8),
         if (options.isEmpty)
-          Text('Cadastre itens no cardápio para escolher as categorias.',
+          Text(context.tr('estabOps.kitchenCatsEmpty'),
               style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.45)))
         else
           Wrap(
@@ -152,25 +152,24 @@ class _EstabKitchenCardState extends ConsumerState<EstabKitchenCard> {
             children: [for (final c in options) _catChip(c)],
           ),
         const SizedBox(height: 16),
-        Text('Horário', style: AppText.body(size: 13, weight: FontWeight.w800)),
+        Text(context.tr('estabOps.hours'), style: AppText.body(size: 13, weight: FontWeight.w800)),
         const SizedBox(height: 4),
         if (_week != null)
           WeeklyHoursEditor(
             week: _week!,
-            closedText: 'Sem cozinha',
+            closedText: context.tr('estabOps.noKitchen'),
             onChanged: () => setState(() {}),
           )
         else
           // Formato que o app não conhece: não edita nem sobrescreve.
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Text('Este horário foi configurado num formato que o app ainda não edita. '
-                'Configure no painel web.',
+            child: Text(context.tr('estabOps.kitchenUnknownFmt'),
                 style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
           ),
         const SizedBox(height: 14),
         AppButton.primary(
-          label: _saving ? 'Salvando…' : 'Salvar horário da cozinha',
+          label: _saving ? context.tr('estabOps.saving') : context.tr('estabOps.saveKitchen'),
           onPressed: () => _save(options),
         ),
       ],

@@ -10,6 +10,7 @@ import '../../../core/widgets/dark_header.dart';
 import '../../auth/auth_controller.dart';
 import '../spot_labels.dart';
 import 'estab_spots_batch_sheet.dart';
+import '../../../l10n/i18n.dart';
 
 /// Estab · QR Codes reais: cada ponto (mesa/guarda-sol) abre o cardápio já
 /// identificado. Criar/excluir persistem no backend.
@@ -51,7 +52,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
     if (_adding) return;
     final t = _ctrl.text.trim();
     if (t.isEmpty) {
-      _toast('Digite um nome, ex: Mesa 5 ou Guarda-sol 12');
+      _toast(tr('estabOps.qrNameHint'));
       return;
     }
     final token = ref.read(authProvider).token;
@@ -62,7 +63,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
       await ref.read(publicApiProvider).addQrSpot(token, t);
       _ctrl.clear();
       ref.invalidate(establishmentQrProvider);
-      _toast('QR "$t" criado');
+      _toast(tr('estabOps.qrCreated', {'name': t}));
       // O novo QR entra no fim da lista — rola até ele pra dar retorno visual.
       await Future.delayed(const Duration(milliseconds: 350));
       if (_scroll.hasClients) {
@@ -73,7 +74,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
         );
       }
     } catch (_) {
-      _toast('Não foi possível criar');
+      _toast(tr('estabOps.couldNotCreate'));
     } finally {
       if (mounted) setState(() => _adding = false);
     }
@@ -95,20 +96,20 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
       await ref.read(publicApiProvider).deleteQrSpot(token, id);
       ref.invalidate(establishmentQrProvider);
     } catch (_) {
-      _toast('Não foi possível excluir');
+      _toast(tr('estabOps.couldNotDelete'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(establishmentQrProvider);
-    final estName = ref.watch(authProvider).name ?? 'Estabelecimento';
+    final estName = ref.watch(authProvider).name ?? context.tr('estab.venue');
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          DarkHeader(eyebrow: estName, title: 'QR Codes'),
+          DarkHeader(eyebrow: estName, title: context.tr('estabOps.qrCodes')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
@@ -129,7 +130,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar os QRs.',
+              Text(context.tr('estabOps.loadQrError'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
               GestureDetector(
@@ -137,7 +138,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(context.tr('estabOps.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -151,7 +152,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
       controller: _scroll,
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
       children: [
-        Text('Cada QR abre o cardápio já identificando o guarda-sol ou mesa.',
+        Text(context.tr('estabOps.qrHint'),
             style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
         const SizedBox(height: 14),
         Row(
@@ -163,7 +164,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
                 onSubmitted: (_) => _add(),
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'Ex: Guarda-sol nº 30',
+                  hintText: context.tr('estabOps.qrInputHint'),
                   hintStyle: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.4)),
                   filled: true,
                   fillColor: Colors.white,
@@ -192,7 +193,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
                         children: [
                           const Icon(Symbols.add, size: 16, color: Colors.white),
                           const SizedBox(width: 5),
-                          Text('Gerar', style: AppText.body(size: 13, weight: FontWeight.w800, color: Colors.white)),
+                          Text(context.tr('estabOps.generate'), style: AppText.body(size: 13, weight: FontWeight.w800, color: Colors.white)),
                         ],
                       ),
               ),
@@ -213,7 +214,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
                 children: [
                   const Icon(Symbols.library_add, size: 15, color: AppColors.dune),
                   const SizedBox(width: 6),
-                  Text('Adicionar várias',
+                  Text(context.tr('estabOps.addMany'),
                       style: AppText.body(size: 12.5, weight: FontWeight.w800, color: AppColors.dune)),
                 ],
               ),
@@ -225,7 +226,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
-              child: Text('Nenhum QR ainda. Gere o primeiro acima.',
+              child: Text(context.tr('estabOps.noQr'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
             ),
           )
@@ -289,7 +290,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _toast('Impressão do QR — em breve'),
+                  onTap: () => _toast(tr('estabOps.qrPrintSoon')),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     alignment: Alignment.center,
@@ -299,7 +300,7 @@ class _EstabQrScreenState extends ConsumerState<EstabQrScreen> {
                       children: [
                         Icon(Symbols.print, size: 13, color: AppColors.inkA(0.7)),
                         const SizedBox(width: 4),
-                        Text('Imprimir', style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.inkA(0.7))),
+                        Text(context.tr('estabOps.print'), style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.inkA(0.7))),
                       ],
                     ),
                   ),

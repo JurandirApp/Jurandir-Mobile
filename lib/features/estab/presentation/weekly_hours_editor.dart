@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/data/kitchen.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/i18n.dart';
 
 /// Editor de horário semanal (7 dias × até 2 turnos `{o,c}`), o mesmo formato
 /// do `weeklyHours` do bar. Usado no horário de funcionamento e no da cozinha.
@@ -12,18 +13,18 @@ class WeeklyHoursEditor extends StatelessWidget {
   final VoidCallback onChanged;
 
   /// Texto quando o dia não tem turno (ex.: "Fechado", "Sem cozinha").
-  final String closedText;
+  final String? closedText;
 
   const WeeklyHoursEditor({
     super.key,
     required this.week,
     required this.onChanged,
-    this.closedText = 'Fechado',
+    this.closedText,
   });
 
   // Ordem de exibição começando na segunda; rótulos indexados por dia (0 = Dom).
   static const _order = [1, 2, 3, 4, 5, 6, 0];
-  static const _labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  static const _labels = ['estabOps.d0', 'estabOps.d1', 'estabOps.d2', 'estabOps.d3', 'estabOps.d4', 'estabOps.d5', 'estabOps.d6'];
 
   static String _fmt(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -72,7 +73,7 @@ class WeeklyHoursEditor extends StatelessWidget {
             width: 40,
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_labels[day], style: AppText.body(size: 14, weight: FontWeight.w800)),
+              child: Text(context.tr(_labels[day]), style: AppText.body(size: 14, weight: FontWeight.w800)),
             ),
           ),
           const SizedBox(width: 8),
@@ -82,11 +83,11 @@ class WeeklyHoursEditor extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
-                        child: Text(closedText,
+                        child: Text(closedText ?? context.tr('estabOps.closed'),
                             style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
                       ),
                       const Spacer(),
-                      _smallBtn('Abrir', addWindow),
+                      _smallBtn(context.tr('estabOps.open'), addWindow),
                     ],
                   )
                 : Column(
@@ -96,7 +97,7 @@ class WeeklyHoursEditor extends StatelessWidget {
                       if (windows.length < 2)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: _smallBtn('+ 2º turno', addWindow),
+                          child: _smallBtn(context.tr('estabOps.secondShift'), addWindow),
                         ),
                     ],
                   ),

@@ -11,6 +11,7 @@ import '../../../core/widgets/app_toggle.dart';
 import '../../../core/widgets/segmented_control.dart';
 import '../../auth/auth_controller.dart';
 import '../spot_labels.dart';
+import '../../../l10n/i18n.dart';
 
 /// Resultado do cadastro em lote (pra tela mostrar "X criadas, Y já existiam").
 typedef SpotsBatchResult = ({int created, int skipped});
@@ -67,17 +68,17 @@ class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
     if (_mode == 0) {
       final from = int.tryParse(_from.text.trim());
       final to = int.tryParse(_to.text.trim());
-      if (from == null || to == null) return (labels: const [], problem: 'Informe os números de início e fim.');
+      if (from == null || to == null) return (labels: const [], problem: tr('estabOps.batchFromTo'));
       // Conta antes de gerar: evita montar uma lista gigante por engano.
       if (rangeCount(from, to) > maxSpotBatch) {
-        return (labels: const [], problem: 'Máximo de $maxSpotBatch mesas por vez.');
+        return (labels: const [], problem: tr('estabOps.batchMax', {'max': maxSpotBatch}));
       }
       final labels = rangeSpotLabels(prefix: _prefix.text, from: from, to: to, zeroPad: _zeroPad);
-      return (labels: labels, problem: labels.isEmpty ? 'Nenhuma mesa pra criar.' : null);
+      return (labels: labels, problem: labels.isEmpty ? tr('estabOps.batchNone') : null);
     }
     final labels = parseSpotList(_list.text);
-    if (labels.isEmpty) return (labels: labels, problem: 'Cole os nomes, um por linha.');
-    if (labels.length > maxSpotBatch) return (labels: labels, problem: 'Máximo de $maxSpotBatch mesas por vez.');
+    if (labels.isEmpty) return (labels: labels, problem: tr('estabOps.batchPaste'));
+    if (labels.length > maxSpotBatch) return (labels: labels, problem: tr('estabOps.batchMax', {'max': maxSpotBatch}));
     return (labels: labels, problem: null);
   }
 
@@ -98,7 +99,7 @@ class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = 'Não foi possível cadastrar as mesas. Tente de novo.';
+        _error = tr('estabOps.batchError');
       });
     }
   }
@@ -116,13 +117,13 @@ class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Adicionar várias'.toUpperCase(), style: AppText.display(size: 20, letterSpacing: -0.4)),
+            Text(context.tr('estabOps.addMany').toUpperCase(), style: AppText.display(size: 20, letterSpacing: -0.4)),
             const SizedBox(height: 4),
-            Text('Cadastre várias mesas de uma vez. Nomes que já existem são ignorados.',
+            Text(context.tr('estabOps.batchSub'),
                 style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 14),
             SegmentedControl(
-              segments: const ['Sequência', 'Colar lista'],
+              segments: [context.tr('estabOps.segSequence'), context.tr('estabOps.segPaste')],
               selected: _mode,
               onChanged: (i) => setState(() {
                 _mode = i;
@@ -140,10 +141,10 @@ class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
             const SizedBox(height: 14),
             AppButton.primary(
               label: _saving
-                  ? 'Cadastrando…'
+                  ? context.tr('estabOps.registering')
                   : built.labels.isEmpty || built.problem != null
-                      ? 'Criar mesas'
-                      : 'Criar ${built.labels.length} ${built.labels.length == 1 ? 'mesa' : 'mesas'}',
+                      ? context.tr('estabOps.createTables')
+                      : context.trn('estabOps.createN', built.labels.length),
               icon: Symbols.add,
               onPressed: canSubmit ? () => _submit(built.labels) : null,
             ),
@@ -157,20 +158,20 @@ class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _field('Nome', _prefix, hint: 'Ex: Mesa, Guarda-sol'),
+        _field(context.tr('estabOps.fName'), _prefix, hint: context.tr('estabOps.prefixHint')),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: _field('De', _from, numeric: true)),
+            Expanded(child: _field(context.tr('estabOps.from'), _from, numeric: true)),
             const SizedBox(width: 10),
-            Expanded(child: _field('Até', _to, numeric: true)),
+            Expanded(child: _field(context.tr('estabOps.to'), _to, numeric: true)),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: Text('Completar com zero (Mesa 01)',
+              child: Text(context.tr('estabOps.zeroPad'),
                   style: AppText.body(size: 13, weight: FontWeight.w700)),
             ),
             AppToggle(value: _zeroPad, onChanged: (v) => setState(() => _zeroPad = v)),
@@ -180,8 +181,8 @@ class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
     );
   }
 
-  Widget _listForm() => _field('Uma mesa por linha', _list,
-      hint: 'Mesa VIP\nGuarda-sol 1\nGuarda-sol 2', maxLines: 7);
+  Widget _listForm() => _field(context.tr('estabOps.onePerLine'), _list,
+      hint: context.tr('estabOps.listHint'), maxLines: 7);
 
   Widget _field(String label, TextEditingController c,
       {String? hint, bool numeric = false, int maxLines = 1}) {
@@ -231,7 +232,7 @@ class _SpotsBatchSheetState extends ConsumerState<_SpotsBatchSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Prévia · ${labels.length} ${labels.length == 1 ? 'nome' : 'nomes'}',
+          Text(context.trn('estabOps.preview', labels.length),
               style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.inkA(0.6))),
           const SizedBox(height: 8),
           if (labels.isEmpty)
