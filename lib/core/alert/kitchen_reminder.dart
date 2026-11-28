@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../../l10n/i18n.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 /// Minutos antes do fim da cozinha em que o cliente é avisado.
 const kKitchenReminderMinutes = [30, 10];
 
 /// Texto do aviso: "Horário da cozinha está finalizando em 30 minutos".
-String kitchenClosingMsg(int minutes) => 'Horário da cozinha está finalizando em $minutes minutos';
+String kitchenClosingMsg(int minutes) => tr('data.kitchenClosing', {'min': minutes});
 
 /// Plano puro (testável): quais avisos agendar dado o fim da cozinha. Só os que
 /// ainda estão no futuro — pediu faltando 20 min → só o de 10.
@@ -38,9 +39,9 @@ class KitchenReminder {
     await _plugin.initialize(settings: const InitializationSettings(android: android, iOS: ios));
     final androidImpl =
         _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    await androidImpl?.createNotificationChannel(const AndroidNotificationChannel(
-      _channelId, 'Cozinha',
-      description: 'Aviso de que o horário da cozinha está acabando',
+    await androidImpl?.createNotificationChannel(AndroidNotificationChannel(
+      _channelId, tr('data.kitchenChannel'),
+      description: tr('data.kitchenChannelDesc'),
       importance: Importance.high,
     ));
     await androidImpl?.requestNotificationsPermission();
@@ -63,12 +64,12 @@ class KitchenReminder {
         await _plugin.cancel(id: kitchenReminderId(slug, m));
       }
       if (closesAt == null) return;
-      final title = (barName == null || barName.trim().isEmpty) ? 'Cozinha' : barName.trim();
+      final title = (barName == null || barName.trim().isEmpty) ? tr('data.kitchenChannel') : barName.trim();
       for (final r in kitchenReminderPlan(closesAt, DateTime.now())) {
         await _plugin.zonedSchedule(
           id: kitchenReminderId(slug, r.minutes),
           title: title,
-          body: '${kitchenClosingMsg(r.minutes)}. Quer pedir mais alguma coisa?',
+          body: tr('data.kitchenClosingBody', {'msg': kitchenClosingMsg(r.minutes)}),
           scheduledDate: tz.TZDateTime.from(r.at.toUtc(), tz.UTC),
           // Inexato de propósito: não exige a permissão de alarme exato (Play
           // restringe). Pode atrasar uns minutos com o aparelho em repouso.

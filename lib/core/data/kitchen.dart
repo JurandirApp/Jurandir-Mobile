@@ -13,10 +13,10 @@ import 'package:dio/dio.dart';
 
 import 'models.dart';
 import 'open_status.dart';
+import '../../l10n/i18n.dart';
 
 /// Mensagem amigável (checkout/erro do servidor) quando a cozinha fechou.
-const kKitchenClosedMsg =
-    'A cozinha está fechada agora. Tire os itens de comida do pedido para continuar.';
+String get kKitchenClosedMsg => tr('data.kitchenClosedMsg');
 
 /// Situação da cozinha de um bar, de `est` em `GET /api/public/{slug}`.
 class KitchenStatus {
@@ -48,7 +48,7 @@ class KitchenStatus {
 
   /// "Cozinha fechada · abre às 18:00" (ou só "Cozinha fechada").
   String get closedLabel =>
-      nextOpenLabel == null ? 'Cozinha fechada' : 'Cozinha fechada · $nextOpenLabel';
+      nextOpenLabel == null ? tr('data.kitchenClosed') : tr('data.kitchenClosedNext', {'next': nextOpenLabel});
 }
 
 /// Cardápio + situação da cozinha + bar aberto agora (tudo da MESMA resposta

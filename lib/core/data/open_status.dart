@@ -1,6 +1,9 @@
+import '../../l10n/i18n.dart';
+
 /// Status "aberto agora" de um bar, pelo horário de funcionamento calculado no
 /// servidor (`openNow` + `nextOpenLabel` do payload público). Servidor antigo
 /// não manda os campos → assume aberto (comportamento anterior do app).
+
 class BarOpenStatus {
   final bool openNow;
   final String? nextOpenLabel;
@@ -27,7 +30,7 @@ class BarOpenStatus {
 String? closedLabelFor({required bool openNow, String? nextOpenLabel}) {
   if (openNow) return null;
   final next = nextOpenLabel?.trim();
-  return (next == null || next.isEmpty) ? 'Fechado agora' : 'Fechado agora · $next';
+  return (next == null || next.isEmpty) ? tr('data.closedNow') : tr('data.closedNowNext', {'next': next});
 }
 
 /// Mensagem amigável de "bar fechado" no checkout (também usada quando o
@@ -35,7 +38,7 @@ String? closedLabelFor({required bool openNow, String? nextOpenLabel}) {
 String closedCheckoutMessage(String? nextOpenLabel) {
   final next = nextOpenLabel?.trim();
   final tail = (next == null || next.isEmpty) ? '' : ' $next.';
-  return 'Este estabelecimento está fechado agora (fora do horário). Se continuar, o pedido pode não ser atendido agora.$tail';
+  return '${tr('data.closedCheckout')}$tail';
 }
 
 /// True se o corpo de erro do servidor indica bar fechado (`{error: "closed"}`).

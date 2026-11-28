@@ -7,6 +7,7 @@ import '../../core/data/public_api.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../auth/auth_controller.dart';
+import '../../l10n/i18n.dart';
 
 // "Modo visualização" do estabelecimento: o dono navega pela experiência do
 // cliente SEM deslogar (a sessão do estab continua no `authProvider`) e vê o
@@ -22,8 +23,8 @@ bool isEstabSession(AuthState auth) => auth.isAuthed && auth.role == 'estab';
 ({String route, String label})? panelReturnFor(AuthState auth) {
   if (!auth.isAuthed) return null;
   return switch (auth.role) {
-    'estab' => (route: '/estab/pedidos', label: 'Modo cliente · Voltar ao painel do estabelecimento'),
-    'waiter' => (route: '/waiter', label: 'Voltar à fila do garçom'),
+    'estab' => (route: '/estab/pedidos', label: tr('shell.backToEstabPanel')),
+    'waiter' => (route: '/waiter', label: tr('shell.backToWaiterQueue')),
     _ => null,
   };
 }
@@ -49,7 +50,7 @@ final previewModeProvider = Provider<bool>((ref) =>
     isPreviewActive(flag: ref.watch(previewModeFlagProvider), auth: ref.watch(authProvider)));
 
 /// Texto padrão dos bloqueios de pagamento no modo visualização.
-const previewPaymentBlockedMsg = 'Pagamento desativado no modo visualização';
+String get previewPaymentBlockedMsg => tr('shell.previewPayBlocked');
 
 /// Slug do próprio bar: vem do GET /establishment/qr; sem ele, procura o id do
 /// login na lista pública. Null se não achar.
@@ -126,7 +127,7 @@ class BackToPanelBar extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Modo visualização — é assim que o cliente vê seu cardápio. Pagamentos desativados.',
+                context.tr('shell.previewBanner'),
                 style: AppText.body(size: 11.5, weight: FontWeight.w700, height: 1.3, color: AppColors.ink),
               ),
             ),
@@ -139,7 +140,7 @@ class BackToPanelBar extends ConsumerWidget {
                 onTap: () => exitPreviewToPanel(ref, context, ret.route),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  child: Text('Voltar ao painel',
+                  child: Text(context.tr('shell.backToPanel'),
                       style: AppText.body(size: 11.5, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),

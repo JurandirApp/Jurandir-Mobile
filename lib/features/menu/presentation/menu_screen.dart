@@ -255,7 +255,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ESTABELECIMENTO FECHADO',
+                  Text(context.tr('menu.closedBannerTitle'),
                       style: AppText.display(size: 15, color: Colors.white, letterSpacing: 0.2)),
                   if (label.contains('·')) ...[
                     const SizedBox(height: 2),
@@ -263,7 +263,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                         style: AppText.body(size: 13, weight: FontWeight.w800, color: Colors.white)),
                   ],
                   const SizedBox(height: 3),
-                  Text('Fora do horário de funcionamento. O pedido pode não ser atendido agora.',
+                  Text(context.tr('menu.closedBannerSub'),
                       style: AppText.body(size: 11, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.85))),
                 ],
               ),

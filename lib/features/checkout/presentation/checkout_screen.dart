@@ -1040,23 +1040,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         backgroundColor: AppColors.canvas,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: const Icon(Symbols.door_front, size: 34, color: AppColors.warningText),
-        title: Text('O estabelecimento está fechado',
+        title: Text(context.tr('checkout.closedDialogTitle'),
             textAlign: TextAlign.center, style: AppText.display(size: 19, letterSpacing: -0.3)),
         content: Text(
-            'Ele está fora do horário de funcionamento e o pedido pode não ser atendido agora.'
+            '${context.tr('checkout.closedDialogBody')}'
             '${status.nextOpenLabel == null ? '' : ' (${status.nextOpenLabel})'}\n\n'
-            'Realmente gostaria de continuar com o pagamento?',
+            '${context.tr('checkout.closedDialogAsk')}',
             style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.inkA(0.7))),
         actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Voltar', style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
+            child: Text(context.tr('checkout.closedDialogBack'), style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.coral),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Sim, continuar',
+            child: Text(context.tr('checkout.closedDialogYes'),
                 style: AppText.body(size: 14, weight: FontWeight.w800, color: Colors.white)),
           ),
         ],

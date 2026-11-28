@@ -20,6 +20,8 @@ const menuStrings = I18nNamespace(
     'upTo': 'Até {max}',
     'save': 'Salvar',
     'add': 'Adicionar',
+    'closedBannerTitle': 'ESTABELECIMENTO FECHADO',
+    'closedBannerSub': 'Fora do horário de funcionamento. O pedido pode não ser atendido agora.',
   },
   en: {
     'all': 'All',
@@ -38,6 +40,8 @@ const menuStrings = I18nNamespace(
     'upTo': 'Up to {max}',
     'save': 'Save',
     'add': 'Add',
+    'closedBannerTitle': 'VENUE CLOSED',
+    'closedBannerSub': 'Outside business hours. Your order may not be served right now.',
   },
   es: {
     'all': 'Todos',
@@ -56,5 +60,7 @@ const menuStrings = I18nNamespace(
     'upTo': 'Hasta {max}',
     'save': 'Guardar',
     'add': 'Agregar',
+    'closedBannerTitle': 'ESTABLECIMIENTO CERRADO',
+    'closedBannerSub': 'Fuera del horario de atención. Es posible que tu pedido no se atienda ahora.',
   },
 );
