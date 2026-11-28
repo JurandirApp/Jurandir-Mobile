@@ -11,12 +11,13 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/donut_chart.dart';
 import '../../../core/widgets/filter_pill.dart';
+import '../../../l10n/i18n.dart';
 
 const _payMeta = [
-  ('credito', 'Crédito', Color(0xFF3B82F6)),
-  ('debito', 'Débito', Color(0xFF10B981)),
-  ('pix', 'Pix', Color(0xFF14B8A6)),
-  ('usdc', 'USDC', Color(0xFF0E565B)),
+  ('credito', 'admin.mCredit', Color(0xFF3B82F6)),
+  ('debito', 'admin.mDebit', Color(0xFF10B981)),
+  ('pix', 'admin.mPix', Color(0xFF14B8A6)),
+  ('usdc', 'admin.mUsdc', Color(0xFF0E565B)),
 ];
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
@@ -38,14 +39,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(eyebrow: 'Plataforma', title: 'Dashboard'),
+          DarkHeader(eyebrow: tr('admin.platform'), title: tr('admin.tabDashboard')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
               error: (_, _) => _error(),
               data: (ov) => ov == null || ov.establishments.isEmpty
                   ? Center(
-                      child: Text('Sem dados ainda.',
+                      child: Text(tr('admin.noData'),
                           style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
                     )
                   : _content(ov),
@@ -64,7 +65,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar o dashboard.',
+              Text(tr('admin.loadDashError'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
               GestureDetector(
@@ -72,7 +73,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(tr('admin.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -93,13 +94,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final usdcPct = payTotal == 0 ? 0.0 : (ov.byPayment['usdc'] ?? 0) / payTotal * 100;
 
     final stats = <(String, String, Color, String?)>[
-      ('GMV da plataforma', money(gmv), AppColors.ink, 'faturamento somado dos clientes'),
-      ('Receita de fees', money(fees), AppColors.successText, 'o que o Jurandir fatura'),
-      ('Pedidos totais', groupThousands(ped), AppColors.ink, null),
-      ('Ticket médio', money(ped > 0 ? gmv / ped : 0), AppColors.ink, null),
-      ('Estabelecimentos', '${scoped.length}', AppColors.ink, '${scoped.where((e) => e.active).length} ativo(s)'),
-      ('% via USDC', '${usdcPct.toStringAsFixed(1).replaceAll('.', ',')}%', const Color(0xFF0E565B), 'movimento em stablecoin'),
-      ('Fee médio', '${feeAvg.toStringAsFixed(1).replaceAll('.', ',')}%', AppColors.ink, null),
+      (tr('admin.gmv'), money(gmv), AppColors.ink, tr('admin.gmvHint')),
+      (tr('admin.feeRevenue'), money(fees), AppColors.successText, tr('admin.feeRevenueHint')),
+      (tr('admin.totalOrders'), groupThousands(ped), AppColors.ink, null),
+      (tr('admin.avgTicket'), money(ped > 0 ? gmv / ped : 0), AppColors.ink, null),
+      (tr('admin.venues'), '${scoped.length}', AppColors.ink, tr('admin.activeN', {'n': scoped.where((e) => e.active).length})),
+      (tr('admin.viaUsdc'), '${usdcPct.toStringAsFixed(1).replaceAll('.', ',')}%', const Color(0xFF0E565B), tr('admin.usdcHint')),
+      (tr('admin.avgFee'), '${feeAvg.toStringAsFixed(1).replaceAll('.', ',')}%', AppColors.ink, null),
       ('GMV/estab.', money(scoped.isEmpty ? 0 : gmv / scoped.length), AppColors.ink, null),
     ];
 
@@ -127,7 +128,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _scopePill('', 'Todos os estabelecimentos'),
+                _scopePill('', tr('admin.allVenues')),
                 for (final e in ov.establishments) ...[
                   const SizedBox(width: 8),
                   _scopePill(e.id, e.name),
@@ -154,13 +155,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           ),
         ],
         const SizedBox(height: 22),
-        _h2('Movimento por método'),
+        _h2(tr('admin.byMethod')),
         _donutCard(ov.byPayment, payTotal),
         const SizedBox(height: 22),
-        _h2('Por tipo de estabelecimento'),
+        _h2(tr('admin.byType')),
         _typesCard(types, tRev == 0 ? 1 : tRev, tOrd == 0 ? 1 : tOrd),
         const SizedBox(height: 22),
-        _h2('Top estabelecimentos'),
+        _h2(tr('admin.topVenues')),
         _topCard(top5, topMax),
       ],
     );
@@ -232,7 +233,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _methodBar((String, String, Color) meta, double value, double payTotal) {
-    final (_, label, color) = meta;
+    final (_, labelKey, color) = meta;
+    final label = tr(labelKey);
     final share = payTotal == 0 ? 0.0 : value / payTotal;
     return Column(
       children: [
@@ -280,16 +282,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           children: [
             Text(g.tipo, style: AppText.display(size: 13, weight: FontWeight.w700, letterSpacing: 0)),
             Text.rich(TextSpan(children: [
-              const TextSpan(text: 'Ticket '),
+              TextSpan(text: tr('admin.ticketLbl')),
               TextSpan(text: money(ticket), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
-              TextSpan(text: ' · ${g.count} ${g.count == 1 ? 'estab.' : 'estabs.'}'),
+              TextSpan(text: trn('admin.estabsN', g.count)),
             ]), style: AppText.body(size: 10, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
           ],
         ),
         const SizedBox(height: 5),
-        _typeBarRow('Fatur.', tRev == 0 ? 0 : g.rev / tRev, money(g.rev), AppColors.coral),
+        _typeBarRow(tr('admin.revShort'), tRev == 0 ? 0 : g.rev / tRev, money(g.rev), AppColors.coral),
         const SizedBox(height: 3),
-        _typeBarRow('Vendas', tOrd == 0 ? 0 : g.po / tOrd, groupThousands(g.po), AppColors.oceanDeep),
+        _typeBarRow(tr('admin.sales'), tOrd == 0 ? 0 : g.po / tOrd, groupThousands(g.po), AppColors.oceanDeep),
       ],
     );
   }
@@ -348,7 +350,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             const SizedBox(width: 8),
             Text.rich(TextSpan(children: [
               TextSpan(text: money(e.gmv), style: AppText.body(size: 13, weight: FontWeight.w800)),
-              TextSpan(text: ' · fee ${money(e.fees)}', style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
+              TextSpan(text: tr('admin.feeOf', {'fee': money(e.fees)}), style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
             ])),
           ],
         ),

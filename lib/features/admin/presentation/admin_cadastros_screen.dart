@@ -11,6 +11,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../auth/auth_controller.dart';
 import 'admin_sub_header.dart';
+import '../../../l10n/i18n.dart';
 
 /// Admin · Cadastros: estabelecimentos reais + criar/editar (form).
 class AdminCadastrosScreen extends ConsumerWidget {
@@ -25,7 +26,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
       body: Column(
         children: [
           AdminSubHeader(
-            title: 'Cadastros',
+            title: tr('admin.signups'),
             trailing: GestureDetector(
               onTap: () => _openForm(context, null),
               child: Container(
@@ -36,7 +37,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
                   children: [
                     const Icon(Symbols.add, size: 15, color: Colors.white),
                     const SizedBox(width: 4),
-                    Text('Cadastrar', style: AppText.body(size: 12, weight: FontWeight.w800, color: Colors.white)),
+                    Text(tr('admin.register'), style: AppText.body(size: 12, weight: FontWeight.w800, color: Colors.white)),
                   ],
                 ),
               ),
@@ -51,7 +52,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                   children: [
-                    Text('${ests.length} estabelecimento${ests.length == 1 ? '' : 's'} · toque para editar',
+                    Text(trn('admin.venuesTapEdit', ests.length),
                         style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                     const SizedBox(height: 12),
                     for (final e in ests) ...[
@@ -90,7 +91,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar os cadastros.',
+              Text(tr('admin.loadSignupsError'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
               GestureDetector(
@@ -98,7 +99,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(tr('admin.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -137,7 +138,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text('${e.city} · Plano ${e.plan}',
+                    Text(tr('admin.cityPlan', {'city': e.city, 'plan': e.plan}),
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                   ],
@@ -162,11 +163,11 @@ class AdminCadastrosScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _cell('Faturamento', money(e.gmv))),
+              Expanded(child: _cell(tr('admin.revenue'), money(e.gmv))),
               const SizedBox(width: 6),
-              Expanded(child: _cell('Pedidos', groupThousands(e.orders))),
+              Expanded(child: _cell(tr('admin.orders'), groupThousands(e.orders))),
               const SizedBox(width: 6),
-              Expanded(child: _cell('Fee (${e.feePct}%)', money(e.fees), color: AppColors.successText)),
+              Expanded(child: _cell(tr('admin.feePct', {'pct': e.feePct}), money(e.fees), color: AppColors.successText)),
             ],
           ),
         ],
@@ -180,7 +181,7 @@ class AdminCadastrosScreen extends ConsumerWidget {
           color: active ? AppColors.successBg : AppColors.inkA(0.1),
           borderRadius: BorderRadius.circular(999),
         ),
-        child: Text(active ? 'Ativo' : 'Inativo',
+        child: Text(active ? tr('admin.active') : tr('admin.inactive'),
             style: AppText.body(size: 10, weight: FontWeight.w700, color: active ? AppColors.successText : AppColors.inkA(0.5))),
       );
 
@@ -241,11 +242,11 @@ class _EstabFormSheetState extends ConsumerState<_EstabFormSheet> {
     final login = _loginEmail.text.trim().toLowerCase();
     final feeInt = int.tryParse(_fee.text.trim());
     if (nm.isEmpty || ow.isEmpty || tp.isEmpty || pl.isEmpty || login.isEmpty || feeInt == null) {
-      setState(() => _err = 'Preencha nome, responsável, tipo, plano, e-mail e fee.');
+      setState(() => _err = tr('admin.fillAll'));
       return;
     }
     if (!_isEdit && _pass.text.trim().length < 6) {
-      setState(() => _err = 'Senha de acesso: mínimo 6 caracteres.');
+      setState(() => _err = tr('admin.pwMin'));
       return;
     }
     final token = ref.read(authProvider).token;
@@ -275,7 +276,7 @@ class _EstabFormSheetState extends ConsumerState<_EstabFormSheet> {
         ..showSnackBar(SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColors.ink,
-          content: Text(_isEdit ? 'Estabelecimento atualizado' : 'Estabelecimento criado',
+          content: Text(_isEdit ? tr('admin.venueUpdated') : tr('admin.venueCreated'),
               style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.dune)),
         ));
     } on DioException catch (e) {
@@ -284,14 +285,14 @@ class _EstabFormSheetState extends ConsumerState<_EstabFormSheet> {
       setState(() {
         _saving = false;
         _err = code == 409
-            ? 'Esse e-mail de login já está em uso.'
-            : (code == 422 ? 'Dados inválidos (senha mín. 6).' : 'Não foi possível salvar.');
+            ? tr('admin.emailInUse')
+            : (code == 422 ? tr('admin.invalidData') : tr('admin.saveError'));
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _err = 'Não foi possível salvar.';
+        _err = tr('admin.saveError');
       });
     }
   }
@@ -308,28 +309,28 @@ class _EstabFormSheetState extends ConsumerState<_EstabFormSheet> {
           children: [
             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999)))),
             const SizedBox(height: 16),
-            Text(_isEdit ? 'Editar estabelecimento' : 'Novo estabelecimento',
+            Text(_isEdit ? tr('admin.editVenue') : tr('admin.newVenue'),
                 style: AppText.display(size: 20, letterSpacing: -0.3)),
             const SizedBox(height: 16),
-            _field(_name, 'Nome'),
+            _field(_name, tr('admin.fName')),
             const SizedBox(height: 10),
-            _field(_owner, 'Responsável'),
+            _field(_owner, tr('admin.fOwner')),
             const SizedBox(height: 10),
             Row(children: [
-              Expanded(child: _field(_type, 'Tipo (ex: Bar)')),
+              Expanded(child: _field(_type, tr('admin.fType'))),
               const SizedBox(width: 10),
-              Expanded(child: _field(_plan, 'Plano')),
+              Expanded(child: _field(_plan, tr('admin.fPlan'))),
             ]),
             const SizedBox(height: 10),
             Row(children: [
-              Expanded(flex: 2, child: _field(_city, 'Cidade')),
+              Expanded(flex: 2, child: _field(_city, tr('admin.fCity'))),
               const SizedBox(width: 10),
-              Expanded(child: _field(_fee, 'Fee %', number: true)),
+              Expanded(child: _field(_fee, tr('admin.fFee'), number: true)),
             ]),
             const SizedBox(height: 10),
-            _field(_loginEmail, 'E-mail de login', keyboard: TextInputType.emailAddress),
+            _field(_loginEmail, tr('admin.fLoginEmail'), keyboard: TextInputType.emailAddress),
             const SizedBox(height: 10),
-            _field(_pass, _isEdit ? 'Nova senha (em branco = manter)' : 'Senha de acesso', obscure: true),
+            _field(_pass, _isEdit ? tr('admin.fNewPwKeep') : tr('admin.fPw'), obscure: true),
             const SizedBox(height: 12),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -349,9 +350,9 @@ class _EstabFormSheetState extends ConsumerState<_EstabFormSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Módulo do Garçom', style: AppText.body(size: 14, weight: FontWeight.w700)),
+                          Text(tr('admin.waiterModule'), style: AppText.body(size: 14, weight: FontWeight.w700)),
                           const SizedBox(height: 1),
-                          Text('Fila de prontos, entrega por garçom e código de 4 dígitos',
+                          Text(tr('admin.waiterModuleHint'),
                               style: AppText.body(size: 11, weight: FontWeight.w500, color: AppColors.inkA(0.45))),
                         ],
                       ),
@@ -393,7 +394,7 @@ class _EstabFormSheetState extends ConsumerState<_EstabFormSheet> {
                     child: Center(
                       child: _saving
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                          : Text(_isEdit ? 'Salvar' : 'Criar estabelecimento',
+                          : Text(_isEdit ? tr('admin.save') : tr('admin.createVenue'),
                               style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
