@@ -9,6 +9,7 @@ import '../../core/push/push_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/nav_tab.dart';
 import '../auth/auth_controller.dart';
+import '../../l10n/i18n.dart';
 
 /// Shell do estabelecimento: bottom nav (Pedidos · Cardápio · QR · KPIs ·
 /// Conta), sem FAB. Ao entrar, registra o token FCM do estabelecimento pra ele
@@ -25,11 +26,11 @@ class EstabScaffold extends ConsumerStatefulWidget {
 
 class _EstabScaffoldState extends ConsumerState<EstabScaffold> {
   static const _items = [
-    (Symbols.receipt_long, 'Pedidos'),
-    (Symbols.restaurant, 'Cardápio'),
-    (Symbols.qr_code_2, 'QR'),
-    (Symbols.trending_up, 'KPIs'),
-    (Symbols.person, 'Conta'),
+    (Symbols.receipt_long, 'estab.tabOrders'),
+    (Symbols.restaurant, 'estab.tabMenu'),
+    (Symbols.qr_code_2, 'estab.tabQr'),
+    (Symbols.trending_up, 'estab.tabKpis'),
+    (Symbols.person, 'estab.tabAccount'),
   ];
 
   @override
@@ -71,7 +72,7 @@ class _EstabScaffoldState extends ConsumerState<EstabScaffold> {
               NavTab(
                 active: widget.navigationShell.currentIndex == i,
                 icon: _items[i].$1,
-                label: _items[i].$2,
+                label: context.tr(_items[i].$2),
                 onTap: () {
                   _refreshBranch(i);
                   widget.navigationShell.goBranch(i);

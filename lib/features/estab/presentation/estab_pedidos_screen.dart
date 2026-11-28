@@ -11,16 +11,17 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../auth/auth_controller.dart';
+import '../../../l10n/i18n.dart';
 
 const _filters = [
-  ('todos', 'Todos'),
-  ('aguardando', 'Aguardando'),
-  ('producao', 'Produção'),
-  ('entregue', 'Entregues'),
+  ('todos', 'estab.fAll'),
+  ('aguardando', 'estab.fWaiting'),
+  ('producao', 'estab.fProduction'),
+  ('entregue', 'estab.fDelivered'),
 ];
 
 String _relTime(int min) =>
-    min < 1 ? 'agora' : (min < 60 ? 'há ${min}min' : 'há ${(min / 60).floor()}h');
+    min < 1 ? tr('estab.now') : (min < 60 ? tr('estab.agoMin', {'min': min}) : tr('estab.agoH', {'h': (min / 60).floor()}));
 
 /// Pedidos reais do estabelecimento logado. Puxe pra baixo pra atualizar.
 class EstabPedidosScreen extends ConsumerStatefulWidget {
@@ -53,9 +54,9 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
     try {
       await ref.read(publicApiProvider).deliverEstablishmentOrder(token, o.dbId);
       ref.invalidate(establishmentOrdersProvider);
-      _toast('Pedido ${o.code} marcado como entregue');
+      _toast(tr('estab.orderDelivered', {'code': o.code}));
     } catch (_) {
-      _toast('Não foi possível concluir agora');
+      _toast(tr('estab.couldNotFinish'));
     } finally {
       if (mounted) setState(() => _busy.remove(o.dbId));
     }
@@ -73,12 +74,12 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
       if (ok) {
         _readyN.remove(st.id);
         ref.invalidate(establishmentOrdersProvider);
-        _toast(qty == 1 ? '1 item marcado pronto' : '$qty itens marcados prontos');
+        _toast(trn('estab.itemsReady', qty));
       } else {
-        _toast('Não foi possível marcar agora');
+        _toast(tr('estab.couldNotMark'));
       }
     } catch (_) {
-      _toast('Não foi possível marcar agora');
+      _toast(tr('estab.couldNotMark'));
     } finally {
       if (mounted) setState(() => _busyItems.remove(st.id));
     }
@@ -87,13 +88,13 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(establishmentOrdersProvider);
-    final estName = ref.watch(authProvider).name ?? 'Estabelecimento';
+    final estName = ref.watch(authProvider).name ?? context.tr('estab.venue');
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          DarkHeader(eyebrow: estName, title: 'Pedidos'),
+          DarkHeader(eyebrow: estName, title: context.tr('estab.orders')),
           Expanded(
             child: async.when(
               loading: () => const Center(
@@ -117,7 +118,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
           children: [
             Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
             const SizedBox(height: 12),
-            Text('Não foi possível carregar os pedidos.',
+            Text(context.tr('estab.loadOrdersError'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
             const SizedBox(height: 14),
@@ -126,7 +127,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                child: Text('Tentar de novo',
+                child: Text(context.tr('estab.retry'),
                     style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
               ),
             ),
@@ -156,7 +157,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
                 children: [
                   for (var i = 0; i < _filters.length; i++) ...[
                     if (i > 0) const SizedBox(width: 8),
-                    _filterPill(_filters[i].$1, _filters[i].$2, countOf(_filters[i].$1)),
+                    _filterPill(_filters[i].$1, context.tr(_filters[i].$2), countOf(_filters[i].$1)),
                   ],
                 ],
               ),
@@ -167,7 +168,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 48),
               child: Center(
-                child: Text('Nenhum pedido ainda.',
+                child: Text(context.tr('estab.noOrdersYet'),
                     style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
               ),
             )
@@ -175,7 +176,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
-                child: Text('Nenhum pedido neste status.',
+                child: Text(context.tr('estab.noOrdersStatus'),
                     style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
               ),
             ),
@@ -213,9 +214,9 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
   Widget _orderCard(PanelOrder o) {
     final status = o.status;
     final (label, tone) = switch (status) {
-      'aguardando' => ('Aguardando', BadgeTone.pending),
-      'producao' => ('Em produção', BadgeTone.production),
-      _ => ('Entregue', BadgeTone.done),
+      'aguardando' => (context.tr('estab.stWaiting'), BadgeTone.pending),
+      'producao' => (context.tr('estab.stProduction'), BadgeTone.production),
+      _ => (context.tr('estab.stDelivered'), BadgeTone.done),
     };
     final showSplit = status == 'aguardando' && o.split != null;
     final busy = _busy.contains(o.dbId);
@@ -227,7 +228,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Pedido #${o.id.toString().padLeft(3, '0')}',
+              Text(context.tr('estab.orderNo', {'n': o.id.toString().padLeft(3, '0')}),
                   style: AppText.display(size: 14, weight: FontWeight.w700, letterSpacing: 0)),
               StatusBadge(label, tone: tone),
             ],
@@ -254,7 +255,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
                 const Icon(Symbols.badge, size: 12, color: AppColors.coral),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text('Garçom: ${o.waiterName}',
+                  child: Text(context.tr('estab.waiterName', {'name': o.waiterName}),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
@@ -327,7 +328,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
                   children: [
                     if (status != 'entregue')
                       GestureDetector(
-                        onTap: () => _toast('Impressão é enviada pelo agente local (em breve).'),
+                        onTap: () => _toast(tr('estab.printSoon')),
                         child: Container(
                           width: 34,
                           height: 34,
@@ -355,7 +356,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
                                   children: [
                                     const Icon(Symbols.check, size: 14, color: Colors.white),
                                     const SizedBox(width: 5),
-                                    Text('Entregue',
+                                    Text(context.tr('estab.delivered'),
                                         style: AppText.body(size: 12, weight: FontWeight.w800, color: Colors.white)),
                                   ],
                                 ),
@@ -390,7 +391,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
           Icon(Symbols.soup_kitchen, size: 14, color: AppColors.inkA(0.5)),
           const SizedBox(width: 6),
           Expanded(
-            child: Text('$preparing em preparo',
+            child: Text(context.tr('estab.inPrep', {'n': preparing}),
                 style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
           ),
           _stepBtn(Symbols.remove, busy || n <= 1 ? null : () => setState(() => _readyN[st.id] = n - 1)),
@@ -418,7 +419,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text('Marcar $n pronto',
+                  : Text(context.tr('estab.markReady', {'n': n}),
                       style: AppText.body(size: 11, weight: FontWeight.w800, color: Colors.white)),
             ),
           ),
@@ -463,9 +464,9 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$paid de $people pagaram',
+              Text(context.tr('estab.paidOf', {'paid': paid, 'people': people}),
                   style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.dangerText)),
-              Text('${money(paid * share)} de ${money(o.total)}',
+              Text(context.tr('estab.amountOf', {'paid': money(paid * share), 'total': money(o.total)}),
                   style: AppText.body(size: 11, weight: FontWeight.w700, color: AppColors.dangerText)),
             ],
           ),
@@ -480,7 +481,7 @@ class _EstabPedidosScreenState extends ConsumerState<EstabPedidosScreen> {
             ),
           ),
           const SizedBox(height: 5),
-          Text('Não vai à cozinha até o pagamento ser concluído.',
+          Text(context.tr('estab.notToKitchen'),
               style: AppText.body(size: 10, weight: FontWeight.w600, color: AppColors.danger)),
         ],
       ),

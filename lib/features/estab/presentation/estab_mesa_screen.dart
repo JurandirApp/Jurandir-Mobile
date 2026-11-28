@@ -9,6 +9,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../auth/auth_controller.dart';
 import '../data/tracking_models.dart';
+import '../../../l10n/i18n.dart';
 
 /// Tela dedicada de UMA mesa: os pedidos pagos do dia agrupados por cliente.
 /// Chega via `context.push('/estab/conta/rastreio/mesa', extra: {label, day})`.
@@ -115,12 +116,12 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
               children: [
                 Icon(Symbols.arrow_back, size: 16, color: AppColors.duneA(0.7)),
                 const SizedBox(width: 6),
-                Text('Rastreio', style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.duneA(0.7))),
+                Text(context.tr('estab.tracking'), style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.duneA(0.7))),
               ],
             ),
           ),
           const SizedBox(height: 10),
-          Text((estName.isEmpty ? 'Estabelecimento' : estName).toUpperCase(), style: AppText.eyebrow),
+          Text((estName.isEmpty ? context.tr('estab.venue') : estName).toUpperCase(), style: AppText.eyebrow),
           const SizedBox(height: 3),
           Row(
             children: [
@@ -138,8 +139,8 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _headChip(Symbols.group, '${d.customers} ${d.customers == 1 ? 'cliente' : 'clientes'}'),
-                _headChip(Symbols.receipt_long, '${d.orderCount} ${d.orderCount == 1 ? 'pedido' : 'pedidos'}'),
+                _headChip(Symbols.group, context.trn('estab.customers', d.customers)),
+                _headChip(Symbols.receipt_long, context.trn('estab.ordersCount', d.orderCount)),
                 _headChip(Symbols.payments, _brl(d.total)),
               ],
             ),
@@ -170,7 +171,7 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
       return Center(
         child: GestureDetector(
           onTap: _load,
-          child: Text('Erro ao carregar. Toque para tentar de novo.',
+          child: Text(context.tr('estab.loadErrorTap'),
               style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
         ),
       );
@@ -185,7 +186,7 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
             children: [
               Icon(Symbols.receipt_long, size: 44, color: AppColors.inkA(0.3)),
               const SizedBox(height: 12),
-              Text('Sem pedidos nessa mesa hoje.',
+              Text(context.tr('estab.noOrdersTableToday'),
                   style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
             ],
           ),
@@ -204,7 +205,7 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 40),
               child: Center(
-                child: Text('Nenhum cliente encontrado.',
+                child: Text(context.tr('estab.noCustomerFound'),
                     style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               ),
             )
@@ -237,7 +238,7 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
-                  hintText: 'Buscar cliente por nome ou telefone',
+                  hintText: context.tr('estab.searchCustomer'),
                   hintStyle: AppText.body(size: 14, weight: FontWeight.w500, color: AppColors.inkA(0.4)),
                 ),
               ),
@@ -265,7 +266,7 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          title: Text(c.name.isEmpty ? 'Cliente' : c.name,
+          title: Text(c.name.isEmpty ? context.tr('estab.customer') : c.name,
               maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.display(size: 16, letterSpacing: -0.2)),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 3),
@@ -275,7 +276,7 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
                 style: AppText.body(size: 12.5, weight: FontWeight.w700, color: AppColors.ink),
                 children: [
                   if (c.phone.isNotEmpty) TextSpan(text: '${c.phone}  ·  '),
-                  TextSpan(text: '${c.orderCount} ${c.orderCount == 1 ? 'pedido' : 'pedidos'}  ·  '),
+                  TextSpan(text: '${context.trn('estab.ordersCount', c.orderCount)}  ·  '),
                   TextSpan(text: _brl(c.total), style: const TextStyle(color: AppColors.successText)),
                 ],
               ),
@@ -314,8 +315,8 @@ class _EstabMesaScreenState extends ConsumerState<EstabMesaScreen> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              _chip(Symbols.schedule, 'Pedido ${_hhmm(o.placedAt)}'),
-              _chip(Symbols.check_circle, o.deliveredAt == null ? 'Não entregue' : 'Entregue ${_hhmm(o.deliveredAt)}'),
+              _chip(Symbols.schedule, context.tr('estab.orderAt', {'time': _hhmm(o.placedAt)})),
+              _chip(Symbols.check_circle, o.deliveredAt == null ? context.tr('estab.notDelivered') : context.tr('estab.deliveredAt', {'time': _hhmm(o.deliveredAt)})),
               if (o.waiter != null && o.waiter!.isNotEmpty) _chip(Symbols.room_service, o.waiter!),
             ],
           ),

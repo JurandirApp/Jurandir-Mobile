@@ -19,6 +19,7 @@ import 'ns/perfil.dart';
 import 'ns/scanner.dart';
 import 'ns/shell.dart';
 import 'ns/splash.dart';
+import 'ns/estab.dart';
 
 /// Parte 1 (cliente) + comuns. Parte 2 (estab, waiter, admin): adicionar abaixo.
 const List<I18nNamespace> appNamespaces = [
@@ -38,4 +39,5 @@ const List<I18nNamespace> appNamespaces = [
   scannerStrings,
   loginStrings,
   dataStrings,
+  estabStrings,
 ];

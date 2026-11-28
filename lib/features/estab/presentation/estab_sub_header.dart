@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../auth/auth_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/i18n.dart';
 
 /// Header das sub-telas do estabelecimento (Garções/Auditoria/Perfil/Config):
 /// back "← Conta" + nome REAL do estabelecimento logado + título.
@@ -34,12 +35,12 @@ class EstabSubHeader extends ConsumerWidget {
               children: [
                 Icon(Symbols.arrow_back, size: 16, color: AppColors.duneA(0.7)),
                 const SizedBox(width: 6),
-                Text('Conta', style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.duneA(0.7))),
+                Text(context.tr('estab.account'), style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.duneA(0.7))),
               ],
             ),
           ),
           const SizedBox(height: 10),
-          Text((estName.isEmpty ? 'Estabelecimento' : estName).toUpperCase(), style: AppText.eyebrow),
+          Text((estName.isEmpty ? context.tr('estab.venue') : estName).toUpperCase(), style: AppText.eyebrow),
           const SizedBox(height: 3),
           Text(title.toUpperCase(), style: AppText.pageTitle.copyWith(color: AppColors.dune)),
         ],
