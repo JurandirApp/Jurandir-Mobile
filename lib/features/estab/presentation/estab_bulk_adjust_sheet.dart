@@ -10,12 +10,13 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_toggle.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../auth/auth_controller.dart';
+import '../../../l10n/i18n.dart';
 
 const _roundings = <(String, String)>[
-  ('exact', 'Exato'),
+  ('exact', 'estabMenu.rExact'),
   ('end90', ',90'),
   ('end99', ',99'),
-  ('whole', 'Cheio'),
+  ('whole', 'estabMenu.rWhole'),
 ];
 
 /// Abre o sheet de ajuste de preço em massa. Espelha o modal da web:
@@ -107,11 +108,11 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
         widget.ref.invalidate(establishmentMenuProvider);
         if (mounted) {
           Navigator.pop(context);
-          _toast('${changes.length} ${changes.length == 1 ? 'preço ajustado' : 'preços ajustados'}');
+          _toast(trn('estabMenu.pricesAdjusted', changes.length));
         }
       }
     } catch (_) {
-      if (mounted) _toast('Não foi possível ajustar os preços.');
+      if (mounted) _toast(tr('estabMenu.adjustError'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -149,10 +150,10 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Ajustar preços em massa',
+                  Text(tr('estabMenu.bulkAdjust'),
                       style: AppText.display(size: 20, letterSpacing: -0.3)),
                   const SizedBox(height: 2),
-                  Text('Aplique um percentual a vários itens de uma vez.',
+                  Text(tr('estabMenu.bulkSub'),
                       style: AppText.body(
                           size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                 ]),
@@ -163,7 +164,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                 children: [
-                  _sectionTitle('1. Selecione os itens'),
+                  _sectionTitle(tr('estabMenu.step1')),
                   _pillRow(['Todas', ..._cats], _cat.isEmpty ? 'Todas' : _cat, (v) {
                     setState(() {
                       _cat = v == 'Todas' ? '' : v;
@@ -188,7 +189,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
                     child: _filtered.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Text('Nenhum item neste filtro.',
+                            child: Text(tr('estabMenu.noItemsFilter'),
                                 style: AppText.body(
                                     size: 12,
                                     weight: FontWeight.w600,
@@ -205,25 +206,25 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
                     children: [
                       Text(
                         _selected.isEmpty
-                            ? 'Nenhum item selecionado'
-                            : '${_selected.length} ${_selected.length == 1 ? 'item selecionado' : 'itens selecionados'}',
+                            ? tr('estabMenu.noneSelected')
+                            : trn('estabMenu.selected', _selected.length),
                         style: AppText.body(
                             size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.6)),
                       ),
                       const Spacer(),
-                      _miniBtn('Todos', () {
+                      _miniBtn(tr('estabMenu.all'), () {
                         setState(() => _selected.addAll(_filtered.map((m) => m.dbId)));
                         _invalidate();
                       }),
                       const SizedBox(width: 6),
-                      _miniBtn('Limpar', () {
+                      _miniBtn(tr('estabMenu.clear'), () {
                         setState(_selected.clear);
                         _invalidate();
                       }),
                     ],
                   ),
                   const SizedBox(height: 18),
-                  _sectionTitle('2. Defina o ajuste'),
+                  _sectionTitle(tr('estabMenu.step2')),
                   Row(children: [
                     Expanded(
                       child: _pillRow(const ['Aumentar', 'Diminuir'],
@@ -261,7 +262,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
                     ),
                   ]),
                   const SizedBox(height: 12),
-                  Text('Arredondamento',
+                  Text(tr('estabMenu.rounding'),
                       style: AppText.body(
                           size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
                   const SizedBox(height: 6),
@@ -271,7 +272,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
                     children: [
                       for (final r in _roundings)
                         FilterPill(
-                          label: r.$2,
+                          label: r.$2.startsWith('estabMenu.') ? tr(r.$2) : r.$2,
                           selected: _rounding == r.$1,
                           onTap: () {
                             setState(() => _rounding = r.$1);
@@ -286,13 +287,11 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
                     children: [
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('Incluir adicionais neste ajuste',
+                          Text(tr('estabMenu.includeAddons'),
                               style: AppText.body(size: 14, weight: FontWeight.w700)),
                           const SizedBox(height: 2),
                           Text(
-                              'Aplica o mesmo percentual também nos adicionais com preço '
-                              '(ex.: "Bacon +R\$ 3") dos itens selecionados. Desmarcado, '
-                              'os adicionais ficam intactos.',
+                              tr('estabMenu.includeAddonsHint'),
                               style: AppText.body(
                                   size: 11.5,
                                   weight: FontWeight.w500,
@@ -310,7 +309,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
                   ),
                   if (_preview != null) ...[
                     const SizedBox(height: 18),
-                    _sectionTitle('3. Confira e aplique'),
+                    _sectionTitle(tr('estabMenu.step3')),
                     for (final c in _preview!) _previewRow(c),
                   ],
                 ],
@@ -334,7 +333,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
       child: Row(children: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.pop(context),
-          child: Text('Cancelar',
+          child: Text(tr('estabMenu.cancel'),
               style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.inkA(0.6))),
         ),
         const SizedBox(width: 8),
@@ -357,7 +356,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                      : Text(showApply ? 'Aplicar ajuste' : 'Ver prévia',
+                      : Text(showApply ? tr('estabMenu.apply') : tr('estabMenu.preview'),
                           style: AppText.body(
                               size: 15,
                               weight: FontWeight.w800,
@@ -377,6 +376,14 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
             style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.inkA(0.7))),
       );
 
+  /// Rótulo traduzido dos valores-sentinela dos pills (o valor segue em pt).
+  String _pillLabel(String v) => switch (v) {
+        'Todas' => tr('estabMenu.allF'),
+        'Aumentar' => tr('estabMenu.increase'),
+        'Diminuir' => tr('estabMenu.decrease'),
+        _ => v,
+      };
+
   Widget _pillRow(List<String> options, String sel, ValueChanged<String> onTap) {
     return SizedBox(
       height: 36,
@@ -386,7 +393,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
           for (var i = 0; i < options.length; i++) ...[
             if (i > 0) const SizedBox(width: 8),
             FilterPill(
-                label: options[i], selected: options[i] == sel, onTap: () => onTap(options[i])),
+                label: _pillLabel(options[i]), selected: options[i] == sel, onTap: () => onTap(options[i])),
           ],
         ]),
       ),
@@ -447,7 +454,7 @@ class _BulkAdjustSheetState extends State<_BulkAdjustSheet> {
             padding: const EdgeInsets.only(left: 14, top: 2),
             child: Row(children: [
               Expanded(
-                child: Text('adicional: ${o['name']}',
+                child: Text(tr('estabMenu.addonName', {'name': o['name']}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppText.body(

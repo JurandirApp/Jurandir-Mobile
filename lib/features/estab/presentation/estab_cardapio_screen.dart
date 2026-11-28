@@ -17,6 +17,7 @@ import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/filter_pill.dart';
 import '../../auth/auth_controller.dart';
 import 'estab_bulk_adjust_sheet.dart';
+import '../../../l10n/i18n.dart';
 
 /// Estab · Cardápio real: listar, pausar/ativar, criar, editar e excluir itens.
 class EstabCardapioScreen extends ConsumerStatefulWidget {
@@ -82,7 +83,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
       await ref.read(publicApiProvider).saveMenuItem(token, _payload(m, active: !m.active));
       ref.invalidate(establishmentMenuProvider);
     } catch (_) {
-      _toast('Não foi possível atualizar');
+      _toast(tr('estabMenu.couldNotUpdate'));
     } finally {
       if (mounted) setState(() => _busy.remove(m.dbId));
     }
@@ -94,16 +95,16 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
     try {
       await ref.read(publicApiProvider).deleteMenuItem(token, m.dbId);
       ref.invalidate(establishmentMenuProvider);
-      _toast('Item excluído');
+      _toast(tr('estabMenu.itemDeleted'));
     } catch (_) {
-      _toast('Não foi possível excluir');
+      _toast(tr('estabMenu.couldNotDelete'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(establishmentMenuProvider);
-    final estName = ref.watch(authProvider).name ?? 'Estabelecimento';
+    final estName = ref.watch(authProvider).name ?? context.tr('estab.venue');
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -112,11 +113,11 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
         foregroundColor: Colors.white,
         onPressed: () => _openForm(null),
         icon: const Icon(Symbols.add, size: 20),
-        label: Text('Novo item', style: AppText.body(size: 14, weight: FontWeight.w800, color: Colors.white)),
+        label: Text(context.tr('estabMenu.newItem'), style: AppText.body(size: 14, weight: FontWeight.w800, color: Colors.white)),
       ),
       body: Column(
         children: [
-          DarkHeader(eyebrow: estName, title: 'Cardápio'),
+          DarkHeader(eyebrow: estName, title: context.tr('estabMenu.title')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
@@ -137,7 +138,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
             children: [
               Icon(Symbols.cloud_off, size: 40, color: AppColors.inkA(0.4)),
               const SizedBox(height: 12),
-              Text('Não foi possível carregar o cardápio.',
+              Text(context.tr('estabMenu.loadError'),
                   textAlign: TextAlign.center,
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               const SizedBox(height: 14),
@@ -146,7 +147,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(999)),
-                  child: Text('Tentar de novo',
+                  child: Text(context.tr('estab.retry'),
                       style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.dune)),
                 ),
               ),
@@ -162,14 +163,14 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
       children: [
-        Text('Toque na chave para pausar/ativar. Toque no item para editar.',
+        Text(context.tr('estabMenu.hint'),
             style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
         const SizedBox(height: 14),
         if (all.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 48),
             child: Center(
-              child: Text('Nenhum item ainda. Toque em "Novo item".',
+              child: Text(context.tr('estabMenu.empty'),
                   style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
             ),
           )
@@ -187,7 +188,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                 children: [
                   Icon(Symbols.percent, size: 18, color: AppColors.coralDeep),
                   const SizedBox(width: 8),
-                  Text('Ajustar preços em massa',
+                  Text(context.tr('estabMenu.bulkAdjust'),
                       style: AppText.body(size: 13.5, weight: FontWeight.w800)),
                   const Spacer(),
                   Icon(Symbols.chevron_right, size: 20, color: AppColors.inkA(0.4)),
@@ -204,7 +205,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                 children: [
                   for (var i = 0; i < cats.length; i++) ...[
                     if (i > 0) const SizedBox(width: 8),
-                    FilterPill(label: cats[i], selected: cats[i] == _cat, onTap: () => setState(() => _cat = cats[i])),
+                    FilterPill(label: cats[i] == 'Todos' ? context.tr('estabMenu.all') : cats[i], selected: cats[i] == _cat, onTap: () => setState(() => _cat = cats[i])),
                   ],
                 ],
               ),
@@ -261,7 +262,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                             const SizedBox(height: 2),
                             Text.rich(TextSpan(children: [
                               TextSpan(text: money(m.price), style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.coralDeep)),
-                              TextSpan(text: '  · ${m.active ? 'À venda' : 'Pausado'}',
+                              TextSpan(text: '  · ${m.active ? context.tr('estabMenu.onSale') : context.tr('estabMenu.paused')}',
                                   style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
                             ])),
                           ],
@@ -327,8 +328,8 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
               setSheet(() => uploadingPhoto = false);
               final notConfigured = e is DioException && e.response?.statusCode == 503;
               _toast(notConfigured
-                  ? 'Fotos ainda não estão configuradas no servidor.'
-                  : 'Não foi possível enviar a foto');
+                  ? tr('estabMenu.photosNotConfigured')
+                  : tr('estabMenu.photoUploadError'));
             }
           }
 
@@ -337,7 +338,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
             final pr = double.tryParse(price.text.trim().replaceAll(',', '.'));
             final ct = cat.text.trim();
             if (nm.isEmpty || pr == null || ct.isEmpty) {
-              setSheet(() => err = 'Preencha nome, preço e categoria.');
+              setSheet(() => err = tr('estabMenu.fillRequired'));
               return;
             }
             final token = ref.read(authProvider).token;
@@ -361,11 +362,11 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
               });
               ref.invalidate(establishmentMenuProvider);
               if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-              _toast(isEdit ? 'Item atualizado' : 'Item criado');
+              _toast(isEdit ? tr('estabMenu.itemUpdated') : tr('estabMenu.itemCreated'));
             } catch (_) {
               setSheet(() {
                 saving = false;
-                err = 'Não foi possível salvar.';
+                err = tr('estabMenu.saveError');
               });
             }
           }
@@ -382,23 +383,23 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                     child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.inkA(0.2), borderRadius: BorderRadius.circular(999))),
                   ),
                   const SizedBox(height: 16),
-                  Text(isEdit ? 'Editar item' : 'Novo item', style: AppText.display(size: 20, letterSpacing: -0.3)),
+                  Text(isEdit ? tr('estabMenu.editItem') : tr('estabMenu.newItem'), style: AppText.display(size: 20, letterSpacing: -0.3)),
                   const SizedBox(height: 16),
-                  _sheetField(name, 'Nome do item'),
+                  _sheetField(name, tr('estabMenu.fName')),
                   const SizedBox(height: 10),
                   Row(children: [
-                    Expanded(child: _sheetField(price, 'Preço (R\$)', number: true)),
+                    Expanded(child: _sheetField(price, tr('estabMenu.fPrice'), number: true)),
                     const SizedBox(width: 10),
-                    Expanded(child: _sheetField(oldPrice, 'Preço antigo (opc.)', number: true)),
+                    Expanded(child: _sheetField(oldPrice, tr('estabMenu.fOldPrice'), number: true)),
                   ]),
                   const SizedBox(height: 10),
                   Row(children: [
-                    Expanded(child: _sheetField(cat, 'Categoria')),
+                    Expanded(child: _sheetField(cat, tr('estabMenu.fCategory'))),
                     const SizedBox(width: 10),
-                    Expanded(child: _sheetField(sub, 'Subcategoria (opc.)')),
+                    Expanded(child: _sheetField(sub, tr('estabMenu.fSubcategory'))),
                   ]),
                   const SizedBox(height: 10),
-                  _sheetField(desc, 'Descrição (opc.)', lines: 2),
+                  _sheetField(desc, tr('estabMenu.fDescription'), lines: 2),
                   const SizedBox(height: 10),
                   _photoField(
                     url: photo.text,
@@ -409,7 +410,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Text('À venda', style: AppText.body(size: 14, weight: FontWeight.w700)),
+                      Text(tr('estabMenu.onSale'), style: AppText.body(size: 14, weight: FontWeight.w700)),
                       const Spacer(),
                       AppToggle(value: active, onChanged: (v) => setSheet(() => active = v)),
                     ],
@@ -432,7 +433,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                           child: Center(
                             child: saving
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                                : Text(isEdit ? 'Salvar' : 'Criar item', style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
+                                : Text(isEdit ? tr('estabMenu.save') : tr('estabMenu.createItem'), style: AppText.body(size: 15, weight: FontWeight.w800, color: Colors.white)),
                           ),
                         ),
                       ),
@@ -448,7 +449,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                                 Navigator.pop(sheetCtx);
                                 _delete(item);
                               },
-                        child: Text('Excluir item', style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.rose)),
+                        child: Text(tr('estabMenu.deleteItem'), style: AppText.body(size: 13, weight: FontWeight.w800, color: AppColors.rose)),
                       ),
                     ),
                   ],
@@ -476,12 +477,12 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
             const SizedBox(height: 6),
             ListTile(
               leading: const Icon(Symbols.photo_camera, color: AppColors.coralDeep),
-              title: Text('Tirar foto', style: AppText.body(size: 14, weight: FontWeight.w700)),
+              title: Text(tr('estabMenu.takePhoto'), style: AppText.body(size: 14, weight: FontWeight.w700)),
               onTap: () => Navigator.pop(c, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Symbols.photo_library, color: AppColors.coralDeep),
-              title: Text('Escolher da galeria', style: AppText.body(size: 14, weight: FontWeight.w700)),
+              title: Text(tr('estabMenu.fromGallery'), style: AppText.body(size: 14, weight: FontWeight.w700)),
               onTap: () => Navigator.pop(c, ImageSource.gallery),
             ),
             const SizedBox(height: 12),
@@ -503,7 +504,7 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Foto do item (opcional)',
+        Text(tr('estabMenu.photoOptional'),
             style: AppText.body(size: 12, weight: FontWeight.w700, color: AppColors.inkA(0.55))),
         const SizedBox(height: 8),
         Row(
@@ -537,17 +538,17 @@ class _EstabCardapioScreenState extends ConsumerState<EstabCardapioScreen> {
                 children: [
                   GestureDetector(
                     onTap: uploading ? null : onPick,
-                    child: Text(uploading ? 'Enviando…' : (hasPhoto ? 'Trocar foto' : 'Adicionar foto'),
+                    child: Text(uploading ? tr('estabMenu.uploading') : (hasPhoto ? tr('estabMenu.changePhoto') : tr('estabMenu.addPhoto')),
                         style: AppText.body(size: 14, weight: FontWeight.w800, color: AppColors.coralDeep)),
                   ),
                   const SizedBox(height: 2),
-                  Text('Câmera ou galeria do celular',
+                  Text(tr('estabMenu.cameraOrGallery'),
                       style: AppText.body(size: 11.5, weight: FontWeight.w600, color: AppColors.inkA(0.45))),
                   if (hasPhoto && !uploading) ...[
                     const SizedBox(height: 6),
                     GestureDetector(
                       onTap: onRemove,
-                      child: Text('Remover', style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.rose)),
+                      child: Text(tr('estabMenu.remove'), style: AppText.body(size: 12, weight: FontWeight.w800, color: AppColors.rose)),
                     ),
                   ],
                 ],
