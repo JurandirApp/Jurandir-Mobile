@@ -21,6 +21,7 @@ import 'ns/shell.dart';
 import 'ns/splash.dart';
 import 'ns/estab.dart';
 import 'ns/estab_menu.dart';
+import 'ns/estab_cfg.dart';
 
 /// Parte 1 (cliente) + comuns. Parte 2 (estab, waiter, admin): adicionar abaixo.
 const List<I18nNamespace> appNamespaces = [
@@ -42,4 +43,5 @@ const List<I18nNamespace> appNamespaces = [
   dataStrings,
   estabStrings,
   estabMenuStrings,
+  estabCfgStrings,
 ];

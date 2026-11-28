@@ -10,6 +10,7 @@ import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/dark_header.dart';
 import '../../../core/widgets/language_selector.dart';
 import '../../auth/auth_controller.dart';
+import '../../../l10n/i18n.dart';
 
 /// Estab · Conta: card da conta + menu (Auditoria/Perfil/Config) + sair.
 class EstabContaScreen extends ConsumerWidget {
@@ -18,18 +19,18 @@ class EstabContaScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menu = [
-      (Symbols.badge, 'Garções', '/estab/conta/garcons'),
-      (Symbols.receipt_long, 'Rastreio de mesas', '/estab/conta/rastreio'),
-      (Symbols.shield, 'Auditoria', '/estab/conta/auditoria'),
-      (Symbols.storefront, 'Perfil', '/estab/conta/perfil'),
-      (Symbols.settings, 'Configurações', '/estab/conta/config'),
+      (Symbols.badge, context.tr('estabCfg.waiters'), '/estab/conta/garcons'),
+      (Symbols.receipt_long, context.tr('estabCfg.tableTracking'), '/estab/conta/rastreio'),
+      (Symbols.shield, context.tr('estabCfg.audit'), '/estab/conta/auditoria'),
+      (Symbols.storefront, context.tr('estabCfg.profile'), '/estab/conta/perfil'),
+      (Symbols.settings, context.tr('estabCfg.settings'), '/estab/conta/config'),
     ];
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const DarkHeader(title: 'Conta'),
+          DarkHeader(title: context.tr('estabCfg.account')),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -51,7 +52,7 @@ class EstabContaScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(ref.watch(authProvider).name ?? 'Estabelecimento',
+                              Text(ref.watch(authProvider).name ?? context.tr('estab.venue'),
                                   style: AppText.display(size: 16, weight: FontWeight.w700, letterSpacing: 0)),
                               const SizedBox(height: 1),
                               Text(ref.watch(authProvider).email ?? '',
@@ -80,20 +81,20 @@ class EstabContaScreen extends ConsumerWidget {
                     alignment: Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: Text('Idioma'.toUpperCase(), style: AppText.sectionTitle),
+                      child: Text(context.tr('estabCfg.language').toUpperCase(), style: AppText.sectionTitle),
                     ),
                   ),
                   const LanguageSelector(),
                   const SizedBox(height: 18),
                   AppButton.dark(
-                    label: 'Sair da conta',
+                    label: context.tr('estabCfg.signOut'),
                     onPressed: () {
                       ref.read(authProvider.notifier).logout();
                       context.go('/home');
                     },
                   ),
                   const SizedBox(height: 10),
-                  AppButton.ghost(label: 'Voltar ao modo cliente', onPressed: () => context.go('/home')),
+                  AppButton.ghost(label: context.tr('estabCfg.backToClient'), onPressed: () => context.go('/home')),
                 ],
               ),
             ),

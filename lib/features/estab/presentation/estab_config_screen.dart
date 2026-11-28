@@ -12,18 +12,19 @@ import '../../../core/widgets/app_toggle.dart';
 import '../../../core/widgets/brutal_card.dart';
 import '../../../core/widgets/labeled_input.dart';
 import 'estab_sub_header.dart';
+import '../../../l10n/i18n.dart';
 
 const _gateways = [
-  ('mp', 'Mercado Pago', 'Pix, crédito, débito'),
-  ('pagarme', 'Pagar.me', 'Split + recebedores'),
-  ('asaas', 'Asaas', 'Pix + split'),
-  ('infinitepay', 'InfinitePay', 'Maquininha'),
+  ('mp', 'Mercado Pago', 'estabCfg.gwMp'),
+  ('pagarme', 'Pagar.me', 'estabCfg.gwPagarme'),
+  ('asaas', 'Asaas', 'estabCfg.gwAsaas'),
+  ('infinitepay', 'InfinitePay', 'estabCfg.gwInfinite'),
 ];
 
 const _gwMethods = [
-  ('pix', 'Pix', Symbols.qr_code_2),
-  ('credito', 'Crédito', Symbols.credit_card),
-  ('debito', 'Débito', Symbols.account_balance_wallet),
+  ('pix', 'estabCfg.mPix', Symbols.qr_code_2),
+  ('credito', 'estabCfg.mCredit', Symbols.credit_card),
+  ('debito', 'estabCfg.mDebit', Symbols.account_balance_wallet),
 ];
 
 /// Estab · Config: impressora + gateways por método + alterar senha.
@@ -66,12 +67,12 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
     final cur = _pwCur.text;
     final nova = _pwNova.text;
     if (cur.isEmpty || nova.length < 6) {
-      _toast('Informe a senha atual e uma nova de ao menos 6 caracteres.');
+      _toast(tr('estabCfg.pwFill'));
       return;
     }
     final token = ref.read(authProvider).token;
     if (token == null) {
-      _toast('Sessão expirada. Entre novamente.');
+      _toast(tr('estabCfg.sessionExpired'));
       return;
     }
     setState(() => _changingPw = true);
@@ -81,13 +82,13 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
     if (r.ok) {
       _pwCur.clear();
       _pwNova.clear();
-      _toast('Senha alterada com sucesso.');
+      _toast(tr('estabCfg.pwChanged'));
     } else {
       _toast(r.error == 'currentWrong'
-          ? 'Senha atual incorreta.'
+          ? tr('estabCfg.pwWrong')
           : r.error == 'invalid'
-              ? 'A nova senha precisa de ao menos 6 caracteres.'
-              : 'Não foi possível alterar a senha. Tente de novo.');
+              ? tr('estabCfg.pwShort')
+              : tr('estabCfg.pwError'));
     }
   }
 
@@ -97,7 +98,7 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const EstabSubHeader(title: 'Configurações'),
+          EstabSubHeader(title: context.tr('estabCfg.settings')),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
@@ -124,7 +125,7 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
   Future<void> _openPanel() async {
     final ok = await launchUrl(Uri.parse('https://jurandir.app.br/pt/painel'),
         mode: LaunchMode.externalApplication);
-    if (!ok && mounted) _toast('Não foi possível abrir o painel.');
+    if (!ok && mounted) _toast(tr('estabCfg.panelOpenError'));
   }
 
   /// Config avançada de recebimentos (recebedor Pagar.me + conexão MP) fica no
@@ -138,15 +139,15 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
           Row(children: [
             Icon(Symbols.account_balance, size: 18, color: AppColors.inkA(0.65)),
             const SizedBox(width: 8),
-            _h2('Recebimentos'),
+            _h2(context.tr('estabCfg.payouts')),
           ]),
           const SizedBox(height: 8),
           Text(
-            'O cadastro do recebedor Pagar.me (dados bancários e verificação) e a conexão com o Mercado Pago são feitos no painel web — leva pouco e só precisa fazer uma vez.',
+            context.tr('estabCfg.payoutsHint'),
             style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.inkA(0.6)),
           ),
           const SizedBox(height: 12),
-          AppButton.ghost(label: 'Abrir painel web', onPressed: _openPanel),
+          AppButton.ghost(label: context.tr('estabCfg.openWebPanel'), onPressed: _openPanel),
         ],
       ),
     );
@@ -158,7 +159,7 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _h2('Impressora'),
+          _h2(context.tr('estabCfg.printer')),
           const SizedBox(height: 6),
           Row(
             children: [
@@ -166,8 +167,8 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Impressão automática', style: AppText.body(size: 13, weight: FontWeight.w700)),
-                    Text('Imprime ao confirmar o pagamento',
+                    Text(context.tr('estabCfg.autoPrint'), style: AppText.body(size: 13, weight: FontWeight.w700)),
+                    Text(context.tr('estabCfg.autoPrintHint'),
                         style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
                   ],
                 ),
@@ -180,11 +181,11 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
             children: [
               Expanded(child: LabeledInput(label: 'IP', controller: _ip)),
               const SizedBox(width: 10),
-              Expanded(child: LabeledInput(label: 'Modelo', controller: _model)),
+              Expanded(child: LabeledInput(label: context.tr('estabCfg.model'), controller: _model)),
             ],
           ),
           const SizedBox(height: 12),
-          AppButton.ghost(label: 'Imprimir teste', onPressed: () => _toast('Teste enviado à impressora')),
+          AppButton.ghost(label: context.tr('estabCfg.printTest'), onPressed: () => _toast(tr('estabCfg.testSent'))),
         ],
       ),
     );
@@ -196,9 +197,9 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _h2('Gateways de pagamento'),
+          _h2(context.tr('estabCfg.gateways')),
           const SizedBox(height: 6),
-          Text('Escolha por onde cada pagamento é processado. Cada método pode usar um gateway diferente.',
+          Text(context.tr('estabCfg.gatewaysHint'),
               style: AppText.body(size: 11, weight: FontWeight.w600, height: 1.5, color: AppColors.inkA(0.5))),
           const SizedBox(height: 12),
           for (var i = 0; i < _gwMethods.length; i++) ...[
@@ -211,7 +212,8 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
   }
 
   Widget _methodBlock((String, String, IconData) m) {
-    final (id, label, icon) = m;
+    final (id, labelKey, icon) = m;
+    final label = tr(labelKey);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -232,7 +234,8 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
   }
 
   Widget _gwOpt(String method, (String, String, String) g) {
-    final (gid, name, sub) = g;
+    final (gid, name, subKey) = g;
+    final sub = tr(subKey);
     final sel = _gw[method] == gid;
     return GestureDetector(
       onTap: () => setState(() => _gw[method] = gid),
@@ -273,14 +276,14 @@ class _EstabConfigScreenState extends ConsumerState<EstabConfigScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _h2('Alterar senha'),
+          _h2(context.tr('estabCfg.changePw')),
           const SizedBox(height: 10),
-          LabeledInput(hint: 'Senha atual', controller: _pwCur, obscure: true),
+          LabeledInput(hint: context.tr('estabCfg.currentPw'), controller: _pwCur, obscure: true),
           const SizedBox(height: 10),
-          LabeledInput(hint: 'Nova senha (mín. 6)', controller: _pwNova, obscure: true),
+          LabeledInput(hint: context.tr('estabCfg.newPw'), controller: _pwNova, obscure: true),
           const SizedBox(height: 10),
           AppButton.dark(
-            label: _changingPw ? 'Alterando…' : 'Alterar senha',
+            label: _changingPw ? context.tr('estabCfg.changingPw') : context.tr('estabCfg.changePw'),
             onPressed: _changingPw ? null : _changePassword,
           ),
         ],

@@ -14,6 +14,7 @@ import '../../shell/client_mode.dart';
 import 'estab_kitchen_card.dart';
 import 'estab_sub_header.dart';
 import 'weekly_hours_editor.dart';
+import '../../../l10n/i18n.dart';
 
 /// Estab · Perfil: dados que o cliente vê no cardápio (carrega e salva real).
 /// O horário usa o editor ESTRUTURADO por dia (`weeklyHours`) — mesma fonte da
@@ -75,11 +76,11 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
       if (!mounted) return;
       setState(() => _waiterModule = confirmed);
       ref.read(authProvider.notifier).setWaiterModule(confirmed); // gates de UI do painel
-      _toast(confirmed ? 'Botão de entrega ligado.' : 'Botão de entrega desligado.');
+      _toast(confirmed ? tr('estabCfg.deliveryOn') : tr('estabCfg.deliveryOff'));
     } catch (_) {
       if (!mounted) return;
       setState(() => _waiterModule = prev);
-      _toast('Não foi possível alterar o botão de entrega. Tente de novo.');
+      _toast(tr('estabCfg.deliveryError'));
     } finally {
       if (mounted) setState(() => _savingWaiter = false);
     }
@@ -92,7 +93,7 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
     final slug = await resolveOwnSlug(ref);
     if (!mounted) return;
     if (slug == null) {
-      _toast('Não foi possível abrir o cardápio agora. Tente de novo.');
+      _toast(tr('estabCfg.openMenuError'));
       return;
     }
     enterClientMode(ref, context, slug);
@@ -131,7 +132,7 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
     final token = ref.read(authProvider).token;
     if (token == null) return;
     if (_nome.text.trim().isEmpty) {
-      _toast('Informe o nome do estabelecimento.');
+      _toast(tr('estabCfg.nameRequired'));
       return;
     }
     setState(() => _saving = true);
@@ -147,9 +148,9 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
       if (!mounted) return;
       ref.invalidate(establishmentProfileProvider);
       ref.invalidate(establishmentsProvider); // o cliente vê o nome/dados atualizados
-      _toast('Perfil salvo!');
+      _toast(tr('estabCfg.profileSaved'));
     } catch (_) {
-      if (mounted) _toast('Não foi possível salvar');
+      if (mounted) _toast(tr('estabCfg.saveError'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -162,14 +163,14 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
       backgroundColor: AppColors.canvas,
       body: Column(
         children: [
-          const EstabSubHeader(title: 'Perfil'),
+          EstabSubHeader(title: context.tr('estabCfg.profile')),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.coral, strokeWidth: 3)),
               error: (_, _) => Center(
                 child: GestureDetector(
                   onTap: () => ref.invalidate(establishmentProfileProvider),
-                  child: Text('Erro ao carregar. Toque para tentar de novo.',
+                  child: Text(context.tr('estab.loadErrorTap'),
                       style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.inkA(0.5))),
                 ),
               ),
@@ -193,7 +194,7 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('O que o cliente vê ao abrir seu cardápio.',
+          Text(context.tr('estabCfg.profileHint'),
               style: AppText.body(size: 12, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
           const SizedBox(height: 14),
           _waiterModuleCard(),
@@ -203,11 +204,11 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LabeledInput(label: 'Nome do estabelecimento', controller: _nome),
+                LabeledInput(label: context.tr('estabCfg.fName'), controller: _nome),
                 const SizedBox(height: 12),
-                LabeledInput(label: 'Frase de destaque', controller: _frase),
+                LabeledInput(label: context.tr('estabCfg.fTagline'), controller: _frase),
                 const SizedBox(height: 12),
-                LabeledInput(label: 'Endereço', controller: _endereco),
+                LabeledInput(label: context.tr('estabCfg.fAddress'), controller: _endereco),
                 const SizedBox(height: 16),
                 _weeklyHours(),
                 const SizedBox(height: 16),
@@ -215,10 +216,10 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
                 const SizedBox(height: 12),
                 LabeledInput(label: 'Instagram', controller: _instagram),
                 const SizedBox(height: 14),
-                AppButton.primary(label: _saving ? 'Salvando…' : 'Salvar perfil', onPressed: _save),
+                AppButton.primary(label: _saving ? context.tr('estabCfg.saving') : context.tr('estabCfg.saveProfile'), onPressed: _save),
                 const SizedBox(height: 8),
                 Center(
-                  child: Text('As mudanças aparecem na hora no cardápio do cliente.',
+                  child: Text(context.tr('estabCfg.changesLive'),
                       textAlign: TextAlign.center,
                       style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
                 ),
@@ -229,10 +230,10 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
           // Horário da cozinha: salva à parte (endpoint próprio).
           const EstabKitchenCard(),
           const SizedBox(height: 14),
-          AppButton.ghost(label: 'Ver como o cliente vê', onPressed: _viewAsClient),
+          AppButton.ghost(label: context.tr('estabCfg.viewAsClient'), onPressed: _viewAsClient),
           const SizedBox(height: 6),
           Center(
-            child: Text('Abre seu cardápio e suas mesas como o cliente vê, sem sair da conta. Pagamentos ficam desativados.',
+            child: Text(context.tr('estabCfg.viewAsClientHint'),
                 textAlign: TextAlign.center,
                 style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
           ),
@@ -253,13 +254,13 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Botão de entrega (módulo do garçom)',
+                Text(context.tr('estabCfg.deliveryBtn'),
                     style: AppText.body(size: 13, weight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(
                     on
-                        ? 'Ligado: os garçons confirmam a entrega de cada pedido pelo app.'
-                        : 'Desligado: os pedidos não passam pela entrega do garçom.',
+                        ? context.tr('estabCfg.deliveryOnHint')
+                        : context.tr('estabCfg.deliveryOffHint'),
                     style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.5))),
               ],
             ),
@@ -278,10 +279,10 @@ class _EstabPerfilScreenState extends ConsumerState<EstabPerfilScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('HORÁRIO DE FUNCIONAMENTO',
+        Text(context.tr('estabCfg.hoursTitle'),
             style: AppText.body(size: 11, weight: FontWeight.w800, color: AppColors.inkA(0.55), letterSpacing: 0.4)),
         const SizedBox(height: 4),
-        Text('Define quando o bar aparece como "Aberto" pro cliente.',
+        Text(context.tr('estabCfg.hoursHint'),
             style: AppText.body(size: 11, weight: FontWeight.w600, color: AppColors.inkA(0.4))),
         const SizedBox(height: 8),
         WeeklyHoursEditor(week: _weekly, onChanged: () => setState(() {})),
